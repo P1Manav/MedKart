@@ -21,11 +21,15 @@ export const NavHeader: React.FC = () => {
   const [user, setUser] = useState<UserSession | null>(null);
   const [loading, setLoading] = useState(true);
   const [locale, setLocale] = useState('en');
+  const [demoMode, setDemoMode] = useState(false);
 
   const fetchSession = async () => {
     try {
       const res = await fetch('/api/auth/me');
       const data = await res.json();
+      if (data.demoMode) {
+        setDemoMode(true);
+      }
       if (data.authenticated) {
         setUser(data.user);
       } else {
@@ -94,35 +98,41 @@ export const NavHeader: React.FC = () => {
 
   return (
     <header className="bg-white border-b border-stone-200 sticky top-0 z-50 shadow-xs">
-      {/* Demo Switcher Ribbon */}
+      {/* Top Utility Ribbon (Demo Switcher when DEMO_MODE=true, and Language Switcher) */}
       <div className="bg-teal-900 text-teal-100 text-xs py-1.5 px-4 flex flex-wrap items-center justify-between gap-2 border-b border-teal-800">
-        <div className="flex items-center gap-2">
-          <span className="font-semibold text-teal-300">DEMO ROLES:</span>
-          <button
-            onClick={() => handleQuickLogin('9830011111')}
-            className="hover:underline text-white bg-teal-800 px-2 py-0.5 rounded cursor-pointer"
-          >
-            Customer (Debasish)
-          </button>
-          <button
-            onClick={() => handleQuickLogin('9830044444')}
-            className="hover:underline text-white bg-teal-800 px-2 py-0.5 rounded cursor-pointer"
-          >
-            Pharmacist (Sunita)
-          </button>
-          <button
-            onClick={() => handleQuickLogin('9830066661')}
-            className="hover:underline text-white bg-teal-800 px-2 py-0.5 rounded cursor-pointer"
-          >
-            Store Staff (Salt Lake)
-          </button>
-          <button
-            onClick={() => handleQuickLogin('9830099999')}
-            className="hover:underline text-white bg-teal-800 px-2 py-0.5 rounded cursor-pointer"
-          >
-            Ops Dashboard
-          </button>
-        </div>
+        {demoMode ? (
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-teal-300">DEMO ROLES:</span>
+            <button
+              onClick={() => handleQuickLogin('9830011111')}
+              className="hover:underline text-white bg-teal-800 px-2 py-0.5 rounded cursor-pointer"
+            >
+              Customer (Debasish)
+            </button>
+            <button
+              onClick={() => handleQuickLogin('9830044444')}
+              className="hover:underline text-white bg-teal-800 px-2 py-0.5 rounded cursor-pointer"
+            >
+              Pharmacist (Sunita)
+            </button>
+            <button
+              onClick={() => handleQuickLogin('9830066661')}
+              className="hover:underline text-white bg-teal-800 px-2 py-0.5 rounded cursor-pointer"
+            >
+              Store Staff (Salt Lake)
+            </button>
+            <button
+              onClick={() => handleQuickLogin('9830099999')}
+              className="hover:underline text-white bg-teal-800 px-2 py-0.5 rounded cursor-pointer"
+            >
+              Ops Dashboard
+            </button>
+          </div>
+        ) : (
+          <div className="text-teal-300 font-medium">
+            MedKart Official Healthcare Commerce Network &bull; Kolkata
+          </div>
+        )}
 
         <div className="flex items-center gap-2">
           <span className="text-teal-300">Language:</span>
