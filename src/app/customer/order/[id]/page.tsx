@@ -87,18 +87,26 @@ export default function OrderTrackingPage({
     if (!reuploadFile) return;
 
     setReuploading(true);
+    setError(null);
     try {
-      // In a real flow, calls a reupload endpoint that updates the order back to SUBMITTED
-      // For the demo, we update local state and display a success alert
-      await new Promise((r) => setTimeout(r, 1000));
-      if (order) {
-        setOrder({
-          ...order,
-          status: 'SUBMITTED',
-          prescriptionStatus: 'PENDING',
-        });
+      const formData = new FormData();
+      formData.append('file', reuploadFile);
+
+      const res = await fetch(`/api/orders/${order?.id || id}/reupload`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Failed to re-upload prescription.');
+        return;
       }
+
+      await loadOrder();
       setReuploadFile(null);
+    } catch {
+      setError('Network connection error. Failed to re-upload prescription.');
     } finally {
       setReuploading(false);
     }
