@@ -24,6 +24,14 @@ interface OpsMetrics {
   blockedItemsCount: number;
 }
 
+interface ScheduleRuleRow {
+  schedule: string;
+  canSellOnline: boolean;
+  requiresPrescription: boolean;
+  requiresPharmacistApproval: boolean;
+  requiresRegisterEntry: boolean;
+}
+
 export default function OpsDashboardPage() {
   const [runningReminders, setRunningReminders] = useState(false);
   const [remindersResult, setRemindersResult] = useState<string | null>(null);
@@ -41,6 +49,12 @@ export default function OpsDashboardPage() {
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Schedule Rules Admin state (Spec §5.1, Screen 8)
+  const [rules, setRules] = useState<ScheduleRuleRow[]>([]);
+  const [rulesLoading, setRulesLoading] = useState(true);
+  const [savingSchedule, setSavingSchedule] = useState<string | null>(null);
+  const [ruleMessage, setRuleMessage] = useState<string | null>(null);
+
   const loadMetrics = async () => {
     try {
       const res = await fetch('/api/ops/metrics');
@@ -55,8 +69,23 @@ export default function OpsDashboardPage() {
     }
   };
 
+  const loadRules = async () => {
+    try {
+      const res = await fetch('/api/admin/schedule-rules');
+      const data = await res.json();
+      if (data.success && data.rules) {
+        setRules(data.rules);
+      }
+    } catch {
+      // Non-fatal
+    } finally {
+      setRulesLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadMetrics();
+    loadRules();
   }, []);
 
   const handleRunReminders = async () => {
@@ -109,6 +138,42 @@ export default function OpsDashboardPage() {
     }
   };
 
+  const handleToggleRule = (
+    schedule: string,
+    field: keyof Omit<ScheduleRuleRow, 'schedule'>,
+    value: boolean
+  ) => {
+    setRules((prev) =>
+      prev.map((r) => (r.schedule === schedule ? { ...r, [field]: value } : r))
+    );
+  };
+
+  const handleSaveRule = async (rule: ScheduleRuleRow) => {
+    setSavingSchedule(rule.schedule);
+    setRuleMessage(null);
+    setError(null);
+
+    try {
+      const res = await fetch('/api/admin/schedule-rules', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(rule),
+      });
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        setError(data.error || 'Failed to update schedule rule.');
+        return;
+      }
+
+      setRuleMessage(`Schedule ${rule.schedule} rules successfully updated in database.`);
+    } catch {
+      setError('Network communication failed.');
+    } finally {
+      setSavingSchedule(null);
+    }
+  };
+
   return (
     <div className="max-w-6xl mx-auto py-6 space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -117,7 +182,7 @@ export default function OpsDashboardPage() {
             Central Operations & Admin Dashboard
           </h1>
           <p className="text-sm text-stone-600 mt-1">
-            Real-time multi-store fulfillment tracking, pharmacist verification SLAs, and inventory management.
+            Real-time multi-store fulfillment tracking, pharmacist verification SLAs, inventory, and regulatory rules.
           </p>
         </div>
 
@@ -134,6 +199,12 @@ export default function OpsDashboardPage() {
       {remindersResult && (
         <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm rounded-md font-medium">
           {remindersResult}
+        </div>
+      )}
+
+      {ruleMessage && (
+        <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm rounded-md font-medium">
+          {ruleMessage}
         </div>
       )}
 
@@ -217,6 +288,115 @@ export default function OpsDashboardPage() {
             </div>
           ) : (
             <p className="text-sm text-stone-500 py-4 text-center">No store fulfillment data available.</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ─── SCHEDULE RULES ADMIN EDITOR (SPEC §5.1, SCREEN 8) ─ */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base font-semibold text-stone-900 flex items-center justify-between">
+            <span>Configurable Statutory Schedule Rules</span>
+            <span className="text-xs text-stone-500 font-normal">
+              Database-driven regulatory controls (DPDP & DCA compliance)
+            </span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-xs text-stone-600">
+            Online pharmacy rules are configurable. Updating any rule here instantly modifies server-side gating in cart, dispatch assertions, and store packing.
+          </p>
+
+          {rulesLoading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ) : (
+            <div className="overflow-x-auto border border-stone-200 rounded-lg">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-stone-100 text-stone-700 font-bold border-b border-stone-200">
+                  <tr>
+                    <th className="p-3">Schedule</th>
+                    <th className="p-3 text-center">Can Sell Online</th>
+                    <th className="p-3 text-center">Requires Prescription</th>
+                    <th className="p-3 text-center">Requires Pharmacist Approval</th>
+                    <th className="p-3 text-center">Requires Register Entry (H1)</th>
+                    <th className="p-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-200 bg-white">
+                  {rules.map((rule) => (
+                    <tr key={rule.schedule} className="hover:bg-stone-50/50">
+                      <td className="p-3 font-bold text-stone-900">
+                        <Badge
+                          variant={
+                            rule.schedule === 'OTC'
+                              ? 'otc'
+                              : rule.schedule === 'H'
+                              ? 'h'
+                              : rule.schedule === 'H1'
+                              ? 'h1'
+                              : 'blocked'
+                          }
+                        >
+                          {rule.schedule}
+                        </Badge>
+                      </td>
+                      <td className="p-3 text-center">
+                        <input
+                          type="checkbox"
+                          checked={rule.canSellOnline}
+                          onChange={(e) =>
+                            handleToggleRule(rule.schedule, 'canSellOnline', e.target.checked)
+                          }
+                          className="rounded border-stone-300 text-teal-700 focus:ring-teal-600 h-4 w-4"
+                        />
+                      </td>
+                      <td className="p-3 text-center">
+                        <input
+                          type="checkbox"
+                          checked={rule.requiresPrescription}
+                          onChange={(e) =>
+                            handleToggleRule(rule.schedule, 'requiresPrescription', e.target.checked)
+                          }
+                          className="rounded border-stone-300 text-teal-700 focus:ring-teal-600 h-4 w-4"
+                        />
+                      </td>
+                      <td className="p-3 text-center">
+                        <input
+                          type="checkbox"
+                          checked={rule.requiresPharmacistApproval}
+                          onChange={(e) =>
+                            handleToggleRule(rule.schedule, 'requiresPharmacistApproval', e.target.checked)
+                          }
+                          className="rounded border-stone-300 text-teal-700 focus:ring-teal-600 h-4 w-4"
+                        />
+                      </td>
+                      <td className="p-3 text-center">
+                        <input
+                          type="checkbox"
+                          checked={rule.requiresRegisterEntry}
+                          onChange={(e) =>
+                            handleToggleRule(rule.schedule, 'requiresRegisterEntry', e.target.checked)
+                          }
+                          className="rounded border-stone-300 text-teal-700 focus:ring-teal-600 h-4 w-4"
+                        />
+                      </td>
+                      <td className="p-3 text-right">
+                        <Button
+                          size="sm"
+                          onClick={() => handleSaveRule(rule)}
+                          isLoading={savingSchedule === rule.schedule}
+                        >
+                          Save
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </CardContent>
       </Card>
