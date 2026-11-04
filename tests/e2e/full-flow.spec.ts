@@ -2,37 +2,20 @@
 import { test, expect, type Page } from '@playwright/test';
 
 /**
- * Helper to authenticate in Playwright via mock OTP API
+ * Helper to authenticate in Playwright via UI login flow with demo verification code
  */
 async function loginAs(page: Page, phone: string) {
-  const reqRes = await page.request.post('/api/auth/otp/request', {
-    data: { phone },
-  });
-  const reqData = await reqRes.json();
-  const otp = reqData.mockOtp || '123456';
+  await page.goto('/login');
+  await page.fill('input[type="tel"]', phone);
+  await page.click('button[type="submit"]');
 
-  const verRes = await page.request.post('/api/auth/otp/verify', {
-    data: { phone, otp },
-  });
-  expect(verRes.ok()).toBe(true);
+  // The login screen displays demo code and auto-fills OTP input
+  const otpInput = page.locator('input[maxLength="6"]');
+  await expect(otpInput).toBeVisible();
+  await page.click('button[type="submit"]');
 
-  // Explicitly sync session cookie into the browser page context
-  const setCookieHeader = verRes.headers()['set-cookie'];
-  if (setCookieHeader) {
-    const match = setCookieHeader.match(/medkart_session=([^;]+)/);
-    if (match) {
-      await page.context().addCookies([
-        {
-          name: 'medkart_session',
-          value: match[1],
-          domain: 'localhost',
-          path: '/',
-          httpOnly: true,
-          sameSite: 'Lax',
-        },
-      ]);
-    }
-  }
+  // Wait until navigation away from /login completes
+  await page.waitForURL((url) => !url.pathname.includes('/login'));
 }
 
 test.describe('MedKart Full Pharmacy Lifecycle Flow', () => {
