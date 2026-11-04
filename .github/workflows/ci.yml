@@ -10,6 +10,21 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgrespassword
+          POSTGRES_DB: medkart_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -26,20 +41,54 @@ jobs:
       - name: Generate Prisma Client
         run: npx prisma generate
 
+      - name: Run Prisma Migrations on Real DB
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: "postgresql://postgres:postgrespassword@localhost:5432/medkart_test"
+
       - name: Strict TypeScript Check
         run: npm run typecheck
 
       - name: ESLint Check
         run: npm run lint
 
-      - name: Run Test Suite
+      - name: Run Unit Tests
         run: npm test
+
+      - name: Run Real PostgreSQL Trigger Integration Tests
+        run: npm run test:db
+        env:
+          DATABASE_URL: "postgresql://postgres:postgrespassword@localhost:5432/medkart_test"
 
       - name: Next.js Production Build
         run: npm run build
         env:
-          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/medkart"
+          DATABASE_URL: "postgresql://postgres:postgrespassword@localhost:5432/medkart_test"
           SESSION_SECRET: "ci-test-session-secret-must-be-at-least-32-chars-long"
           PRESCRIPTION_ENC_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
           CRON_SECRET: "ci-test-cron-secret-12345"
           OTP_MOCK: "true"
+          DEMO_MODE: "true"
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Seed Database for E2E
+        run: npm run seed
+        env:
+          DATABASE_URL: "postgresql://postgres:postgrespassword@localhost:5432/medkart_test"
+          SESSION_SECRET: "ci-test-session-secret-must-be-at-least-32-chars-long"
+          PRESCRIPTION_ENC_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+          CRON_SECRET: "ci-test-cron-secret-12345"
+          OTP_MOCK: "true"
+          DEMO_MODE: "true"
+
+      - name: Run Playwright E2E Smoke Tests
+        run: npx playwright test --project=chromium
+        env:
+          DATABASE_URL: "postgresql://postgres:postgrespassword@localhost:5432/medkart_test"
+          SESSION_SECRET: "ci-test-session-secret-must-be-at-least-32-chars-long"
+          PRESCRIPTION_ENC_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+          CRON_SECRET: "ci-test-cron-secret-12345"
+          OTP_MOCK: "true"
+          DEMO_MODE: "true"

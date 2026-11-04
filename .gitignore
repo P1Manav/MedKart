@@ -40,3 +40,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# generated binary artifacts & submission archives (P0-12)
+*.docx
+submission/
+

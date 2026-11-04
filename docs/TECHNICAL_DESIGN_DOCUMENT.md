@@ -200,6 +200,7 @@ flowchart LR
 | **A14** | Family profiles include "Myself", "Mother", and "Father" | Standard family medicine management paradigm | `prisma/seed.ts` |
 | **A15** | Mock payment modes (UPI / COD) succeed after simulated delay | Brief specifies payment integrations are mocked | `src/app/customer/order/new/` |
 | **A16** | Platform brand name "MedKart" is synthetic | Neutral pharmacy naming per domain requirements | Throughout UI |
+| **A17** | Schedule H1 register date (`h1Date`) records verified prescription issue date | Drugs & Cosmetics Rules require date of prescription on register | `src/app/api/pharmacist/orders/[id]/verify/route.ts` |
 
 ---
 

@@ -1,9 +1,9 @@
 # MedKart Pharmacy — Online Reordering with Pharmacist Prescription Checks
 
-A regulated healthcare commerce web application built for a 46-store pharmacy chain in Kolkata and Howrah with central warehouse operations.
+A regulated healthcare commerce web application built for a pharmacy chain in Kolkata and Howrah (10 seeded demo stores across key Kolkata and Howrah clusters, representing the 46-store network with central warehouse operations).
 
 [![CI](https://github.com/P1Manav/isocode_assignment/actions/workflows/ci.yml/badge.svg)](https://github.com/P1Manav/isocode_assignment)
-[![Tests Passing](https://img.shields.io/badge/tests-78%20passing-brightgreen)](https://github.com/P1Manav/isocode_assignment)
+[![Tests Passing](https://img.shields.io/badge/tests-124%20passing-brightgreen)](https://github.com/P1Manav/isocode_assignment)
 [![TypeScript Strict](https://img.shields.io/badge/TypeScript-strict-blue)](https://github.com/P1Manav/isocode_assignment)
 
 ---
@@ -64,8 +64,11 @@ npm run seed
 
 ### 4. Run Test Suite
 ```bash
-# Runs 78 unit & integration tests
+# Runs 124 unit & integration tests
 npm test
+
+# Run real PostgreSQL trigger integration tests (against local or CI Postgres)
+npm run test:db
 
 # Run strict TypeScript typecheck
 npm run typecheck
