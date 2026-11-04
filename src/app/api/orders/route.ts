@@ -502,6 +502,27 @@ export async function POST(req: Request) {
       },
     });
 
+    // Surface simulated notifications to customer message outbox (Mock honesty)
+    await db.messageOutbox.create({
+      data: {
+        userId: session.userId,
+        channel: 'WHATSAPP',
+        content: `MedKart Order ${order.displayId} placed! Your prescription is in queue for registered pharmacist verification. Track status: /customer/order/${order.id}`,
+        status: 'SENT_MOCK',
+      },
+    }).catch(() => null);
+
+    if (paymentMethod === 'MOCK_UPI') {
+      await db.messageOutbox.create({
+        data: {
+          userId: session.userId,
+          channel: 'SMS',
+          content: `MedKart: Mock UPI payment confirmed for Order ${order.displayId}. (Test Sandbox Mode — No real money charged).`,
+          status: 'SENT_MOCK',
+        },
+      }).catch(() => null);
+    }
+
     return NextResponse.json({
       success: true,
       order: {

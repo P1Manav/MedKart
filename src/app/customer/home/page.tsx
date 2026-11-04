@@ -23,27 +23,42 @@ interface OrderItem {
   }>;
 }
 
+interface CustomerMessage {
+  id: string;
+  channel: string;
+  content: string;
+  createdAt: string;
+}
+
 export default function CustomerHomePage() {
   const t = useTranslations('customer');
   const [orders, setOrders] = useState<OrderItem[]>([]);
+  const [messages, setMessages] = useState<CustomerMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedProfile, setSelectedProfile] = useState<'ALL' | 'MOTHER' | 'SELF'>('ALL');
 
   useEffect(() => {
-    async function loadOrders() {
+    async function loadData() {
       try {
-        const res = await fetch('/api/orders');
-        const data = await res.json();
-        if (data.orders) {
-          setOrders(data.orders);
+        const [ordersRes, messagesRes] = await Promise.all([
+          fetch('/api/orders'),
+          fetch('/api/customer/messages'),
+        ]);
+        const ordersData = await ordersRes.json();
+        if (ordersData.orders) {
+          setOrders(ordersData.orders);
+        }
+        const messagesData = await messagesRes.json();
+        if (messagesData.messages) {
+          setMessages(messagesData.messages);
         }
       } catch (e) {
-        console.error('Failed to load orders', e);
+        console.error('Failed to load customer data', e);
       } finally {
         setLoading(false);
       }
     }
-    loadOrders();
+    loadData();
   }, []);
 
   const filteredOrders = orders.filter((ord) => {
@@ -226,6 +241,69 @@ export default function CustomerHomePage() {
                   </div>
                 );
               })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ─── 5. SIMULATED CUSTOMER NOTIFICATIONS (MOCK HONESTY) ─── */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-base font-bold text-stone-900 flex items-center gap-2">
+                <span>Simulated SMS & WhatsApp Notifications</span>
+                <span className="text-[10px] bg-teal-100 text-teal-800 font-semibold px-2 py-0.5 rounded">
+                  Mock Dispatch Outbox
+                </span>
+              </CardTitle>
+              <p className="text-xs text-stone-500 mt-0.5">
+                Real-time delivery simulations for prescription approvals, order updates, and refill alerts.
+              </p>
+            </div>
+            <Badge variant="default" className="text-xs">
+              {messages.length} message{messages.length === 1 ? '' : 's'}
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {messages.length === 0 ? (
+            <div className="py-6 text-center text-xs text-stone-500 bg-stone-50 rounded-lg border border-dashed border-stone-200">
+              No simulated messages dispatched yet. Place a refill order above to see instant WhatsApp & SMS dispatch simulations.
+            </div>
+          ) : (
+            <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
+              {messages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className="p-3 bg-stone-50 hover:bg-stone-100/70 rounded-lg border border-stone-200 text-xs space-y-1 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                          msg.channel === 'WHATSAPP'
+                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                            : 'bg-blue-100 text-blue-800 border border-blue-300'
+                        }`}
+                      >
+                        {msg.channel === 'WHATSAPP' ? 'WhatsApp' : 'SMS'}
+                      </span>
+                      <span className="text-[10px] text-stone-400 font-mono">
+                        {new Date(msg.createdAt).toLocaleTimeString('en-IN', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit',
+                        })}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-emerald-700 font-medium">✓ Delivered (Mock)</span>
+                  </div>
+                  <p className="text-stone-800 text-xs font-mono bg-white p-2 rounded border border-stone-200">
+                    {msg.content}
+                  </p>
+                </div>
+              ))}
             </div>
           )}
         </CardContent>

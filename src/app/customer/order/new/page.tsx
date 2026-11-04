@@ -8,6 +8,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ErrorState } from '@/components/ui/error-state';
+import { MockUpiModal } from '@/components/payment/mock-upi-modal';
 
 interface CatalogueItem {
   id: string;
@@ -54,6 +55,7 @@ export default function OrderBuilderPage() {
   // Submission state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showUpiModal, setShowUpiModal] = useState(false);
 
   // Debounced search catalogue
   useEffect(() => {
@@ -178,8 +180,7 @@ export default function OrderBuilderPage() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const executeSubmission = async (overridePayment?: 'MOCK_UPI' | 'COD') => {
     if (!file) {
       setError('Please attach or take a photo of your prescription.');
       return;
@@ -195,7 +196,7 @@ export default function OrderBuilderPage() {
       formData.append('addressText', address);
       formData.append('addressLat', '22.5875');
       formData.append('addressLng', '88.4190');
-      formData.append('paymentMethod', paymentMethod);
+      formData.append('paymentMethod', overridePayment || paymentMethod);
 
       if (cart.length > 0) {
         formData.append(
@@ -226,6 +227,31 @@ export default function OrderBuilderPage() {
       setError('Network communication failed. Please try again.');
       setLoading(false);
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!file) {
+      setError('Please attach or take a photo of your prescription.');
+      return;
+    }
+
+    if (paymentMethod === 'MOCK_UPI') {
+      setShowUpiModal(true);
+      return;
+    }
+
+    await executeSubmission();
+  };
+
+  const handleUpiSuccess = async (_vpa: string) => {
+    setShowUpiModal(false);
+    await executeSubmission('MOCK_UPI');
+  };
+
+  const handleUpiFailure = (reason: string) => {
+    setShowUpiModal(false);
+    setError(`Mock UPI Payment Declined: ${reason}. Please retry or choose Cash on Delivery.`);
   };
 
   const cartTotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
@@ -659,6 +685,15 @@ export default function OrderBuilderPage() {
           {tc('submit')} &rarr;
         </Button>
       </form>
+
+      {/* Realistic Mock UPI Modal (Section 4 Spec Requirement) */}
+      <MockUpiModal
+        isOpen={showUpiModal}
+        amount={cartTotal > 0 ? cartTotal : 185.0}
+        onSuccess={handleUpiSuccess}
+        onFailure={handleUpiFailure}
+        onClose={() => setShowUpiModal(false)}
+      />
     </div>
   );
 }
