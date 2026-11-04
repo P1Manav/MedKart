@@ -1,133 +1,283 @@
 // tests/integration/db-trigger.test.ts
-import { describe, it, expect } from 'vitest';
-import fs from 'fs';
-import path from 'path';
+// Real database integration test verifying the PostgreSQL BEFORE UPDATE trigger
+// Defense in Depth Layer 2 (Spec §5.2, Master Prompt v2 P0-2)
 
-/**
- * Validates the database trigger SQL specification and simulates raw SQL bypass attempt.
- * Spec §5.2: "A Postgres trigger or constraint as a second layer that rejects those status changes
- * when approval is missing. A test MUST attempt the bypass with raw SQL and assert it fails."
- */
-describe('Postgres Dispatch Guard Trigger (Defense in Depth Layer 2)', () => {
-  const migrationPath = path.resolve(
-    __dirname,
-    '../../prisma/migrations/20261104000000_init/migration.sql'
-  );
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { PrismaClient } from '@prisma/client';
 
-  it('contains the trigger function and BEFORE UPDATE OF status trigger in committed migration', () => {
-    expect(fs.existsSync(migrationPath)).toBe(true);
-    const sql = fs.readFileSync(migrationPath, 'utf-8');
+describe('Postgres Dispatch Guard Trigger (Real PostgreSQL Integration)', () => {
+  let prisma: PrismaClient;
+  const isDbAvailable = Boolean(process.env.DATABASE_URL);
 
-    // Asserts trigger function exists
-    expect(sql).toContain('CREATE OR REPLACE FUNCTION assert_dispatchable_order_trigger()');
-    expect(sql).toContain('BEFORE UPDATE OF "status" ON "orders"');
-    expect(sql).toContain('FOR EACH ROW');
-    expect(sql).toContain('EXECUTE FUNCTION assert_dispatchable_order_trigger()');
-  });
-
-  it('contains statutory checks for missing prescription, unapproved lines, and H1 register entries in SQL', () => {
-    const sql = fs.readFileSync(migrationPath, 'utf-8');
-
-    // Trigger asserts prescription exists
-    expect(sql).toContain('Prescription image is missing');
-
-    // Trigger asserts validity window
-    expect(sql).toContain('Prescription is expired or invalid');
-
-    // Trigger asserts pharmacist approval
-    expect(sql).toContain('lack valid pharmacist approval');
-
-    // Trigger asserts H1 mandatory register entries
-    expect(sql).toContain('Schedule H1 line(s) missing mandatory register entry');
-  });
-
-  it('simulates raw SQL bypass attempt and proves rejection', () => {
-    // Simulated DB trigger evaluation function reflecting the exact plpgsql logic
-    function simulateTriggerExecution(
-      oldStatus: string,
-      newStatus: string,
-      order: {
-        prescriptionEncrypted: Buffer | null;
-        prescriptionValidUntil: Date | null;
-        lines: Array<{
-          lineStatus: string;
-          pharmacistId: string | null;
-          pharmacistRegNo: string | null;
-          isH1: boolean;
-          h1PrescriberName: string | null;
-        }>;
-      }
-    ) {
-      if (['PACKED', 'HANDED_OVER', 'DELIVERED'].includes(newStatus)) {
-        if (!order.prescriptionEncrypted) {
-          throw new Error('Dispatch blocked by DB trigger: Prescription image is missing');
-        }
-        if (!order.prescriptionValidUntil || order.prescriptionValidUntil < new Date()) {
-          throw new Error('Dispatch blocked by DB trigger: Prescription is expired or invalid');
-        }
-
-        const unapproved = order.lines.filter(
-          (l) =>
-            !['BLOCKED_NOT_SOLD_ONLINE', 'REJECTED'].includes(l.lineStatus) &&
-            (!['APPROVED', 'EDITED_APPROVED'].includes(l.lineStatus) ||
-              !l.pharmacistId ||
-              !l.pharmacistRegNo)
-        );
-
-        if (unapproved.length > 0) {
-          throw new Error(
-            `Dispatch blocked by DB trigger: ${unapproved.length} line(s) lack valid pharmacist approval`
-          );
-        }
-
-        const missingH1 = order.lines.filter(
-          (l) => l.isH1 && ['APPROVED', 'EDITED_APPROVED'].includes(l.lineStatus) && !l.h1PrescriberName
-        );
-
-        if (missingH1.length > 0) {
-          throw new Error(
-            `Dispatch blocked by DB trigger: ${missingH1.length} Schedule H1 line(s) missing mandatory register entry`
-          );
-        }
-      }
-      return 'UPDATE 1';
+  beforeAll(async () => {
+    if (!process.env.DATABASE_URL) {
+      throw new Error(
+        'DATABASE_URL is not set. Real database tests require an accessible PostgreSQL instance.'
+      );
     }
+    prisma = new PrismaClient();
+  });
 
-    // 1. RAW SQL BYPASS ATTEMPT: Direct UPDATE orders SET status = 'PACKED' WHERE id = 'RX-50214'
-    // Should fail because RX-50214 line is PENDING and lacks pharmacist approval
-    const rawSqlBypassAttempt = () =>
-      simulateTriggerExecution('SUBMITTED', 'PACKED', {
-        prescriptionEncrypted: Buffer.from('encrypted_bytes'),
-        prescriptionValidUntil: new Date('2026-12-31'),
-        lines: [
-          {
-            lineStatus: 'PENDING', // Unapproved!
-            pharmacistId: null,
-            pharmacistRegNo: null,
-            isH1: false,
-            h1PrescriberName: null,
-          },
-        ],
-      });
+  afterAll(async () => {
+    if (prisma) {
+      await prisma.$disconnect();
+    }
+  });
 
-    expect(rawSqlBypassAttempt).toThrow('Dispatch blocked by DB trigger');
+  it('fails loudly if DATABASE_URL is unset', () => {
+    expect(isDbAvailable).toBe(true);
+  });
 
-    // 2. Legitimate transition after pharmacist approval succeeds
-    const legitimateUpdate = () =>
-      simulateTriggerExecution('APPROVED', 'PACKED', {
-        prescriptionEncrypted: Buffer.from('encrypted_bytes'),
-        prescriptionValidUntil: new Date('2026-12-31'),
-        lines: [
-          {
+  it('rejects raw SQL status transition to PACKED when prescription is missing', async () => {
+    const testId = `trg_test_nopres_${Date.now()}`;
+    const customer = await prisma.user.create({
+      data: { phone: `91${Date.now().toString().slice(-8)}`, name: 'Test Customer', role: 'CUSTOMER' },
+    });
+    const store = await prisma.store.findFirstOrThrow();
+    const product = await prisma.product.findFirstOrThrow({ where: { schedule: 'H' } });
+
+    await prisma.order.create({
+      data: {
+        id: testId,
+        displayId: `RX-TRG-${Date.now().toString().slice(-5)}`,
+        customerId: customer.id,
+        storeId: store.id,
+        status: 'APPROVED',
+        prescriptionEncrypted: null, // Missing!
+        prescriptionValidUntil: new Date('2028-12-31'),
+        addressText: 'Kolkata Test Address',
+        lines: {
+          create: {
+            productId: product.id,
             lineStatus: 'APPROVED',
-            pharmacistId: 'user_pharm_01',
-            pharmacistRegNo: 'WB-PHARM-2024-4102',
-            isH1: false,
-            h1PrescriberName: null,
+            quantity: 1,
+            pharmacistId: customer.id,
+            pharmacistRegNo: 'WB-PHARM-2024-TEST',
           },
-        ],
-      });
+        },
+      },
+    });
 
-    expect(legitimateUpdate()).toBe('UPDATE 1');
+    await expect(
+      prisma.$executeRawUnsafe(`UPDATE orders SET status = 'PACKED' WHERE id = '${testId}'`)
+    ).rejects.toThrow(/Prescription image is missing/);
+  });
+
+  it('rejects raw SQL status transition to PACKED when prescription is expired', async () => {
+    const testId = `trg_test_exp_${Date.now()}`;
+    const customer = await prisma.user.create({
+      data: { phone: `92${Date.now().toString().slice(-8)}`, name: 'Test Customer', role: 'CUSTOMER' },
+    });
+    const store = await prisma.store.findFirstOrThrow();
+    const product = await prisma.product.findFirstOrThrow({ where: { schedule: 'H' } });
+
+    await prisma.order.create({
+      data: {
+        id: testId,
+        displayId: `RX-TRG-${Date.now().toString().slice(-5)}`,
+        customerId: customer.id,
+        storeId: store.id,
+        status: 'APPROVED',
+        prescriptionEncrypted: Buffer.from('test_prescription'),
+        prescriptionValidUntil: new Date('2020-01-01'), // Expired!
+        addressText: 'Kolkata Test Address',
+        lines: {
+          create: {
+            productId: product.id,
+            lineStatus: 'APPROVED',
+            quantity: 1,
+            pharmacistId: customer.id,
+            pharmacistRegNo: 'WB-PHARM-2024-TEST',
+          },
+        },
+      },
+    });
+
+    await expect(
+      prisma.$executeRawUnsafe(`UPDATE orders SET status = 'PACKED' WHERE id = '${testId}'`)
+    ).rejects.toThrow(/Prescription is expired or invalid/);
+  });
+
+  it('rejects raw SQL status transition to PACKED when an active line is PENDING', async () => {
+    const testId = `trg_test_pending_${Date.now()}`;
+    const customer = await prisma.user.create({
+      data: { phone: `93${Date.now().toString().slice(-8)}`, name: 'Test Customer', role: 'CUSTOMER' },
+    });
+    const store = await prisma.store.findFirstOrThrow();
+    const product = await prisma.product.findFirstOrThrow({ where: { schedule: 'H' } });
+
+    await prisma.order.create({
+      data: {
+        id: testId,
+        displayId: `RX-TRG-${Date.now().toString().slice(-5)}`,
+        customerId: customer.id,
+        storeId: store.id,
+        status: 'SUBMITTED',
+        prescriptionEncrypted: Buffer.from('test_prescription'),
+        prescriptionValidUntil: new Date('2028-12-31'),
+        addressText: 'Kolkata Test Address',
+        lines: {
+          create: {
+            productId: product.id,
+            lineStatus: 'PENDING', // Unapproved!
+            quantity: 1,
+          },
+        },
+      },
+    });
+
+    await expect(
+      prisma.$executeRawUnsafe(`UPDATE orders SET status = 'PACKED' WHERE id = '${testId}'`)
+    ).rejects.toThrow(/lack valid pharmacist approval/);
+  });
+
+  it('rejects raw SQL status transition to PACKED when pharmacist registration is missing', async () => {
+    const testId = `trg_test_noreg_${Date.now()}`;
+    const customer = await prisma.user.create({
+      data: { phone: `94${Date.now().toString().slice(-8)}`, name: 'Test Customer', role: 'CUSTOMER' },
+    });
+    const store = await prisma.store.findFirstOrThrow();
+    const product = await prisma.product.findFirstOrThrow({ where: { schedule: 'H' } });
+
+    await prisma.order.create({
+      data: {
+        id: testId,
+        displayId: `RX-TRG-${Date.now().toString().slice(-5)}`,
+        customerId: customer.id,
+        storeId: store.id,
+        status: 'APPROVED',
+        prescriptionEncrypted: Buffer.from('test_prescription'),
+        prescriptionValidUntil: new Date('2028-12-31'),
+        addressText: 'Kolkata Test Address',
+        lines: {
+          create: {
+            productId: product.id,
+            lineStatus: 'APPROVED',
+            quantity: 1,
+            pharmacistId: customer.id,
+            pharmacistRegNo: null, // Missing reg no!
+          },
+        },
+      },
+    });
+
+    await expect(
+      prisma.$executeRawUnsafe(`UPDATE orders SET status = 'PACKED' WHERE id = '${testId}'`)
+    ).rejects.toThrow(/lack valid pharmacist approval/);
+  });
+
+  it('rejects raw SQL status transition to PACKED when Schedule H1 line lacks register details', async () => {
+    const testId = `trg_test_noh1_${Date.now()}`;
+    const customer = await prisma.user.create({
+      data: { phone: `95${Date.now().toString().slice(-8)}`, name: 'Test Customer', role: 'CUSTOMER' },
+    });
+    const store = await prisma.store.findFirstOrThrow();
+    const h1Product = await prisma.product.findFirstOrThrow({ where: { schedule: 'H1' } });
+
+    await prisma.order.create({
+      data: {
+        id: testId,
+        displayId: `RX-TRG-${Date.now().toString().slice(-5)}`,
+        customerId: customer.id,
+        storeId: store.id,
+        status: 'APPROVED',
+        prescriptionEncrypted: Buffer.from('test_prescription'),
+        prescriptionValidUntil: new Date('2028-12-31'),
+        addressText: 'Kolkata Test Address',
+        lines: {
+          create: {
+            productId: h1Product.id,
+            lineStatus: 'APPROVED',
+            quantity: 1,
+            pharmacistId: customer.id,
+            pharmacistRegNo: 'WB-PHARM-2024-TEST',
+            // Missing all mandatory H1 register columns!
+            h1PrescriberName: null,
+            h1PrescriberRegNo: null,
+            h1PatientName: null,
+            h1Date: null,
+            h1Quantity: null,
+          },
+        },
+      },
+    });
+
+    await expect(
+      prisma.$executeRawUnsafe(`UPDATE orders SET status = 'PACKED' WHERE id = '${testId}'`)
+    ).rejects.toThrow(/Schedule H1 line\(s\) missing mandatory register entry/);
+  });
+
+  it('rejects raw SQL status transition to PACKED when a Schedule X line is approved', async () => {
+    const testId = `trg_test_x_${Date.now()}`;
+    const customer = await prisma.user.create({
+      data: { phone: `96${Date.now().toString().slice(-8)}`, name: 'Test Customer', role: 'CUSTOMER' },
+    });
+    const store = await prisma.store.findFirstOrThrow();
+    const xProduct = await prisma.product.findFirstOrThrow({ where: { schedule: 'X' } });
+
+    await prisma.order.create({
+      data: {
+        id: testId,
+        displayId: `RX-TRG-${Date.now().toString().slice(-5)}`,
+        customerId: customer.id,
+        storeId: store.id,
+        status: 'APPROVED',
+        prescriptionEncrypted: Buffer.from('test_prescription'),
+        prescriptionValidUntil: new Date('2028-12-31'),
+        addressText: 'Kolkata Test Address',
+        lines: {
+          create: {
+            productId: xProduct.id,
+            lineStatus: 'APPROVED', // Force-approved Schedule X line!
+            quantity: 1,
+            pharmacistId: customer.id,
+            pharmacistRegNo: 'WB-PHARM-2024-TEST',
+          },
+        },
+      },
+    });
+
+    await expect(
+      prisma.$executeRawUnsafe(`UPDATE orders SET status = 'PACKED' WHERE id = '${testId}'`)
+    ).rejects.toThrow(/cannot be sold online/);
+  });
+
+  it('permits raw SQL status transition to PACKED when all safety criteria are satisfied', async () => {
+    const testId = `trg_test_valid_${Date.now()}`;
+    const customer = await prisma.user.create({
+      data: { phone: `97${Date.now().toString().slice(-8)}`, name: 'Test Customer', role: 'CUSTOMER' },
+    });
+    const store = await prisma.store.findFirstOrThrow();
+    const product = await prisma.product.findFirstOrThrow({ where: { schedule: 'H' } });
+
+    await prisma.order.create({
+      data: {
+        id: testId,
+        displayId: `RX-TRG-${Date.now().toString().slice(-5)}`,
+        customerId: customer.id,
+        storeId: store.id,
+        status: 'APPROVED',
+        prescriptionEncrypted: Buffer.from('test_prescription'),
+        prescriptionValidUntil: new Date('2028-12-31'),
+        addressText: 'Kolkata Test Address',
+        lines: {
+          create: {
+            productId: product.id,
+            lineStatus: 'APPROVED',
+            quantity: 1,
+            pharmacistId: customer.id,
+            pharmacistRegNo: 'WB-PHARM-2024-TEST',
+          },
+        },
+      },
+    });
+
+    const affected = await prisma.$executeRawUnsafe(
+      `UPDATE orders SET status = 'PACKED' WHERE id = '${testId}'`
+    );
+    expect(affected).toBe(1);
+
+    const updated = await prisma.order.findUniqueOrThrow({ where: { id: testId } });
+    expect(updated.status).toBe('PACKED');
   });
 });
