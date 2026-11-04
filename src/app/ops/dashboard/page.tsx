@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -44,6 +45,8 @@ interface ScheduleRuleRow {
 }
 
 export default function OpsDashboardPage() {
+  const t = useTranslations('ops');
+  const tc = useTranslations('common');
   const [runningReminders, setRunningReminders] = useState(false);
   const [remindersResult, setRemindersResult] = useState<string | null>(null);
   const [metrics, setMetrics] = useState<OpsMetrics | null>(null);
@@ -190,7 +193,7 @@ export default function OpsDashboardPage() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-stone-900">
-            Central Operations & Admin Dashboard
+            {t('dashboardTitle')}
           </h1>
           <p className="text-sm text-stone-600 mt-1">
             Real-time multi-store fulfillment tracking, pharmacist verification SLAs, inventory, and regulatory rules.
@@ -203,7 +206,7 @@ export default function OpsDashboardPage() {
           isLoading={runningReminders}
           className="shadow-sm"
         >
-          Run Refill Reminders Now ⚡
+          {t('runReminders')} ⚡
         </Button>
       </div>
 
@@ -232,7 +235,7 @@ export default function OpsDashboardPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card className="p-4">
-            <span className="text-xs uppercase font-bold text-stone-500">Active Stores</span>
+            <span className="text-xs uppercase font-bold text-stone-500">{t('activeStores')}</span>
             <p className="text-3xl font-extrabold text-stone-900 mt-1">
               {metrics?.activeStoresCount ?? 0}
             </p>
@@ -240,7 +243,7 @@ export default function OpsDashboardPage() {
           </Card>
 
           <Card className="p-4">
-            <span className="text-xs uppercase font-bold text-stone-500">Median Verification SLA</span>
+            <span className="text-xs uppercase font-bold text-stone-500">{t('medianSla')}</span>
             <p className="text-3xl font-extrabold text-teal-700 mt-1">
               {metrics?.medianVerificationMinutes !== null && metrics?.medianVerificationMinutes !== undefined
                 ? `${metrics.medianVerificationMinutes} min`
@@ -254,7 +257,7 @@ export default function OpsDashboardPage() {
           </Card>
 
           <Card className="p-4">
-            <span className="text-xs uppercase font-bold text-stone-500">Rejection Rate</span>
+            <span className="text-xs uppercase font-bold text-stone-500">{t('rejectionRate')}</span>
             <p className="text-3xl font-extrabold text-stone-900 mt-1">
               {metrics?.rejectionRate !== null && metrics?.rejectionRate !== undefined
                 ? `${metrics.rejectionRate}%`
@@ -268,7 +271,7 @@ export default function OpsDashboardPage() {
           </Card>
 
           <Card className="p-4">
-            <span className="text-xs uppercase font-bold text-stone-500">Online Blocked Items</span>
+            <span className="text-xs uppercase font-bold text-stone-500">{t('blockedItems')}</span>
             <p className="text-3xl font-extrabold text-red-700 mt-1">
               {metrics?.blockedItemsCount ?? 0}
               {metrics?.blockedItemsRate !== null && metrics?.blockedItemsRate !== undefined && (
@@ -286,7 +289,7 @@ export default function OpsDashboardPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base font-semibold text-stone-900 flex items-center justify-between">
-            <span>Fulfillment Volume by Store (Database Counts)</span>
+            <span>{t('ordersByStore')}</span>
             {metrics?.unassignedOrdersCount ? (
               <Badge variant="caution" className="text-xs">
                 {metrics.unassignedOrdersCount} Unassigned / Pending Routing
@@ -326,7 +329,7 @@ export default function OpsDashboardPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base font-semibold text-stone-900 flex items-center justify-between">
-            <span>Configurable Statutory Schedule Rules</span>
+            <span>{t('scheduleRules')}</span>
             <span className="text-xs text-stone-500 font-normal">
               Database-driven regulatory controls (DPDP & DCA compliance)
             </span>
@@ -419,7 +422,7 @@ export default function OpsDashboardPage() {
                           onClick={() => handleSaveRule(rule)}
                           isLoading={savingSchedule === rule.schedule}
                         >
-                          Save
+                          {tc('save')}
                         </Button>
                       </td>
                     </tr>
@@ -435,7 +438,7 @@ export default function OpsDashboardPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base font-semibold text-stone-900 flex items-center justify-between">
-            <span>Daily Store Stock CSV Import</span>
+            <span>{t('stockImport')}</span>
             <span className="text-xs font-normal text-stone-500">Per-row Zod validation & preview</span>
           </CardTitle>
         </CardHeader>
@@ -497,7 +500,7 @@ export default function OpsDashboardPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base font-semibold text-stone-900 flex items-center justify-between">
-            <span>Dispatched Regulatory Messages & Refill Reminders</span>
+            <span>{t('outboxTitle')}</span>
             <span className="text-xs font-normal text-stone-500">Live message_outbox audit trail</span>
           </CardTitle>
         </CardHeader>

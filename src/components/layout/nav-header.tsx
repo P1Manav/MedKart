@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
@@ -18,10 +19,17 @@ export interface UserSession {
 
 export const NavHeader: React.FC = () => {
   const router = useRouter();
+  const currentLocale = useLocale();
+  const tNav = useTranslations('nav');
+  const tCommon = useTranslations('common');
   const [user, setUser] = useState<UserSession | null>(null);
   const [loading, setLoading] = useState(true);
-  const [locale, setLocale] = useState('en');
+  const [locale, setLocale] = useState(currentLocale);
   const [demoMode, setDemoMode] = useState(false);
+
+  useEffect(() => {
+    setLocale(currentLocale);
+  }, [currentLocale]);
 
   const fetchSession = async () => {
     try {
@@ -179,31 +187,31 @@ export const NavHeader: React.FC = () => {
               {user.role === 'CUSTOMER' && (
                 <>
                   <Link href="/customer/home" className="text-stone-700 hover:text-teal-700">
-                    Reorder Medicines
+                    {tNav('reorderMedicines')}
                   </Link>
                   <Link href="/customer/order/new" className="text-stone-700 hover:text-teal-700">
-                    New Order
+                    {tNav('newOrder')}
                   </Link>
                 </>
               )}
               {user.role === 'PHARMACIST' && (
                 <Link href="/pharmacist/queue" className="text-teal-800 font-semibold flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-teal-600 animate-pulse"></span>
-                  Verification Queue
+                  {tNav('verificationQueue')}
                 </Link>
               )}
               {user.role === 'STORE_STAFF' && (
                 <Link href="/store/orders" className="text-stone-700 hover:text-teal-700">
-                  Store Packing & Handover
+                  {tNav('storePacking')}
                 </Link>
               )}
               {user.role === 'OPS' && (
                 <>
                   <Link href="/ops/dashboard" className="text-stone-700 hover:text-teal-700">
-                    Ops Dashboard
+                    {tNav('opsDashboard')}
                   </Link>
                   <Link href="/pharmacist/queue" className="text-stone-700 hover:text-teal-700">
-                    Verification Queue
+                    {tNav('verificationQueue')}
                   </Link>
                 </>
               )}
@@ -236,12 +244,12 @@ export const NavHeader: React.FC = () => {
                 {user.role}
               </Badge>
               <Button variant="ghost" size="sm" onClick={handleLogout}>
-                Logout
+                {tCommon('logout')}
               </Button>
             </div>
           ) : (
             <Link href="/login">
-              <Button size="sm">Login with Phone</Button>
+              <Button size="sm">{tNav('loginWithPhone')}</Button>
             </Link>
           )}
         </div>

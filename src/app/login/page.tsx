@@ -10,6 +10,7 @@ import { ErrorState } from '@/components/ui/error-state';
 
 export default function LoginPage() {
   const t = useTranslations('auth');
+  const tCommon = useTranslations('common');
   const router = useRouter();
   const [phone, setPhone] = useState('9830011111');
   const [step, setStep] = useState<'PHONE' | 'OTP'>('PHONE');
@@ -93,7 +94,7 @@ export default function LoginPage() {
           </div>
           <CardTitle className="text-2xl font-bold text-stone-900">{t('loginTitle')}</CardTitle>
           <CardDescription className="text-stone-600">
-            Monthly prescription medicine reordering with licensed pharmacist safety checks.
+            {tCommon('tagline')}
           </CardDescription>
         </CardHeader>
 

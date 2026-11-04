@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -27,6 +28,8 @@ interface QueueOrder {
 }
 
 export default function PharmacistQueuePage() {
+  const t = useTranslations('pharmacist');
+  const tc = useTranslations('common');
   const [orders, setOrders] = useState<QueueOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'ALL' | 'WAITING' | 'ON_HOLD' | 'APPROVED'>('WAITING');
@@ -73,7 +76,7 @@ export default function PharmacistQueuePage() {
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold text-stone-900">
-              Pharmacist Verification Queue
+              {t('queueTitle')}
             </h1>
             <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-teal-100 text-teal-900">
               {waitingCount} Pending Review
@@ -94,7 +97,7 @@ export default function PharmacistQueuePage() {
                 : 'bg-white border text-stone-700 hover:bg-stone-50'
             }`}
           >
-            Awaiting Verification ({waitingCount})
+            {tc('pending')} ({waitingCount})
           </button>
           <button
             onClick={() => setFilter('ON_HOLD')}
@@ -104,7 +107,7 @@ export default function PharmacistQueuePage() {
                 : 'bg-white border text-stone-700 hover:bg-stone-50'
             }`}
           >
-            On Hold ({orders.filter((o) => o.status === 'ON_HOLD').length})
+            {tc('onHold')} ({orders.filter((o) => o.status === 'ON_HOLD').length})
           </button>
           <button
             onClick={() => setFilter('ALL')}
@@ -240,7 +243,7 @@ export default function PharmacistQueuePage() {
                         <td className="py-4 px-4 text-right">
                           <Link href={`/pharmacist/review/${ord.id}`}>
                             <Button size="sm">
-                              Verify Prescription &rarr;
+                              {t('reviewOrder')} &rarr;
                             </Button>
                           </Link>
                         </td>

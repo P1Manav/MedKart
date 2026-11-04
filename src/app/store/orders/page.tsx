@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -32,6 +33,8 @@ interface StoreOrder {
 }
 
 export default function StoreOrdersPage() {
+  const t = useTranslations('store');
+  const tc = useTranslations('common');
   const [orders, setOrders] = useState<StoreOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -97,7 +100,7 @@ export default function StoreOrdersPage() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-stone-900">
-            Store Fulfillment & Packing Desk
+            {t('title')}
           </h1>
           <p className="text-sm text-stone-600 mt-1">
             Pick stock, pack approved items, record GST invoice, and handover to delivery associates.
@@ -166,16 +169,16 @@ export default function StoreOrdersPage() {
                       <div className="flex items-center gap-2">
                         {canPack ? (
                           <Button size="sm" onClick={() => setPackingOrder(ord)}>
-                            Pack Order (Enter Invoice) &rarr;
+                            {t('packOrder')} &rarr;
                           </Button>
                         ) : isPacked ? (
                           <span className="text-xs font-semibold text-emerald-800 bg-emerald-50 px-2 py-1 rounded border border-emerald-200">
-                            Packed & Ready for Handover
+                            {t('readyToPack')}
                           </span>
                         ) : (
                           <div className="text-right">
                             <Button size="sm" disabled variant="outline">
-                              Pack Order (Locked)
+                              {t('packOrder')}
                             </Button>
                             <span className="block text-[10px] text-amber-800 font-medium mt-0.5">
                               Disabled: Awaiting Pharmacist Prescription Approval
@@ -224,7 +227,7 @@ export default function StoreOrdersPage() {
               <form onSubmit={handlePackSubmit} className="space-y-4">
                 <div>
                   <label className="block text-xs font-semibold text-stone-700 mb-1">
-                    Store Invoice / Bill Number (Mandatory)
+                    {t('invoiceNumber')} (Mandatory)
                   </label>
                   <input
                     type="text"
@@ -241,10 +244,10 @@ export default function StoreOrdersPage() {
                 </div>
                 <div className="flex justify-end gap-2 pt-2">
                   <Button type="button" variant="ghost" size="sm" onClick={() => setPackingOrder(null)}>
-                    Cancel
+                    {tc('cancel')}
                   </Button>
                   <Button type="submit" size="sm" isLoading={packing}>
-                    Confirm & Mark Packed
+                    {t('packOrder')}
                   </Button>
                 </div>
               </form>

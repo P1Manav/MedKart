@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect, use } from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -49,6 +50,8 @@ export default function OrderTrackingPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const t = useTranslations('customer');
+  const tc = useTranslations('common');
   const { id } = use(params);
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -123,7 +126,7 @@ export default function OrderTrackingPage({
       <div className="max-w-3xl mx-auto py-8">
         <ErrorState message={error || 'Order could not be loaded.'} />
         <Link href="/customer/home" className="mt-4 inline-block text-teal-700 hover:underline">
-          &larr; Back to Home
+          &larr; {tc('back')}
         </Link>
       </div>
     );
@@ -226,7 +229,7 @@ export default function OrderTrackingPage({
 
         <Link href="/customer/home">
           <Button variant="outline" size="sm">
-            &larr; Back to My Orders
+            &larr; {tc('back')}
           </Button>
         </Link>
       </div>
@@ -281,7 +284,7 @@ export default function OrderTrackingPage({
       {/* ─── PRESCRIBED MEDICINES ────────────────────────────── */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg font-bold text-stone-900">Medicines in this Order</CardTitle>
+          <CardTitle className="text-lg font-bold text-stone-900">{t('selectedMedicines')}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="divide-y divide-stone-100">
@@ -299,7 +302,7 @@ export default function OrderTrackingPage({
                     )}
                   </div>
                   <span className="text-xs text-stone-500">
-                    Qty: {line.quantity} {line.product?.packSize ? `(${line.product.packSize})` : ''}
+                    {tc('quantity')}: {line.quantity} {line.product?.packSize ? `(${line.product.packSize})` : ''}
                   </span>
                 </div>
                 <div className="text-right">
@@ -320,7 +323,7 @@ export default function OrderTrackingPage({
       <Card>
         <CardContent className="pt-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
           <div>
-            <span className="font-semibold text-stone-500 text-xs uppercase block">Delivery Address</span>
+            <span className="font-semibold text-stone-500 text-xs uppercase block">{t('deliveryAddress')}</span>
             <p className="mt-1 text-stone-800">{order.addressText || 'Kolkata, West Bengal'}</p>
           </div>
           <div>

@@ -96,6 +96,33 @@
     "x": "Schedule X (Not Sold Online)",
     "narcotic": "Narcotic (Not Sold Online)",
     "blockedNotice": "This item cannot be ordered online. Please visit your nearest registered pharmacy store."
+  },
+  "nav": {
+    "reorderMedicines": "Reorder Medicines",
+    "newOrder": "New Order",
+    "verificationQueue": "Verification Queue",
+    "storePacking": "Store Packing & Handover",
+    "opsDashboard": "Ops Dashboard",
+    "loginWithPhone": "Login with Phone"
+  },
+  "store": {
+    "title": "Store Orders & Prescription Packing",
+    "packOrder": "Pack & Mark Ready",
+    "invoiceNumber": "Invoice Number",
+    "readyToPack": "Ready for Store Packing",
+    "orderHistory": "Dispatched Order History"
+  },
+  "ops": {
+    "dashboardTitle": "Central Operations & Admin Dashboard",
+    "activeStores": "Active Stores",
+    "medianSla": "Median Verification SLA",
+    "rejectionRate": "Rejection Rate",
+    "blockedItems": "Online Blocked Items",
+    "runReminders": "Run Refill Reminders Now",
+    "ordersByStore": "Fulfillment Volume by Store",
+    "scheduleRules": "Configurable Statutory Schedule Rules",
+    "stockImport": "Daily Store Stock CSV Import",
+    "outboxTitle": "Dispatched Regulatory Messages & Refill Reminders"
   }
 }
 
