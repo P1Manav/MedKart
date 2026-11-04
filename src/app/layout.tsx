@@ -35,7 +35,7 @@ export default async function RootLayout({
           </main>
           <footer className="bg-white border-t border-stone-200 py-6 text-center text-xs text-stone-500">
             <div className="max-w-7xl mx-auto px-4">
-              <p className="font-semibold text-stone-700">MedKart Pharmacy Network (46 stores, Central Warehouse, Kolkata & Howrah)</p>
+              <p className="font-semibold text-stone-700">MedKart Pharmacy Network (Licensed Pharmacy Stores, Central Warehouse, Kolkata & Howrah)</p>
               <p className="mt-1">Compliant with Drugs and Cosmetics Act & DPDP Act 2023. Prescriptions are encrypted and audited. All orders checked by a registered pharmacist.</p>
             </div>
           </footer>

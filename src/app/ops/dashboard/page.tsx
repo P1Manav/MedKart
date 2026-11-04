@@ -18,10 +18,21 @@ interface OpsMetrics {
     address: string | null;
     orderCount: number;
   }>;
+  unassignedOrdersCount?: number;
   medianVerificationMinutes: number | null;
   rejectionRate: number | null;
   rejectionBreakdown: Array<{ reason: string; count: number }>;
   blockedItemsCount: number;
+  blockedItemsRate: number | null;
+  totalLinesCount?: number;
+  recentOutboxMessages?: Array<{
+    id: string;
+    recipient: string;
+    channel: string;
+    content: string;
+    status: string;
+    createdAt: string;
+  }>;
 }
 
 interface ScheduleRuleRow {
@@ -260,6 +271,11 @@ export default function OpsDashboardPage() {
             <span className="text-xs uppercase font-bold text-stone-500">Online Blocked Items</span>
             <p className="text-3xl font-extrabold text-red-700 mt-1">
               {metrics?.blockedItemsCount ?? 0}
+              {metrics?.blockedItemsRate !== null && metrics?.blockedItemsRate !== undefined && (
+                <span className="text-sm font-semibold text-stone-500 ml-2">
+                  ({metrics.blockedItemsRate}%)
+                </span>
+              )}
             </p>
             <span className="text-xs text-stone-500">Schedule X / Unsellable lines blocked</span>
           </Card>
@@ -269,8 +285,13 @@ export default function OpsDashboardPage() {
       {/* ─── ORDERS BY STORE BREAKDOWN ──────────────────────── */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base font-semibold text-stone-900">
-            Fulfillment Volume by Store (Database Counts)
+          <CardTitle className="text-base font-semibold text-stone-900 flex items-center justify-between">
+            <span>Fulfillment Volume by Store (Database Counts)</span>
+            {metrics?.unassignedOrdersCount ? (
+              <Badge variant="caution" className="text-xs">
+                {metrics.unassignedOrdersCount} Unassigned / Pending Routing
+              </Badge>
+            ) : null}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -285,6 +306,15 @@ export default function OpsDashboardPage() {
                   <span className="text-xs text-stone-500">{store.address || 'Kolkata'}</span>
                 </div>
               ))}
+              {metrics.unassignedOrdersCount ? (
+                <div className="p-3 bg-amber-50 rounded border border-amber-300">
+                  <span className="font-bold text-amber-900 block">Pending Store Assignment</span>
+                  <span className="text-2xl font-extrabold text-amber-900 block mt-1">
+                    {metrics.unassignedOrdersCount} order{metrics.unassignedOrdersCount === 1 ? '' : 's'}
+                  </span>
+                  <span className="text-xs text-amber-700">Requires manual pharmacist/ops store routing</span>
+                </div>
+              ) : null}
             </div>
           ) : (
             <p className="text-sm text-stone-500 py-4 text-center">No store fulfillment data available.</p>
@@ -458,6 +488,58 @@ export default function OpsDashboardPage() {
                   ))}
                 </div>
               )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ─── REGULATORY & DISPATCH MESSAGE OUTBOX (SECTION 4 AUDIT) ─── */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base font-semibold text-stone-900 flex items-center justify-between">
+            <span>Dispatched Regulatory Messages & Refill Reminders</span>
+            <span className="text-xs font-normal text-stone-500">Live message_outbox audit trail</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {!metrics?.recentOutboxMessages || metrics.recentOutboxMessages.length === 0 ? (
+            <p className="text-xs text-stone-500 py-4 text-center">
+              No simulated messages dispatched yet. Trigger &quot;Run Refill Reminders Now&quot; to simulate WhatsApp/SMS alerts.
+            </p>
+          ) : (
+            <div className="overflow-x-auto border border-stone-200 rounded-lg">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-stone-100 text-stone-700 font-bold border-b border-stone-200">
+                  <tr>
+                    <th className="p-2.5">Time</th>
+                    <th className="p-2.5">Channel</th>
+                    <th className="p-2.5">Recipient</th>
+                    <th className="p-2.5">Message Content</th>
+                    <th className="p-2.5 text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-200 bg-white">
+                  {metrics.recentOutboxMessages.map((msg) => (
+                    <tr key={msg.id} className="hover:bg-stone-50/50">
+                      <td className="p-2.5 whitespace-nowrap text-stone-500 font-mono">
+                        {new Date(msg.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                      </td>
+                      <td className="p-2.5">
+                        <Badge variant={msg.channel === 'WHATSAPP' ? 'h' : 'default'} className="text-[10px]">
+                          {msg.channel}
+                        </Badge>
+                      </td>
+                      <td className="p-2.5 font-medium text-stone-900">{msg.recipient}</td>
+                      <td className="p-2.5 text-stone-700 max-w-md truncate">{msg.content}</td>
+                      <td className="p-2.5 text-center">
+                        <Badge variant="success" className="text-[10px]">
+                          {msg.status}
+                        </Badge>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </CardContent>

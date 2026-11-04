@@ -27,11 +27,14 @@ export async function GET() {
 
     const statusCounts: Record<string, number> = {};
     const storeOrderCounts: Record<string, number> = {};
+    let unassignedOrdersCount = 0;
 
     orders.forEach((o) => {
       statusCounts[o.status] = (statusCounts[o.status] || 0) + 1;
       if (o.storeId) {
         storeOrderCounts[o.storeId] = (storeOrderCounts[o.storeId] || 0) + 1;
+      } else {
+        unassignedOrdersCount++;
       }
     });
 
@@ -42,10 +45,11 @@ export async function GET() {
       orderCount: storeOrderCounts[s.id] || 0,
     }));
 
-    // 3. Verification SLA & Rejection Breakdown from Audit Logs
+    // 3. Verification SLA between SUBMITTED and APPROVED/REJECTED
     const verificationAudits = await db.orderAudit.findMany({
       where: {
-        toStatus: { in: ['APPROVED', 'ON_HOLD', 'REJECTED'] },
+        fromStatus: 'SUBMITTED',
+        toStatus: { in: ['APPROVED', 'REJECTED'] },
       },
       select: {
         orderId: true,
@@ -57,36 +61,46 @@ export async function GET() {
       orderBy: { timestamp: 'asc' },
     });
 
-    // Map order creation to first verification action
     const orderCreatedMap = new Map(orders.map((o) => [o.id, o.createdAt.getTime()]));
-    const firstVerificationPerOrder = new Map<string, number>();
+    const firstVerificationDurations: number[] = [];
+    const recordedOrderIds = new Set<string>();
     const rejectionReasonsMap: Record<string, number> = {};
-    let rejectedCount = 0;
-    let totalVerifications = 0;
 
     verificationAudits.forEach((audit) => {
-      totalVerifications++;
       if (audit.toStatus === 'REJECTED') {
-        rejectedCount++;
         const r = audit.reason || 'Other / Unspecified';
         rejectionReasonsMap[r] = (rejectionReasonsMap[r] || 0) + 1;
       }
 
-      if (!firstVerificationPerOrder.has(audit.orderId)) {
+      if (!recordedOrderIds.has(audit.orderId)) {
+        recordedOrderIds.add(audit.orderId);
         const createdMs = orderCreatedMap.get(audit.orderId);
         if (createdMs) {
           const duration = Math.max(0, audit.timestamp.getTime() - createdMs);
-          firstVerificationPerOrder.set(audit.orderId, duration);
+          firstVerificationDurations.push(duration);
         }
       }
     });
 
-    const durationsMs = Array.from(firstVerificationPerOrder.values());
-    const medianVerificationMinutes = calculateMedianSlaMinutes(durationsMs);
+    const medianVerificationMinutes = calculateMedianSlaMinutes(firstVerificationDurations);
+
+    // 4. Line Status Rejection Rate & Schedule X Block Rate
+    const totalLinesCount = await db.orderLine.count();
+    const rejectedLinesCount = await db.orderLine.count({
+      where: { lineStatus: 'REJECTED' },
+    });
+    const blockedItemsCount = await db.orderLine.count({
+      where: { lineStatus: 'BLOCKED_NOT_SOLD_ONLINE' },
+    });
 
     const rejectionRate =
-      totalVerifications > 0
-        ? Number(((rejectedCount / totalVerifications) * 100).toFixed(1))
+      totalLinesCount > 0
+        ? Number(((rejectedLinesCount / totalLinesCount) * 100).toFixed(1))
+        : null;
+
+    const blockedItemsRate =
+      totalLinesCount > 0
+        ? Number(((blockedItemsCount / totalLinesCount) * 100).toFixed(1))
         : null;
 
     const rejectionBreakdown = Object.entries(rejectionReasonsMap).map(([reason, count]) => ({
@@ -94,10 +108,14 @@ export async function GET() {
       count,
     }));
 
-    // 4. Blocked items count (Schedule X / Narcotics / unsellable items)
-    const blockedItemsCount = await db.orderLine.count({
-      where: {
-        lineStatus: 'BLOCKED_NOT_SOLD_ONLINE',
+    // 5. Recent Dispatches from Message Outbox (Section 4 Honesty)
+    const recentOutboxMessages = await db.messageOutbox.findMany({
+      take: 15,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        user: {
+          select: { name: true, phone: true },
+        },
       },
     });
 
@@ -108,10 +126,21 @@ export async function GET() {
         totalOrdersCount: orders.length,
         statusCounts,
         ordersByStore,
+        unassignedOrdersCount,
         medianVerificationMinutes,
         rejectionRate,
         rejectionBreakdown,
         blockedItemsCount,
+        blockedItemsRate,
+        totalLinesCount,
+        recentOutboxMessages: recentOutboxMessages.map((m) => ({
+          id: m.id,
+          recipient: `${m.user.name} (${m.user.phone})`,
+          channel: m.channel,
+          content: m.content,
+          status: m.status,
+          createdAt: m.createdAt.toISOString(),
+        })),
       },
     });
   } catch (err: unknown) {
