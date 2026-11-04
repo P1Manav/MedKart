@@ -14,6 +14,7 @@ interface QueueOrder {
   status: string;
   createdAt: string;
   manualEntryNeeded: boolean;
+  routingIssue?: string | null;
   customer: { name: string; phone: string };
   familyProfile?: { name: string; relationship: string } | null;
   store?: { name: string } | null;
@@ -158,6 +159,11 @@ export default function PharmacistQueuePage() {
                       <tr key={ord.id} className="hover:bg-stone-50/80 transition-colors">
                         <td className="py-4 px-4">
                           <div className="font-bold text-stone-900">{ord.displayId}</div>
+                          {ord.routingIssue && (
+                            <Badge variant="caution" className="text-[10px] bg-amber-100 text-amber-900 border-amber-300 block w-fit mt-1">
+                              ⚠ Routing Needs Manual Review
+                            </Badge>
+                          )}
                           <div className="flex items-center gap-1.5 mt-1">
                             <span
                               className={`w-2 h-2 rounded-full ${

@@ -31,6 +31,7 @@ export const safeOrderSelect = {
   aiModelName: true,
   aiLatencyMs: true,
   manualEntryNeeded: true,
+  routingIssue: true,
   createdAt: true,
   updatedAt: true,
   customer: {
@@ -377,16 +378,27 @@ export async function POST(req: Request) {
     const requirements = [...cartRequirements, ...aiRequirements];
 
     let provisionalStoreId: string | null = null;
-    if (requirements.length > 0 && storeItems.length > 0) {
-      try {
-        const routeResult = routeOrderToStore(
-          { lat: addressLat, lng: addressLng },
-          storeItems,
-          requirements
-        );
-        provisionalStoreId = routeResult.assignedStoreId;
-      } catch {
-        provisionalStoreId = storeItems[0]?.storeId || null;
+    let routingIssue: string | null = null;
+
+    if (requirements.length > 0) {
+      if (storeItems.length > 0) {
+        try {
+          const routeResult = routeOrderToStore(
+            { lat: addressLat, lng: addressLng },
+            storeItems,
+            requirements
+          );
+          provisionalStoreId = routeResult.assignedStoreId;
+          if (!routeResult.isFullCoverage) {
+            routingIssue = 'Partial stock at nearest store; requires multi-store split or warehouse dispatch';
+          }
+        } catch (err: unknown) {
+          provisionalStoreId = null;
+          routingIssue = err instanceof Error ? err.message : 'No stocked store found within delivery range';
+        }
+      } else {
+        provisionalStoreId = null;
+        routingIssue = 'No active stores available for order routing';
       }
     }
 
@@ -435,6 +447,7 @@ export async function POST(req: Request) {
         customerId: session.userId,
         familyProfileId,
         storeId: provisionalStoreId,
+        routingIssue,
         status: 'SUBMITTED',
         addressText,
         addressLat,
@@ -480,6 +493,8 @@ export async function POST(req: Request) {
         id: order.id,
         displayId: order.displayId,
         status: order.status,
+        storeId: order.storeId,
+        routingIssue: order.routingIssue,
         manualEntryNeeded: order.manualEntryNeeded,
         linesCount: order.lines.length,
       },

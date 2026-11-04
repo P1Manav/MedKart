@@ -209,6 +209,7 @@ model Order {
   aiModelName             String?            @map("ai_model_name")
   aiLatencyMs             Int?               @map("ai_latency_ms")
   manualEntryNeeded       Boolean            @default(false) @map("manual_entry_needed")
+  routingIssue            String?            @map("routing_issue")
   createdAt               DateTime           @default(now()) @map("created_at")
   updatedAt               DateTime           @updatedAt @map("updated_at")
 

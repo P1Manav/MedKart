@@ -1,5 +1,5 @@
 // tests/unit/routing.test.ts
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   haversineDistanceKm,
   routeOrderToStore,
@@ -113,6 +113,81 @@ describe('Store Routing & Haversine Distance', () => {
     expect(decision.missingLines).toHaveLength(1);
     expect(decision.missingLines[0].productId).toBe('prod_2');
     expect(decision.missingLines[0].alternativeStoreId).toBe('store_B');
+  });
+
+  it('throws an explicit error when no active stores exist (no silent fake routing)', () => {
+    const customerLoc = { lat: 22.58, lng: 88.40 };
+    const items: OrderItemRequirement[] = [{ productId: 'prod_1', quantity: 1 }];
+    expect(() => routeOrderToStore(customerLoc, [], items)).toThrow(
+      /No active pharmacy stores available for routing/i
+    );
+  });
+
+  it('assigns storeId = null and sets routingIssue when order creation has no stocked stores', async () => {
+    const { POST: createOrderHandler } = await import('@/app/api/orders/route');
+    const rbac = await import('@/lib/auth/rbac');
+    const db = (await import('@/lib/db')).default;
+
+    vi.spyOn(rbac, 'requireAuth').mockResolvedValue({
+      userId: 'cust_routing_test',
+      phone: '9830011111',
+      role: 'CUSTOMER',
+      name: 'Test Customer',
+    });
+
+    // Active product in cart
+    vi.spyOn(db.product, 'findMany').mockResolvedValue([
+      {
+        id: 'prod_1',
+        name: 'Metformin',
+        strength: '500mg',
+        form: 'Tablet',
+        price: 30,
+        schedule: 'H',
+        packSize: '10',
+        active: true,
+        genericGroupId: null,
+        createdAt: new Date(),
+      },
+    ]);
+
+    // Zero active stores
+    vi.spyOn(db.store, 'findMany').mockResolvedValue([]);
+
+    let createdOrderData: Record<string, unknown> | null = null;
+    vi.spyOn(db.order, 'create').mockImplementation(((args: { data: Record<string, unknown> }) => {
+      createdOrderData = args.data;
+      return Promise.resolve({
+        id: 'ord_routed_null',
+        displayId: 'RX-99999',
+        status: 'SUBMITTED',
+        storeId: createdOrderData.storeId,
+        routingIssue: createdOrderData.routingIssue,
+        manualEntryNeeded: false,
+        lines: [],
+      });
+    }) as unknown as typeof db.order.create);
+
+    const formData = new FormData();
+    formData.append('addressText', 'Salt Lake, Kolkata');
+    formData.append('addressLat', '22.5875');
+    formData.append('addressLng', '88.4190');
+    formData.append('paymentMethod', 'COD');
+    formData.append('cartItems', JSON.stringify([{ productId: 'prod_1', quantity: 1 }]));
+    formData.append('prescription', new File(['rx'], 'rx.jpg', { type: 'image/jpeg' }));
+
+    const req = new Request('http://localhost/api/orders', {
+      method: 'POST',
+      body: formData,
+    });
+
+    const res = await createOrderHandler(req);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.order.storeId).toBeNull();
+    expect(body.order.routingIssue).toMatch(/No active stores available/i);
+    expect(createdOrderData!.storeId).toBeNull();
+    expect(createdOrderData!.routingIssue).toMatch(/No active stores available/i);
   });
 });
 
