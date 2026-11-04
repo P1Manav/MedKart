@@ -8,6 +8,7 @@ import { MockReader } from '@/lib/ai/mock-reader';
 import { matchPrescriptionLine, type CatalogueProduct } from '@/lib/ai/fuzzy-matcher';
 import { routeOrderToStore, type StoreStockItem, type OrderItemRequirement } from '@/domain/routing';
 import { computePrescriptionValidUntil } from '@/domain/assert-dispatchable';
+import { validatePrescriptionFile } from '@/lib/validators/upload';
 
 export async function GET() {
   try {
@@ -83,6 +84,12 @@ export async function POST(req: Request) {
 
     if (!file) {
       return NextResponse.json({ error: 'Prescription image is required.' }, { status: 400 });
+    }
+
+    // Validate size (≤5MB) and MIME type (JPEG/PNG) per ASSUMPTION A6
+    const fileValidation = validatePrescriptionFile({ size: file.size, type: file.type });
+    if (!fileValidation.valid) {
+      return NextResponse.json({ error: fileValidation.error }, { status: 400 });
     }
 
     // Read bytes
@@ -241,3 +248,4 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
+
