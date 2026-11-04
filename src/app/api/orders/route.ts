@@ -183,6 +183,19 @@ export async function POST(req: Request) {
     const formData = await req.formData();
 
     const familyProfileId = (formData.get('familyProfileId') as string) || null;
+
+    if (familyProfileId) {
+      const familyProfile = await db.familyProfile.findUnique({
+        where: { id: familyProfileId },
+        select: { userId: true },
+      });
+      if (!familyProfile || familyProfile.userId !== session.userId) {
+        return NextResponse.json(
+          { error: 'Invalid family profile or access denied.' },
+          { status: 403 }
+        );
+      }
+    }
     const addressText = (formData.get('addressText') as string) || 'Salt Lake, Kolkata';
     const addressLat = parseFloat((formData.get('addressLat') as string) || '22.5875');
     const addressLng = parseFloat((formData.get('addressLng') as string) || '88.4190');

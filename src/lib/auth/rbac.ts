@@ -77,3 +77,48 @@ export function assertStoreStaffAccess(
   }
 }
 
+/**
+ * Asserts object-level access for viewing sensitive prescription images:
+ * - CUSTOMER: only their own order (order.customerId === session.userId)
+ * - PHARMACIST: any order that is NOT in DRAFT
+ * - STORE_STAFF: only orders routed to their assigned store AND in post-approval states ('APPROVED', 'PACKED', 'HANDED_OVER', 'DELIVERED')
+ * - OPS: allowed (audit logged)
+ * - All others: denied
+ */
+export function assertPrescriptionAccess(
+  session: SessionPayload,
+  order: { customerId: string; storeId: string | null; status: string }
+): void {
+  if (session.role === 'CUSTOMER') {
+    if (session.userId !== order.customerId) {
+      throw new AuthorizationError('You do not have permission to view another customer’s prescription.');
+    }
+    return;
+  }
+
+  if (session.role === 'PHARMACIST') {
+    if (order.status === 'DRAFT') {
+      throw new AuthorizationError('Prescriptions for draft orders are not accessible to pharmacists.');
+    }
+    return;
+  }
+
+  if (session.role === 'STORE_STAFF') {
+    if (!session.storeId || session.storeId !== order.storeId) {
+      throw new AuthorizationError('Store staff can only access prescriptions for orders routed to their store.');
+    }
+    const allowedStatuses = ['APPROVED', 'PACKED', 'HANDED_OVER', 'DELIVERED'];
+    if (!allowedStatuses.includes(order.status)) {
+      throw new AuthorizationError('Prescription cannot be accessed by store staff until verified and approved by a pharmacist.');
+    }
+    return;
+  }
+
+  if (session.role === 'OPS') {
+    return;
+  }
+
+  throw new AuthorizationError('Access denied: role not permitted to view prescriptions.');
+}
+
+

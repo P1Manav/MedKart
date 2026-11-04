@@ -1,7 +1,7 @@
 // src/app/api/prescription/[id]/image/route.ts
 import { NextResponse } from 'next/server';
 import db from '@/lib/db';
-import { requireAuth, assertCustomerAccess } from '@/lib/auth/rbac';
+import { requireAuth, assertPrescriptionAccess, AuthorizationError } from '@/lib/auth/rbac';
 import { decryptPrescription } from '@/lib/crypto/encrypt';
 import { logPrescriptionAccess } from '@/lib/crypto/access-log';
 
@@ -19,6 +19,8 @@ export async function GET(
       select: {
         id: true,
         customerId: true,
+        storeId: true,
+        status: true,
         prescriptionEncrypted: true,
         prescriptionIv: true,
         prescriptionAuthTag: true,
@@ -30,8 +32,12 @@ export async function GET(
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
-    // Object-level authorization check: customer can only see own order
-    assertCustomerAccess(session, order.customerId);
+    // Object-level authorization check per role and state
+    assertPrescriptionAccess(session, {
+      customerId: order.customerId,
+      storeId: order.storeId,
+      status: order.status,
+    });
 
     if (!order.prescriptionEncrypted || !order.prescriptionIv || !order.prescriptionAuthTag) {
       return NextResponse.json({ error: 'No prescription attached to this order' }, { status: 404 });
@@ -66,7 +72,10 @@ export async function GET(
       },
     });
   } catch (err: unknown) {
+    if (err instanceof AuthorizationError) {
+      return NextResponse.json({ error: err.message }, { status: 403 });
+    }
     const msg = err instanceof Error ? err.message : 'Unauthorized';
-    return NextResponse.json({ error: msg }, { status: 403 });
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

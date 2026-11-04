@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import db from '@/lib/db';
-import { requireAuth } from '@/lib/auth/rbac';
+import { requireAuth, AuthorizationError } from '@/lib/auth/rbac';
 import { assertDispatchable, type DispatchableOrder } from '@/domain/assert-dispatchable';
 import { validateTransition } from '@/domain/order-state';
 
@@ -28,6 +28,12 @@ const LineActionSchema = z.discriminatedUnion('action', [
     editNote: z.string().optional(),
   }),
   z.object({
+    action: z.literal('ADD_LINE'),
+    productId: z.string().min(1, 'Product selection is required'),
+    quantity: z.number().int().positive('Quantity must be greater than 0'),
+    editNote: z.string().optional(),
+  }),
+  z.object({
     action: z.literal('REJECT_LINE'),
     lineId: z.string(),
     reason: z.string().min(3, 'Mandatory rejection reason required'),
@@ -50,7 +56,14 @@ export async function POST(
   props: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await requireAuth(['PHARMACIST', 'OPS']);
+    const session = await requireAuth(['PHARMACIST']);
+    if (!session.pharmacistRegNo || !session.pharmacistRegNo.trim()) {
+      throw new AuthorizationError(
+        'A registered pharmacist license registration number is required to verify prescriptions.'
+      );
+    }
+    const pharmacistRegNo = session.pharmacistRegNo.trim();
+
     const { id: orderId } = await props.params;
     const body = await req.json();
 
@@ -77,16 +90,28 @@ export async function POST(
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
+    if (order.status !== 'SUBMITTED') {
+      return NextResponse.json(
+        { error: `Cannot verify order: order is in status ${order.status}. Only SUBMITTED orders can be reviewed.` },
+        { status: 409 }
+      );
+    }
+
     const rules = await db.scheduleRule.findMany();
     const ruleMap = new Map(rules.map((r) => [r.schedule, r]));
-
-    const pharmacistRegNo = session.pharmacistRegNo || 'WB-PHARM-2024-4102';
 
     // ── 1. APPROVE SINGLE LINE ─────────────────────────────
     if (payload.action === 'APPROVE_LINE') {
       const line = order.lines.find((l) => l.id === payload.lineId);
       if (!line) {
         return NextResponse.json({ error: 'Line not found' }, { status: 404 });
+      }
+
+      if (!line.productId) {
+        return NextResponse.json(
+          { error: 'Cannot approve an unread or unmatched line. Please edit or match to a product first.' },
+          { status: 409 }
+        );
       }
 
       // Block approval if item cannot be sold online
@@ -123,6 +148,11 @@ export async function POST(
 
     // ── 2. EDIT SINGLE LINE ───────────────────────────────
     if (payload.action === 'EDIT_LINE') {
+      const line = order.lines.find((l) => l.id === payload.lineId);
+      if (!line) {
+        return NextResponse.json({ error: 'Line not found' }, { status: 404 });
+      }
+
       const product = await db.product.findUnique({ where: { id: payload.productId } });
       if (!product) {
         return NextResponse.json({ error: 'Selected product not found' }, { status: 404 });
@@ -153,8 +183,46 @@ export async function POST(
       return NextResponse.json({ success: true, message: 'Line updated and approved.' });
     }
 
-    // ── 3. REJECT SINGLE LINE ─────────────────────────────
+    // ── 3. ADD SINGLE LINE (MANUAL ENTRY) ─────────────────
+    if (payload.action === 'ADD_LINE') {
+      const product = await db.product.findUnique({ where: { id: payload.productId } });
+      if (!product) {
+        return NextResponse.json({ error: 'Selected product not found' }, { status: 404 });
+      }
+
+      // Block adding an item that cannot be sold online
+      const productRule = ruleMap.get(product.schedule);
+      if (productRule && !productRule.canSellOnline) {
+        return NextResponse.json(
+          { error: "This item cannot be ordered online. Please visit your nearest store." },
+          { status: 409 }
+        );
+      }
+
+      await db.orderLine.create({
+        data: {
+          orderId: order.id,
+          productId: product.id,
+          quantity: payload.quantity,
+          unitPrice: product.price,
+          rawText: `[Manual Entry] ${product.name}`,
+          lineStatus: 'EDITED_APPROVED',
+          pharmacistId: session.userId,
+          pharmacistRegNo,
+          editNote: payload.editNote || 'Manually added by pharmacist during verification',
+        },
+      });
+
+      return NextResponse.json({ success: true, message: 'Line added and approved by pharmacist.' });
+    }
+
+    // ── 4. REJECT SINGLE LINE ─────────────────────────────
     if (payload.action === 'REJECT_LINE') {
+      const line = order.lines.find((l) => l.id === payload.lineId);
+      if (!line) {
+        return NextResponse.json({ error: 'Line not found' }, { status: 404 });
+      }
+
       await db.orderLine.update({
         where: { id: payload.lineId },
         data: {
@@ -168,36 +236,52 @@ export async function POST(
       return NextResponse.json({ success: true, message: 'Line rejected with reason.' });
     }
 
-    // ── 4. REQUEST RE-UPLOAD ──────────────────────────────
+    // ── 5. REQUEST RE-UPLOAD ──────────────────────────────
     if (payload.action === 'REQUEST_REUPLOAD') {
       validateTransition(order.status as 'SUBMITTED', 'ON_HOLD');
 
-      await db.order.update({
-        where: { id: order.id },
-        data: {
-          status: 'ON_HOLD',
-          prescriptionStatus: 'RE_UPLOAD_ASKED',
-          auditEvents: {
-            create: {
-              actorId: session.userId,
-              actorRole: session.role,
-              fromStatus: order.status,
-              toStatus: 'ON_HOLD',
-              reason: payload.reason,
-            },
+      const res = await db.$transaction(async (tx) => {
+        const updated = await tx.order.updateMany({
+          where: { id: order.id, status: 'SUBMITTED' },
+          data: {
+            status: 'ON_HOLD',
+            prescriptionStatus: 'RE_UPLOAD_ASKED',
           },
-        },
+        });
+
+        if (updated.count === 0) {
+          return { conflict: true };
+        }
+
+        await tx.orderAudit.create({
+          data: {
+            orderId: order.id,
+            actorId: session.userId,
+            actorRole: session.role,
+            fromStatus: order.status,
+            toStatus: 'ON_HOLD',
+            reason: payload.reason,
+          },
+        });
+
+        await tx.notification.create({
+          data: {
+            userId: order.customerId,
+            title: `Action needed: Prescription re-upload for ${order.displayId}`,
+            body: payload.reason,
+            link: `/customer/order/${order.id}`,
+          },
+        });
+
+        return { conflict: false };
       });
 
-      // Also create an in-app notification & mock message for patient
-      await db.notification.create({
-        data: {
-          userId: order.customerId,
-          title: `Action needed: Prescription re-upload for ${order.displayId}`,
-          body: payload.reason,
-          link: `/customer/order/${order.id}`,
-        },
-      });
+      if (res.conflict) {
+        return NextResponse.json(
+          { error: 'Order was already decided by another pharmacist or is no longer pending verification.' },
+          { status: 409 }
+        );
+      }
 
       return NextResponse.json({
         success: true,
@@ -205,30 +289,47 @@ export async function POST(
       });
     }
 
-    // ── 5. REJECT FULL ORDER ──────────────────────────────
+    // ── 6. REJECT FULL ORDER ──────────────────────────────
     if (payload.action === 'REJECT_ORDER') {
       validateTransition(order.status as 'SUBMITTED', 'REJECTED');
 
-      await db.order.update({
-        where: { id: order.id },
-        data: {
-          status: 'REJECTED',
-          auditEvents: {
-            create: {
-              actorId: session.userId,
-              actorRole: session.role,
-              fromStatus: order.status,
-              toStatus: 'REJECTED',
-              reason: payload.reason,
-            },
+      const res = await db.$transaction(async (tx) => {
+        const updated = await tx.order.updateMany({
+          where: { id: order.id, status: 'SUBMITTED' },
+          data: {
+            status: 'REJECTED',
           },
-        },
+        });
+
+        if (updated.count === 0) {
+          return { conflict: true };
+        }
+
+        await tx.orderAudit.create({
+          data: {
+            orderId: order.id,
+            actorId: session.userId,
+            actorRole: session.role,
+            fromStatus: order.status,
+            toStatus: 'REJECTED',
+            reason: payload.reason,
+          },
+        });
+
+        return { conflict: false };
       });
+
+      if (res.conflict) {
+        return NextResponse.json(
+          { error: 'Order was already decided by another pharmacist or is no longer pending verification.' },
+          { status: 409 }
+        );
+      }
 
       return NextResponse.json({ success: true, message: 'Order rejected.' });
     }
 
-    // ── 6. APPROVE FULL ORDER ─────────────────────────────
+    // ── 7. APPROVE FULL ORDER ─────────────────────────────
     if (payload.action === 'APPROVE_ORDER') {
       validateTransition(order.status as 'SUBMITTED', 'APPROVED');
 
@@ -278,23 +379,39 @@ export async function POST(
         );
       }
 
-      // Transition order to APPROVED
-      await db.order.update({
-        where: { id: order.id },
-        data: {
-          status: 'APPROVED',
-          prescriptionStatus: 'APPROVED',
-          auditEvents: {
-            create: {
-              actorId: session.userId,
-              actorRole: session.role,
-              fromStatus: order.status,
-              toStatus: 'APPROVED',
-              reason: `Approved by Pharmacist ${session.name} (Reg: ${pharmacistRegNo})`,
-            },
+      const res = await db.$transaction(async (tx) => {
+        const updated = await tx.order.updateMany({
+          where: { id: order.id, status: 'SUBMITTED' },
+          data: {
+            status: 'APPROVED',
+            prescriptionStatus: 'APPROVED',
           },
-        },
+        });
+
+        if (updated.count === 0) {
+          return { conflict: true };
+        }
+
+        await tx.orderAudit.create({
+          data: {
+            orderId: order.id,
+            actorId: session.userId,
+            actorRole: session.role,
+            fromStatus: order.status,
+            toStatus: 'APPROVED',
+            reason: `Approved by Pharmacist ${session.name} (Reg: ${pharmacistRegNo})`,
+          },
+        });
+
+        return { conflict: false };
       });
+
+      if (res.conflict) {
+        return NextResponse.json(
+          { error: 'Order was already decided by another pharmacist or is no longer pending verification.' },
+          { status: 409 }
+        );
+      }
 
       return NextResponse.json({
         success: true,
@@ -304,8 +421,12 @@ export async function POST(
 
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
   } catch (err: unknown) {
+    if (err instanceof AuthorizationError) {
+      return NextResponse.json({ error: err.message }, { status: 403 });
+    }
     const msg = err instanceof Error ? err.message : 'Server error';
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
+
 
