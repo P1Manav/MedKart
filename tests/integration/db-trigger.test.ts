@@ -16,6 +16,82 @@ describe('Postgres Dispatch Guard Trigger (Real PostgreSQL Integration)', () => 
       );
     }
     prisma = new PrismaClient();
+
+    // Defensive setup: ensure ScheduleRules exist
+    const ruleCount = await prisma.scheduleRule.count();
+    if (ruleCount === 0) {
+      await prisma.scheduleRule.createMany({
+        data: [
+          { schedule: 'OTC', canSellOnline: true, requiresPrescription: false, requiresPharmacistApproval: false, requiresRegisterEntry: false },
+          { schedule: 'H', canSellOnline: true, requiresPrescription: true, requiresPharmacistApproval: true, requiresRegisterEntry: false },
+          { schedule: 'H1', canSellOnline: true, requiresPrescription: true, requiresPharmacistApproval: true, requiresRegisterEntry: true },
+          { schedule: 'X', canSellOnline: false, requiresPrescription: true, requiresPharmacistApproval: true, requiresRegisterEntry: false },
+          { schedule: 'NARCOTIC', canSellOnline: false, requiresPrescription: true, requiresPharmacistApproval: true, requiresRegisterEntry: false },
+        ],
+        skipDuplicates: true,
+      });
+    }
+
+    // Ensure store exists
+    const storeCount = await prisma.store.count();
+    if (storeCount === 0) {
+      await prisma.store.create({
+        data: {
+          id: 'store_saltlake',
+          name: 'MedKart Salt Lake',
+          lat: 22.5867,
+          lng: 88.4172,
+          pincode: '700064',
+          address: 'Sector 1, Salt Lake City',
+        },
+      });
+    }
+
+    // Ensure products exist for schedules H, H1, X
+    const hProd = await prisma.product.findFirst({ where: { schedule: 'H' } });
+    if (!hProd) {
+      await prisma.product.create({
+        data: {
+          id: 'prod_metformin_500',
+          name: 'Metformin 500 mg',
+          strength: '500 mg',
+          form: 'Tablet',
+          packSize: 'Strip of 15',
+          price: 30,
+          schedule: 'H',
+        },
+      });
+    }
+
+    const h1Prod = await prisma.product.findFirst({ where: { schedule: 'H1' } });
+    if (!h1Prod) {
+      await prisma.product.create({
+        data: {
+          id: 'prod_alprazolam_05',
+          name: 'Alprazolam 0.5 mg',
+          strength: '0.5 mg',
+          form: 'Tablet',
+          packSize: 'Strip of 10',
+          price: 45,
+          schedule: 'H1',
+        },
+      });
+    }
+
+    const xProd = await prisma.product.findFirst({ where: { schedule: 'X' } });
+    if (!xProd) {
+      await prisma.product.create({
+        data: {
+          id: 'prod_methylphenidate_10',
+          name: 'Methylphenidate 10 mg',
+          strength: '10 mg',
+          form: 'Tablet',
+          packSize: 'Strip of 10',
+          price: 120,
+          schedule: 'X',
+        },
+      });
+    }
   });
 
   afterAll(async () => {
