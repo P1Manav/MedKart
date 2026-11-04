@@ -1,15 +1,34 @@
 // src/app/ops/dashboard/page.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { ErrorState } from '@/components/ui/error-state';
+
+interface OpsMetrics {
+  activeStoresCount: number;
+  totalOrdersCount: number;
+  statusCounts: Record<string, number>;
+  ordersByStore: Array<{
+    storeId: string;
+    storeName: string;
+    address: string | null;
+    orderCount: number;
+  }>;
+  medianVerificationMinutes: number | null;
+  rejectionRate: number | null;
+  rejectionBreakdown: Array<{ reason: string; count: number }>;
+  blockedItemsCount: number;
+}
 
 export default function OpsDashboardPage() {
   const [runningReminders, setRunningReminders] = useState(false);
   const [remindersResult, setRemindersResult] = useState<string | null>(null);
+  const [metrics, setMetrics] = useState<OpsMetrics | null>(null);
+  const [metricsLoading, setMetricsLoading] = useState(true);
 
   // Stock CSV import state
   const [csvFile, setCsvFile] = useState<File | null>(null);
@@ -21,6 +40,24 @@ export default function OpsDashboardPage() {
     errors?: Array<{ rowNumber: number; error: string }>;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const loadMetrics = async () => {
+    try {
+      const res = await fetch('/api/ops/metrics');
+      const data = await res.json();
+      if (data.success && data.metrics) {
+        setMetrics(data.metrics);
+      }
+    } catch {
+      // Non-fatal if metrics fails
+    } finally {
+      setMetricsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadMetrics();
+  }, []);
 
   const handleRunReminders = async () => {
     setRunningReminders(true);
@@ -102,60 +139,85 @@ export default function OpsDashboardPage() {
 
       {error && <ErrorState message={error} />}
 
-      {/* ─── METRIC CARDS ───────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="p-4">
-          <span className="text-xs uppercase font-bold text-stone-500">Active Stores</span>
-          <p className="text-3xl font-extrabold text-stone-900 mt-1">46</p>
-          <span className="text-xs text-stone-500">Kolkata & Howrah Network</span>
-        </Card>
+      {/* ─── DYNAMIC METRIC CARDS ───────────────────────────── */}
+      {metricsLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Skeleton className="h-28 w-full" />
+          <Skeleton className="h-28 w-full" />
+          <Skeleton className="h-28 w-full" />
+          <Skeleton className="h-28 w-full" />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card className="p-4">
+            <span className="text-xs uppercase font-bold text-stone-500">Active Stores</span>
+            <p className="text-3xl font-extrabold text-stone-900 mt-1">
+              {metrics?.activeStoresCount ?? 0}
+            </p>
+            <span className="text-xs text-stone-500">Kolkata & Howrah Network</span>
+          </Card>
 
-        <Card className="p-4">
-          <span className="text-xs uppercase font-bold text-stone-500">Median Verification SLA</span>
-          <p className="text-3xl font-extrabold text-teal-700 mt-1">8.4 min</p>
-          <span className="text-xs text-emerald-700 font-semibold">Target: &lt;15 mins</span>
-        </Card>
+          <Card className="p-4">
+            <span className="text-xs uppercase font-bold text-stone-500">Median Verification SLA</span>
+            <p className="text-3xl font-extrabold text-teal-700 mt-1">
+              {metrics?.medianVerificationMinutes !== null && metrics?.medianVerificationMinutes !== undefined
+                ? `${metrics.medianVerificationMinutes} min`
+                : 'N/A'}
+            </p>
+            <span className="text-xs text-stone-500 font-medium">
+              {metrics?.medianVerificationMinutes !== null && metrics?.medianVerificationMinutes !== undefined
+                ? 'Computed from audit log'
+                : 'No audit records yet'}
+            </span>
+          </Card>
 
-        <Card className="p-4">
-          <span className="text-xs uppercase font-bold text-stone-500">Rejection Rate</span>
-          <p className="text-3xl font-extrabold text-stone-900 mt-1">3.2%</p>
-          <span className="text-xs text-stone-500">Top reason: Blurry doctor stamp</span>
-        </Card>
+          <Card className="p-4">
+            <span className="text-xs uppercase font-bold text-stone-500">Rejection Rate</span>
+            <p className="text-3xl font-extrabold text-stone-900 mt-1">
+              {metrics?.rejectionRate !== null && metrics?.rejectionRate !== undefined
+                ? `${metrics.rejectionRate}%`
+                : 'N/A'}
+            </p>
+            <span className="text-xs text-stone-500">
+              {metrics?.rejectionBreakdown && metrics.rejectionBreakdown.length > 0
+                ? `Top: ${metrics.rejectionBreakdown[0].reason}`
+                : 'No rejections recorded'}
+            </span>
+          </Card>
 
-        <Card className="p-4">
-          <span className="text-xs uppercase font-bold text-stone-500">Online Blocked Rate</span>
-          <p className="text-3xl font-extrabold text-red-700 mt-1">100%</p>
-          <span className="text-xs text-stone-500">0 Schedule X items leaked</span>
-        </Card>
-      </div>
+          <Card className="p-4">
+            <span className="text-xs uppercase font-bold text-stone-500">Online Blocked Items</span>
+            <p className="text-3xl font-extrabold text-red-700 mt-1">
+              {metrics?.blockedItemsCount ?? 0}
+            </p>
+            <span className="text-xs text-stone-500">Schedule X / Unsellable lines blocked</span>
+          </Card>
+        </div>
+      )}
 
       {/* ─── ORDERS BY STORE BREAKDOWN ──────────────────────── */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base font-semibold text-stone-900">
-            Fulfillment Volume by Kolkata Store (Today)
+            Fulfillment Volume by Store (Database Counts)
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
-            <div className="p-3 bg-stone-50 rounded border border-stone-200">
-              <span className="font-bold text-stone-800 block">Salt Lake (Sector 1)</span>
-              <span className="text-2xl font-extrabold text-teal-900 block mt-1">18 orders</span>
-              <span className="text-xs text-stone-500">100% inventory coverage</span>
+          {metrics && metrics.ordersByStore && metrics.ordersByStore.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+              {metrics.ordersByStore.map((store) => (
+                <div key={store.storeId} className="p-3 bg-stone-50 rounded border border-stone-200">
+                  <span className="font-bold text-stone-800 block">{store.storeName}</span>
+                  <span className="text-2xl font-extrabold text-teal-900 block mt-1">
+                    {store.orderCount} order{store.orderCount === 1 ? '' : 's'}
+                  </span>
+                  <span className="text-xs text-stone-500">{store.address || 'Kolkata'}</span>
+                </div>
+              ))}
             </div>
-
-            <div className="p-3 bg-stone-50 rounded border border-stone-200">
-              <span className="font-bold text-stone-800 block">Behala Chowrasta</span>
-              <span className="text-2xl font-extrabold text-teal-900 block mt-1">14 orders</span>
-              <span className="text-xs text-amber-700 font-medium">Telmisartan 40mg stockout (rerouted)</span>
-            </div>
-
-            <div className="p-3 bg-stone-50 rounded border border-stone-200">
-              <span className="font-bold text-stone-800 block">Howrah Maidan</span>
-              <span className="text-2xl font-extrabold text-teal-900 block mt-1">12 orders</span>
-              <span className="text-xs text-stone-500">100% inventory coverage</span>
-            </div>
-          </div>
+          ) : (
+            <p className="text-sm text-stone-500 py-4 text-center">No store fulfillment data available.</p>
+          )}
         </CardContent>
       </Card>
 
