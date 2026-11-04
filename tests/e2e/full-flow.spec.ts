@@ -12,7 +12,10 @@ async function loginAs(page: Page, phone: string) {
   // The login screen displays demo code and auto-fills OTP input
   const otpInput = page.locator('input[maxLength="6"]');
   await expect(otpInput).toBeVisible();
-  await page.click('button[type="submit"]');
+
+  const submitBtn = page.locator('button[type="submit"]');
+  await expect(submitBtn).toBeEnabled();
+  await submitBtn.click();
 
   // Wait until navigation away from /login completes
   await page.waitForURL((url) => !url.pathname.includes('/login'));
@@ -41,86 +44,103 @@ test.describe('MedKart Full Pharmacy Lifecycle Flow', () => {
     ).toBeVisible();
   });
 
-  test('customer uploads prescription, pharmacist verifies, and store packs approved order', async ({ page }) => {
-    // Ensure desktop viewport for side-by-side pharmacist verification
-    await page.setViewportSize({ width: 1280, height: 800 });
+  test('customer uploads prescription, pharmacist verifies, and store packs approved order', async ({ browser }) => {
+    // 1. Log in as Customer (Debasish Ghosh) in isolated customer context
+    const customerContext = await browser.newContext();
+    const customerPage = await customerContext.newPage();
 
-    // 1. Log in as Customer (Debasish Ghosh)
-    await loginAs(page, '9830011111');
-    await page.goto('/customer/home');
-    await expect(page.locator('text=Reorder My Monthly Medicines')).toBeVisible();
-    await page.click('text=Reorder My Monthly Medicines');
+    await loginAs(customerPage, '9830011111');
+    await customerPage.goto('/customer/home');
+    await expect(customerPage.locator('text=Reorder My Monthly Medicines')).toBeVisible();
+    await customerPage.click('text=Reorder My Monthly Medicines');
 
     // 2. Order builder page
-    await expect(page).toHaveURL(/.*\/customer\/order\/new/);
+    await expect(customerPage).toHaveURL(/.*\/customer\/order\/new/);
 
     // Search catalogue and add Metformin to basket
-    await page.click('button:has-text("Search Catalogue & Cart")');
-    const searchInput = page.locator('input[placeholder*="Search medicines"]');
+    await customerPage.click('button:has-text("Search Catalogue & Cart")');
+    const searchInput = customerPage.locator('input[placeholder*="Search medicines"]');
     await searchInput.fill('Metformin');
-    const addToOrderBtn = page.locator('button:has-text("Add to Order +")').first();
+    const addToOrderBtn = customerPage.locator('button:has-text("Add to Order +")').first();
     await expect(addToOrderBtn).toBeVisible();
     await addToOrderBtn.click();
 
     // Switch back to prescription upload
-    await page.click('button:has-text("Prescription Upload")');
+    await customerPage.click('button:has-text("Prescription Upload")');
 
     // Pick synthetic sample prescription (Clean Metformin)
-    await page.click('text=Sample 1: Metformin 500 mg (Clean)');
-    await expect(page.locator('text=Image ready for secure encrypted upload')).toBeVisible();
+    await customerPage.click('text=Sample 1: Metformin 500 mg (Clean)');
+    await expect(customerPage.locator('text=Image ready for secure encrypted upload')).toBeVisible();
 
     // Submit order for pharmacist verification
-    await page.click('button:has-text("Submit Order")');
+    await customerPage.click('button:has-text("Submit Order")');
 
-    // Wait for redirect to tracking page: /customer/order/[orderId]
-    await expect(page).toHaveURL(/.*\/customer\/order\/[a-zA-Z0-9_-]+/);
-    const trackingUrl = page.url();
+    // Wait for redirect to tracking page: /customer/order/[orderId] (must NOT remain on /new)
+    await customerPage.waitForURL(
+      (url) => url.pathname.startsWith('/customer/order/') && !url.pathname.endsWith('/new'),
+      { timeout: 20000 }
+    );
+    const trackingUrl = customerPage.url();
     const orderIdMatch = trackingUrl.match(/\/customer\/order\/([^/?#]+)/);
     expect(orderIdMatch).toBeTruthy();
     const orderId = orderIdMatch![1];
 
-    // Read the generated displayId (e.g. RX-2611-XXXXX)
-    await expect(page.locator('h1')).toBeVisible();
-    const displayId = (await page.locator('h1').textContent())?.trim();
+    // Read the generated displayId (e.g. RX-5022X)
+    await expect(customerPage.locator('h1')).toBeVisible();
+    const displayId = (await customerPage.locator('h1').textContent())?.trim();
     expect(displayId).toBeTruthy();
+    expect(displayId).toMatch(/^RX-\d+/);
 
-    // 3. Pharmacist logs in and verifies prescription
-    await loginAs(page, '9830044444'); // Pharmacist Sunita Banerjee
-    await page.goto(`/pharmacist/review/${orderId}`);
-    await expect(page.locator('text=Prescription Date (Rx Issue Date)')).toBeVisible();
+    await customerContext.close();
+
+    // 3. Pharmacist logs in on a fresh desktop context and verifies prescription
+    const pharmacistContext = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const pharmacistPage = await pharmacistContext.newPage();
+
+    await loginAs(pharmacistPage, '9830044444'); // Pharmacist Sunita Banerjee
+    await pharmacistPage.goto(`/pharmacist/review/${orderId}`);
+    await expect(pharmacistPage.locator('text=Prescription Date (Rx Issue Date)')).toBeVisible();
 
     // Verify and confirm prescription date checkbox
-    const confirmCheckbox = page
+    const confirmCheckbox = pharmacistPage
       .locator('label')
       .filter({ hasText: 'within validity window' })
       .locator('input[type="checkbox"]');
     await confirmCheckbox.check();
 
     // Click Approve Order
-    await page.click('button:has-text("Approved")');
+    await pharmacistPage.click('button:has-text("Approved")');
     await expect(
-      page.locator('text=Order approved and ready for store packing!')
+      pharmacistPage.locator('text=Order approved and ready for store packing!')
     ).toBeVisible();
 
-    // 4. Store fulfillment: Store Staff / Ops logs in and packs the approved order
-    await loginAs(page, '9830099999'); // Ops
-    await page.goto('/store/orders');
-    await expect(page.locator('text=Store Fulfillment & Packing Desk')).toBeVisible();
+    await pharmacistContext.close();
+
+    // 4. Store fulfillment: Store Staff / Ops logs in on fresh context and packs the approved order
+    const storeContext = await browser.newContext();
+    const storePage = await storeContext.newPage();
+
+    await loginAs(storePage, '9830099999'); // Ops
+    await storePage.goto('/store/orders');
+    await expect(storePage.locator('text=Store Fulfillment & Packing Desk')).toBeVisible();
 
     // Locate the "Pack Order" button for the approved order using its displayId
-    const approvedOrderCard = page.locator('div.divide-y > div').filter({ hasText: displayId! });
+    const approvedOrderCard = storePage.locator('div.divide-y > div').filter({ hasText: displayId! });
     await expect(approvedOrderCard).toBeVisible();
     const packOrderBtn = approvedOrderCard.locator('button:has-text("Pack Order (Enter Invoice)")');
     await packOrderBtn.click();
 
     // Enter GST invoice number in modal
-    const invoiceInput = page.locator('input[placeholder*="INV-"]');
+    const invoiceInput = storePage.locator('input[placeholder*="INV-"]');
     await invoiceInput.fill('INV-SL-2026-9011');
 
     // Confirm & Mark Packed
-    await page.click('button:has-text("Confirm & Mark Packed")');
+    await storePage.click('button:has-text("Confirm & Mark Packed")');
 
     // Verify order is packed!
-    await expect(page.locator('text=successfully packed!')).toBeVisible();
+    await expect(storePage.locator('text=successfully packed!')).toBeVisible();
+
+    await storeContext.close();
   });
 });
+
