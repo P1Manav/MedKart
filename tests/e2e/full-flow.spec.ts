@@ -86,7 +86,7 @@ test.describe('MedKart Full Pharmacy Lifecycle Flow', () => {
     // 3. Pharmacist logs in and verifies prescription
     await loginAs(page, '9830044444'); // Pharmacist Sunita Banerjee
     await page.goto(`/pharmacist/review/${orderId}`);
-    await expect(page.locator('text=Prescription Document')).toBeVisible();
+    await expect(page.locator('text=Prescription Date (Rx Issue Date)')).toBeVisible();
 
     // Verify and confirm prescription date checkbox
     const confirmCheckbox = page
