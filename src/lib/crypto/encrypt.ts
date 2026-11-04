@@ -8,9 +8,7 @@ const AUTH_TAG_LENGTH = 16; // 128-bit auth tag
 function getEncryptionKey(): Buffer {
   const hexKey = process.env.PRESCRIPTION_ENC_KEY;
   if (!hexKey) {
-    // Fallback for tests/dev if env var is missing
-    const fallback = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
-    return Buffer.from(fallback, 'hex');
+    throw new Error('PRESCRIPTION_ENC_KEY is not configured. A 64-character hex key (32 bytes AES-256) is required.');
   }
   const key = Buffer.from(hexKey, 'hex');
   if (key.length !== 32) {

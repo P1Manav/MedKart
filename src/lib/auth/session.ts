@@ -16,7 +16,10 @@ export interface SessionPayload {
 }
 
 function getSecretKey(): Uint8Array {
-  const secret = process.env.SESSION_SECRET || 'medkart-dev-session-secret-fallback-minimum-32-chars';
+  const secret = process.env.SESSION_SECRET;
+  if (!secret || secret.length < 32) {
+    throw new Error('SESSION_SECRET is not configured or is shorter than 32 characters. Cannot sign session token.');
+  }
   return new TextEncoder().encode(secret);
 }
 

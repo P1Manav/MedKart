@@ -26,7 +26,7 @@ export default function OpsDashboardPage() {
     setRunningReminders(true);
     setRemindersResult(null);
     try {
-      const res = await fetch('/api/cron/reminders', { method: 'POST' });
+      const res = await fetch('/api/ops/run-reminders', { method: 'POST' });
       const data = await res.json();
       if (data.success) {
         setRemindersResult(
