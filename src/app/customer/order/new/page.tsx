@@ -1,17 +1,45 @@
 // src/app/customer/order/new/page.tsx
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { ErrorState } from '@/components/ui/error-state';
+
+interface CatalogueItem {
+  id: string;
+  name: string;
+  strength: string;
+  form: string;
+  packSize: string;
+  price: number;
+  schedule: string;
+  canSellOnline: boolean;
+  requiresPrescription: boolean;
+}
+
+interface CartItem {
+  product: CatalogueItem;
+  quantity: number;
+}
 
 export default function OrderBuilderPage() {
   const t = useTranslations('customer');
   const tc = useTranslations('common');
   const router = useRouter();
+
+  // Mode: Upload Prescription vs Search Catalogue
+  const [activeTab, setActiveTab] = useState<'PRESCRIPTION' | 'CATALOGUE'>('PRESCRIPTION');
+
+  // Catalogue & Cart state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<CatalogueItem[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [blockedNotice, setBlockedNotice] = useState<string | null>(null);
 
   // Upload state
   const [file, setFile] = useState<File | null>(null);
@@ -26,6 +54,54 @@ export default function OrderBuilderPage() {
   // Submission state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Debounced search catalogue
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (!searchQuery.trim()) {
+        setSearchResults([]);
+        return;
+      }
+      setSearching(true);
+      try {
+        const res = await fetch(`/api/products?q=${encodeURIComponent(searchQuery.trim())}`);
+        const data = await res.json();
+        if (data.products) {
+          setSearchResults(data.products);
+        }
+      } catch {
+        // search non-fatal
+      } finally {
+        setSearching(false);
+      }
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const handleAddToCart = (product: CatalogueItem) => {
+    if (!product.canSellOnline) {
+      setBlockedNotice(`"${product.name} ${product.strength}" (${product.schedule}): This item cannot be ordered online. Please visit your nearest store.`);
+      return;
+    }
+    setBlockedNotice(null);
+    setCart((prev) => {
+      const existing = prev.find((i) => i.product.id === product.id);
+      if (existing) {
+        return prev.map((i) =>
+          i.product.id === product.id ? { ...i, quantity: i.quantity + 1 } : i
+        );
+      }
+      return [...prev, { product, quantity: 1 }];
+    });
+  };
+
+  const handleUpdateQuantity = (productId: string, delta: number) => {
+    setCart((prev) =>
+      prev
+        .map((i) => (i.product.id === productId ? { ...i, quantity: i.quantity + delta } : i))
+        .filter((i) => i.quantity > 0)
+    );
+  };
 
   // Client-side resize to <=1600px JPEG per spec §4
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -44,7 +120,6 @@ export default function OrderBuilderPage() {
         const maxDim = 1600;
         let w = img.width;
         let h = img.height;
-
         if (w > maxDim || h > maxDim) {
           if (w > h) {
             h = Math.round((h * maxDim) / w);
@@ -122,6 +197,18 @@ export default function OrderBuilderPage() {
       formData.append('addressLng', '88.4190');
       formData.append('paymentMethod', paymentMethod);
 
+      if (cart.length > 0) {
+        formData.append(
+          'cartItems',
+          JSON.stringify(
+            cart.map((c) => ({
+              productId: c.product.id,
+              quantity: c.quantity,
+            }))
+          )
+        );
+      }
+
       const res = await fetch('/api/orders', {
         method: 'POST',
         body: formData,
@@ -141,6 +228,8 @@ export default function OrderBuilderPage() {
     }
   };
 
+  const cartTotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+
   return (
     <div className="max-w-3xl mx-auto py-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -154,12 +243,170 @@ export default function OrderBuilderPage() {
 
       {error && <ErrorState message={error} />}
 
+      {/* Mode Switcher: Prescription vs Catalogue Search */}
+      <div className="flex border-b border-stone-200">
+        <button
+          type="button"
+          onClick={() => setActiveTab('PRESCRIPTION')}
+          className={`py-3 px-6 text-sm font-bold border-b-2 transition-colors cursor-pointer ${
+            activeTab === 'PRESCRIPTION'
+              ? 'border-teal-700 text-teal-800'
+              : 'border-transparent text-stone-500 hover:text-stone-800'
+          }`}
+        >
+          📷 1. Prescription Upload (Fast Reorder)
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('CATALOGUE')}
+          className={`py-3 px-6 text-sm font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-2 ${
+            activeTab === 'CATALOGUE'
+              ? 'border-teal-700 text-teal-800'
+              : 'border-transparent text-stone-500 hover:text-stone-800'
+          }`}
+        >
+          🔍 2. Search Catalogue & Cart
+          {cart.length > 0 && (
+            <span className="bg-teal-700 text-white text-[11px] px-2 py-0.5 rounded-full font-bold">
+              {cart.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* ─── CATALOGUE SEARCH & CART TAB ──────────────────── */}
+      {activeTab === 'CATALOGUE' && (
+        <Card className="border-teal-200 bg-stone-50/50">
+          <CardHeader>
+            <CardTitle className="text-base font-bold text-stone-900 flex items-center justify-between">
+              <span>Search Store Catalogue</span>
+              <span className="text-xs text-stone-500 font-normal">Schedule X / Narcotics are strictly blocked</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {blockedNotice && (
+              <div className="p-3 bg-red-50 border border-red-300 rounded-md text-xs text-red-900 font-medium">
+                ⛔ {blockedNotice}
+              </div>
+            )}
+
+            <div className="relative">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search medicines by name or salt (e.g. Metformin, Telmisartan, Paracetamol, Diazepam)..."
+                className="w-full p-3 border border-stone-300 rounded-md text-sm focus:ring-2 focus:ring-teal-600 focus:outline-none bg-white"
+              />
+              {searching && (
+                <span className="absolute right-3 top-3 text-xs text-stone-400">Searching...</span>
+              )}
+            </div>
+
+            {/* Search Results */}
+            {searchResults.length > 0 && (
+              <div className="border border-stone-200 rounded-md divide-y divide-stone-100 max-h-60 overflow-y-auto bg-white">
+                {searchResults.map((item) => (
+                  <div key={item.id} className="p-3 flex items-center justify-between gap-3 text-xs">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <strong className="text-stone-900 text-sm">{item.name}</strong>
+                        <span className="text-stone-500">{item.strength}</span>
+                        <Badge
+                          variant={
+                            item.schedule === 'OTC'
+                              ? 'otc'
+                              : item.schedule === 'H'
+                              ? 'h'
+                              : item.schedule === 'H1'
+                              ? 'h1'
+                              : 'blocked'
+                          }
+                        >
+                          {item.schedule}
+                        </Badge>
+                      </div>
+                      <p className="text-stone-500 mt-0.5">
+                        {item.packSize} • ₹{item.price}
+                        {!item.canSellOnline && (
+                          <span className="text-red-700 font-semibold ml-2">Blocked Online (Schedule {item.schedule})</span>
+                        )}
+                      </p>
+                    </div>
+
+                    <Button
+                      size="sm"
+                      variant={item.canSellOnline ? 'primary' : 'outline'}
+                      onClick={() => handleAddToCart(item)}
+                      className={!item.canSellOnline ? 'text-red-700 border-red-300 hover:bg-red-50' : ''}
+                    >
+                      {item.canSellOnline ? 'Add to Order +' : 'Blocked Online ⛔'}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Selected Cart Items */}
+            {cart.length > 0 && (
+              <div className="bg-white p-4 rounded-lg border border-teal-200 space-y-3">
+                <span className="text-xs font-bold uppercase tracking-wider text-teal-900 block">
+                  Your Reorder Basket ({cart.length} item{cart.length === 1 ? '' : 's'}):
+                </span>
+                <div className="divide-y divide-stone-100">
+                  {cart.map((item) => (
+                    <div key={item.product.id} className="py-2 flex items-center justify-between text-xs">
+                      <div>
+                        <span className="font-semibold text-stone-900">
+                          {item.product.name} {item.product.strength}
+                        </span>
+                        <Badge variant="h" className="ml-2 text-[10px]">
+                          {item.product.schedule}
+                        </Badge>
+                        <p className="text-stone-500">₹{item.product.price} each</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateQuantity(item.product.id, -1)}
+                          className="w-6 h-6 border rounded flex items-center justify-center font-bold hover:bg-stone-50 cursor-pointer"
+                        >
+                          -
+                        </button>
+                        <span className="font-mono font-bold w-5 text-center">{item.quantity}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateQuantity(item.product.id, 1)}
+                          className="w-6 h-6 border rounded flex items-center justify-center font-bold hover:bg-stone-50 cursor-pointer"
+                        >
+                          +
+                        </button>
+                        <span className="font-bold text-teal-900 ml-2">
+                          ₹{item.product.price * item.quantity}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="pt-2 border-t border-stone-200 flex justify-between font-bold text-sm text-stone-900">
+                  <span>Estimated Total:</span>
+                  <span className="text-teal-900">₹{cartTotal}</span>
+                </div>
+                <p className="text-[11px] text-amber-800 bg-amber-50 p-2 rounded border border-amber-200">
+                  * Prescription upload below is mandatory for Schedule H / H1 medicines in your basket.
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* ─── 1. PRESCRIPTION UPLOAD & PREVIEW ──────────────── */}
         <Card>
           <CardHeader>
             <CardTitle className="text-lg font-bold text-stone-900 flex items-center justify-between">
-              <span>1. {t('uploadPrescription')}</span>
+              <span>{t('uploadPrescription')}</span>
               <span className="text-xs font-normal text-teal-800 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
                 AES-256-GCM Encrypted
               </span>

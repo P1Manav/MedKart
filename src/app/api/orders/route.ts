@@ -202,6 +202,37 @@ export async function POST(req: Request) {
     const paymentMethod = (formData.get('paymentMethod') as 'MOCK_UPI' | 'COD') || 'COD';
     const file = formData.get('prescription') as File | null;
 
+    // Check optional pre-selected cart items
+    const cartItemsRaw = formData.get('cartItems') as string | null;
+    let cartItems: Array<{ productId: string; quantity: number }> = [];
+    if (cartItemsRaw) {
+      try {
+        cartItems = JSON.parse(cartItemsRaw);
+      } catch {
+        cartItems = [];
+      }
+    }
+
+    // Defence-in-depth: Validate cart items against schedule rules
+    if (cartItems.length > 0) {
+      const cartProductIds = cartItems.map((c) => c.productId);
+      const cartProducts = await db.product.findMany({
+        where: { id: { in: cartProductIds } },
+      });
+      const allScheduleRules = await db.scheduleRule.findMany();
+      const rulesMap = new Map(allScheduleRules.map((r) => [r.schedule, r]));
+
+      for (const p of cartProducts) {
+        const rule = rulesMap.get(p.schedule);
+        if (rule && !rule.canSellOnline) {
+          return NextResponse.json(
+            { error: 'This item cannot be ordered online. Please visit your nearest store.' },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
     if (!file) {
       return NextResponse.json({ error: 'Prescription image is required.' }, { status: 400 });
     }
@@ -272,12 +303,24 @@ export async function POST(req: Request) {
       };
     });
 
-    const requirements: OrderItemRequirement[] = matchedLines
+    const cartProductDetails = cartItems.length > 0
+      ? await db.product.findMany({ where: { id: { in: cartItems.map((c) => c.productId) } } })
+      : [];
+    const cartProdMap = new Map(cartProductDetails.map((p) => [p.id, p]));
+
+    const cartRequirements: OrderItemRequirement[] = cartItems.map((c) => ({
+      productId: c.productId,
+      quantity: c.quantity || 1,
+    }));
+
+    const aiRequirements: OrderItemRequirement[] = matchedLines
       .filter((l) => l.match.matchedProduct && !l.match.isBlockedNotSoldOnline)
       .map((l) => ({
         productId: l.match.matchedProduct!.id,
         quantity: l.aiLine.quantity || 1,
       }));
+
+    const requirements = [...cartRequirements, ...aiRequirements];
 
     let provisionalStoreId: string | null = null;
     if (requirements.length > 0 && storeItems.length > 0) {
@@ -292,6 +335,44 @@ export async function POST(req: Request) {
         provisionalStoreId = storeItems[0]?.storeId || null;
       }
     }
+
+    const cartLinesToCreate = cartItems.map((c) => {
+      const prod = cartProdMap.get(c.productId);
+      return {
+        productId: c.productId,
+        rawText: `Cart Selection: ${prod?.name || ''} ${prod?.strength || ''}`.trim(),
+        aiDrugName: prod?.name || null,
+        aiStrength: prod?.strength || null,
+        aiConfidence: 1.0,
+        aiAlternatives: {} as unknown as object,
+        lineStatus: 'PENDING' as const,
+        quantity: c.quantity || 1,
+        unitPrice: prod?.price || null,
+        needsReview: prod?.schedule !== 'OTC',
+        rejectReason: null,
+      };
+    });
+
+    const aiLinesToCreate = matchedLines.map((item) => ({
+      productId: item.match.matchedProduct?.id,
+      rawText: item.aiLine.raw_text,
+      aiDrugName: item.aiLine.drug_name,
+      aiStrength: item.aiLine.strength,
+      aiConfidence: item.aiLine.confidence,
+      aiAlternatives: {
+        topCandidates: item.match.topCandidates,
+        matcherScore: item.match.confidence,
+      } as unknown as object,
+      lineStatus: item.match.isBlockedNotSoldOnline
+        ? ('BLOCKED_NOT_SOLD_ONLINE' as const)
+        : ('PENDING' as const),
+      quantity: item.aiLine.quantity || 1,
+      unitPrice: item.match.matchedProduct?.price || null,
+      needsReview: item.match.needsReview,
+      rejectReason: item.match.reason || null,
+    }));
+
+    const allLinesToCreate = cartLinesToCreate.length > 0 ? cartLinesToCreate : aiLinesToCreate;
 
     // Create Order and Lines in DB
     const order = await db.order.create({
@@ -320,24 +401,7 @@ export async function POST(req: Request) {
         aiLatencyMs: aiResult.latencyMs,
         manualEntryNeeded: aiResult.manualEntryNeeded,
         lines: {
-          create: matchedLines.map((item) => ({
-            productId: item.match.matchedProduct?.id,
-            rawText: item.aiLine.raw_text,
-            aiDrugName: item.aiLine.drug_name,
-            aiStrength: item.aiLine.strength,
-            aiConfidence: item.aiLine.confidence, // Model's own per-line confidence per P0-3
-            aiAlternatives: {
-              topCandidates: item.match.topCandidates,
-              matcherScore: item.match.confidence,
-            } as unknown as object,
-            lineStatus: item.match.isBlockedNotSoldOnline
-              ? 'BLOCKED_NOT_SOLD_ONLINE'
-              : 'PENDING',
-            quantity: item.aiLine.quantity || 1,
-            unitPrice: item.match.matchedProduct?.price || null,
-            needsReview: item.match.needsReview,
-            rejectReason: item.match.reason || null,
-          })),
+          create: allLinesToCreate,
         },
         auditEvents: {
           create: {
