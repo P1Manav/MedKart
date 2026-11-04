@@ -15,6 +15,24 @@ async function loginAs(page: Page, phone: string) {
     data: { phone, otp },
   });
   expect(verRes.ok()).toBe(true);
+
+  // Explicitly sync session cookie into the browser page context
+  const setCookieHeader = verRes.headers()['set-cookie'];
+  if (setCookieHeader) {
+    const match = setCookieHeader.match(/medkart_session=([^;]+)/);
+    if (match) {
+      await page.context().addCookies([
+        {
+          name: 'medkart_session',
+          value: match[1],
+          domain: 'localhost',
+          path: '/',
+          httpOnly: true,
+          sameSite: 'Lax',
+        },
+      ]);
+    }
+  }
 }
 
 test.describe('MedKart Full Pharmacy Lifecycle Flow', () => {

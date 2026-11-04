@@ -36,6 +36,7 @@ export const safeOrderSelect = {
     select: {
       id: true,
       name: true,
+      phone: true,
     },
   },
   familyProfile: {
