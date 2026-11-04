@@ -61,3 +61,4 @@ export function decryptPrescription(
   const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
   return decrypted;
 }
+

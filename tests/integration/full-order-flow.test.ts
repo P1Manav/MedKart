@@ -76,3 +76,4 @@ describe('End-to-End Order Verification & Dispatch Lifecycle', () => {
     expect(validateTransition('HANDED_OVER', 'DELIVERED')).toBe('DELIVERED');
   });
 });
+

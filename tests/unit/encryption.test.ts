@@ -56,3 +56,4 @@ describe('AES-256-GCM Prescription Encryption & Tamper Detection', () => {
     }).toThrow();
   });
 });
+

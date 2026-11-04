@@ -32,3 +32,4 @@ export async function logPrescriptionAccess(params: LogAccessParams): Promise<vo
     },
   });
 }
+

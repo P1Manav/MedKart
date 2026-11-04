@@ -115,3 +115,4 @@ describe('Store Routing & Haversine Distance', () => {
     expect(decision.missingLines[0].alternativeStoreId).toBe('store_B');
   });
 });
+

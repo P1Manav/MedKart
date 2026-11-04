@@ -68,3 +68,4 @@ export const Timeline: React.FC<TimelineProps> = ({ steps, className = '' }) => 
     </div>
   );
 };
+

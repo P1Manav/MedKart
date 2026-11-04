@@ -85,3 +85,4 @@ describe('Schedule Gating Rules', () => {
     expect(msg).not.toMatch(/dangerous|poison|illegal|narcotic/i);
   });
 });
+

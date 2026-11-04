@@ -75,3 +75,4 @@ The endpoint is authenticated via `Authorization: Bearer <CRON_SECRET>`.
 6. Use zoom/pan controls to inspect doctor signature and date, approve lines, and click **"Approve Order & Route"**.
 7. Switch to **"Store Staff"** &rarr; see order in **Store Packing Desk** &rarr; enter invoice number &rarr; mark packed.
 8. Verify that trying to pack an unapproved Schedule H order is strictly blocked with a visible error.
+

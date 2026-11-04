@@ -34,3 +34,4 @@ export interface ReadResult {
 export interface PrescriptionReader {
   read(imageBytes: Buffer | Uint8Array, mimeType?: string): Promise<ReadResult>;
 }
+

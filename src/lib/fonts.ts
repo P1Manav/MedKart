@@ -20,3 +20,4 @@ export const notoSansBengali = Noto_Sans_Bengali({
   variable: '--font-noto-bengali',
   display: 'swap',
 });
+

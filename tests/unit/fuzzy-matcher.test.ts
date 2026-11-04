@@ -139,3 +139,4 @@ describe('Fuzzy Catalogue Matcher', () => {
     expect(normalizeForm('Capsules')).toBe('capsule');
   });
 });
+

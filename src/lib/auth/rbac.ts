@@ -76,3 +76,4 @@ export function assertStoreStaffAccess(
     throw new AuthorizationError('Access denied: store staff privileges required.');
   }
 }
+

@@ -174,3 +174,4 @@ export async function verifyOtp(phone: string, submittedOtp: string): Promise<Ve
     },
   };
 }
+
