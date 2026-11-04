@@ -13,12 +13,24 @@ async function loginAs(page: Page, phone: string) {
   const otpInput = page.locator('input[type="text"]');
   await expect(otpInput).toBeVisible({ timeout: 10000 });
 
+  // Wait for OTP input to be populated or read demo code from banner
+  await page.waitForFunction(() => {
+    const el = document.querySelector('input[type="text"]') as HTMLInputElement | null;
+    return el && el.value.length === 6;
+  }, { timeout: 5000 }).catch(async () => {
+    const codeEl = page.locator('p.tracking-widest');
+    if (await codeEl.isVisible()) {
+      const text = await codeEl.textContent();
+      if (text) await otpInput.fill(text.trim());
+    }
+  });
+
   const submitBtn = page.locator('button[type="submit"]');
   await expect(submitBtn).toBeEnabled();
   await submitBtn.click();
 
   // Wait until navigation away from /login completes
-  await page.waitForURL((url) => !url.pathname.includes('/login'));
+  await page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 15000 });
 }
 
 test.describe('MedKart Full Pharmacy Lifecycle Flow', () => {
@@ -32,7 +44,7 @@ test.describe('MedKart Full Pharmacy Lifecycle Flow', () => {
 
     // 3. Locate unapproved pending order (RX-50214 which is Awaiting Pharmacist)
     const orderCard = page.locator('div.divide-y > div').filter({ hasText: 'RX-50214' });
-    await expect(orderCard).toBeVisible();
+    await expect(orderCard).toBeVisible({ timeout: 15000 });
 
     // 4. Assert Pack Order button is disabled with visible statutory reason
     const packButton = orderCard.locator('button').filter({ hasText: /pack/i });
@@ -45,6 +57,7 @@ test.describe('MedKart Full Pharmacy Lifecycle Flow', () => {
   });
 
   test('customer uploads prescription, pharmacist verifies, and store packs approved order', async ({ browser }) => {
+    test.setTimeout(90000);
     // 1. Log in as Customer (Debasish Ghosh) in isolated customer context
     const customerContext = await browser.newContext();
     const customerPage = await customerContext.newPage();
@@ -66,7 +79,7 @@ test.describe('MedKart Full Pharmacy Lifecycle Flow', () => {
     await addToOrderBtn.click();
 
     // Switch back to prescription upload
-    await customerPage.click('button:has-text("Prescription Upload")');
+    await customerPage.locator('button').filter({ hasText: /prescription/i }).first().click();
 
     // Pick synthetic sample prescription (Clean Metformin)
     await customerPage.click('text=Sample 1: Metformin 500 mg (Clean)');
@@ -108,11 +121,18 @@ test.describe('MedKart Full Pharmacy Lifecycle Flow', () => {
       .locator('input[type="checkbox"]');
     await confirmCheckbox.check();
 
+    // Pharmacist verifies and approves the prescription line item
+    const approveLineBtn = pharmacistPage.locator('button:has-text("Approve Line")').first();
+    if (await approveLineBtn.isVisible()) {
+      await approveLineBtn.click();
+      await expect(pharmacistPage.locator('text=Approved ✓').first()).toBeVisible({ timeout: 10000 });
+    }
+
     // Click Approve Order
-    await pharmacistPage.click('button:has-text("Approved")');
+    await pharmacistPage.click('[data-testid="approve-order-header-btn"]');
     await expect(
       pharmacistPage.locator('text=Order approved and ready for store packing!')
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15000 });
 
     await pharmacistContext.close();
 

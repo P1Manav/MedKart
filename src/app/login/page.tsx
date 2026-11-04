@@ -12,23 +12,28 @@ export default function LoginPage() {
   const t = useTranslations('auth');
   const tCommon = useTranslations('common');
   const router = useRouter();
-  const [phone, setPhone] = useState('9830011111');
+  const [phone, setPhone] = useState('');
   const [step, setStep] = useState<'PHONE' | 'OTP'>('PHONE');
   const [otp, setOtp] = useState('');
   const [mockOtp, setMockOtp] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleRequestOtp = async (e?: React.FormEvent) => {
+  const handleRequestOtp = async (phoneToUse?: string, e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setError(null);
     setLoading(true);
+
+    const targetPhone = phoneToUse || phone;
+    if (phoneToUse && phoneToUse !== phone) {
+      setPhone(phoneToUse);
+    }
 
     try {
       const res = await fetch('/api/auth/otp/request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify({ phone: targetPhone }),
       });
       const data = await res.json();
 
@@ -112,13 +117,13 @@ export default function LoginPage() {
                 {mockOtp}
               </p>
               <p className="text-xs text-amber-700 mt-1">
-                Valid for 5 minutes (max 5 attempts).
+                Valid for 5 minutes (max 5 attempts). Test mode: simulated SMS delivery.
               </p>
             </div>
           )}
 
           {step === 'PHONE' ? (
-            <form onSubmit={handleRequestOtp} className="space-y-4">
+            <form onSubmit={(e) => handleRequestOtp(undefined, e)} className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-stone-700 mb-1">
                   {t('enterPhone')}
@@ -134,6 +139,9 @@ export default function LoginPage() {
                     required
                   />
                 </div>
+                <p className="text-xs text-stone-500 mt-1">
+                  New customers are automatically registered on first mobile verification.
+                </p>
               </div>
 
               <Button type="submit" isLoading={loading} className="w-full text-lg">
@@ -142,7 +150,7 @@ export default function LoginPage() {
 
               <div className="pt-4 border-t border-stone-200">
                 <span className="text-xs font-semibold uppercase tracking-wider text-stone-500 block mb-2">
-                  Sample Test Accounts:
+                  Sample Test Accounts (Click to Fill):
                 </span>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <button
@@ -164,6 +172,26 @@ export default function LoginPage() {
                   >
                     <span className="font-semibold block text-stone-900">Sunita Banerjee</span>
                     <span className="text-teal-700">Pharmacist (Regd.)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPhone('9830066661');
+                    }}
+                    className="p-2 border rounded hover:bg-stone-50 text-left cursor-pointer"
+                  >
+                    <span className="font-semibold block text-stone-900">Store Staff</span>
+                    <span className="text-stone-500">Salt Lake Store</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPhone('9830099999');
+                    }}
+                    className="p-2 border rounded hover:bg-stone-50 text-left cursor-pointer"
+                  >
+                    <span className="font-semibold block text-stone-900">Central Ops</span>
+                    <span className="text-stone-500">Administrator</span>
                   </button>
                 </div>
               </div>
@@ -215,4 +243,3 @@ export default function LoginPage() {
     </div>
   );
 }
-

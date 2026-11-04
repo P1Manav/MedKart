@@ -9,13 +9,19 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 
+interface FamilyProfile {
+  id: string;
+  name: string;
+  relationship: string;
+}
+
 interface OrderItem {
   id: string;
   displayId: string;
   status: string;
   createdAt: string;
   store?: { name: string } | null;
-  familyProfile?: { name: string; relationship: string } | null;
+  familyProfile?: { id: string; name: string; relationship: string } | null;
   lines: Array<{
     id: string;
     quantity: number;
@@ -30,85 +36,257 @@ interface CustomerMessage {
   createdAt: string;
 }
 
+interface RefillItem {
+  id: string;
+  productName: string;
+  packSize: string;
+  schedule: string;
+  runOutDate: string;
+  forProfile: string;
+  daysOfSupply: number;
+}
+
 export default function CustomerHomePage() {
   const t = useTranslations('customer');
+  const [userName, setUserName] = useState<string>('');
+  const [familyProfiles, setFamilyProfiles] = useState<FamilyProfile[]>([]);
   const [orders, setOrders] = useState<OrderItem[]>([]);
   const [messages, setMessages] = useState<CustomerMessage[]>([]);
+  const [refills, setRefills] = useState<RefillItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedProfile, setSelectedProfile] = useState<'ALL' | 'MOTHER' | 'SELF'>('ALL');
+  const [selectedProfileId, setSelectedProfileId] = useState<'ALL' | 'SELF' | string>('ALL');
+
+  // Add family member modal state
+  const [showAddFamily, setShowAddFamily] = useState(false);
+  const [newMemberName, setNewMemberName] = useState('');
+  const [newMemberRel, setNewMemberRel] = useState('mother');
+  const [addingMember, setAddingMember] = useState(false);
+
+  // Edit name state
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editNameVal, setEditNameVal] = useState('');
+
+  const loadData = async () => {
+    try {
+      const [meRes, ordersRes, messagesRes, refillsRes] = await Promise.all([
+        fetch('/api/auth/me'),
+        fetch('/api/orders'),
+        fetch('/api/customer/messages'),
+        fetch('/api/customer/refills'),
+      ]);
+
+      const meData = await meRes.json();
+      if (meData.authenticated && meData.user) {
+        setUserName(meData.user.name || 'Customer');
+        setEditNameVal(meData.user.name || '');
+        if (Array.isArray(meData.user.familyProfiles)) {
+          setFamilyProfiles(meData.user.familyProfiles);
+        }
+      }
+
+      const ordersData = await ordersRes.json();
+      if (ordersData.orders) {
+        setOrders(ordersData.orders);
+      }
+
+      const messagesData = await messagesRes.json();
+      if (messagesData.messages) {
+        setMessages(messagesData.messages);
+      }
+
+      const refillsData = await refillsRes.json();
+      if (refillsData.refills) {
+        setRefills(refillsData.refills);
+      }
+    } catch (e) {
+      console.error('Failed to load customer data', e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    async function loadData() {
-      try {
-        const [ordersRes, messagesRes] = await Promise.all([
-          fetch('/api/orders'),
-          fetch('/api/customer/messages'),
-        ]);
-        const ordersData = await ordersRes.json();
-        if (ordersData.orders) {
-          setOrders(ordersData.orders);
-        }
-        const messagesData = await messagesRes.json();
-        if (messagesData.messages) {
-          setMessages(messagesData.messages);
-        }
-      } catch (e) {
-        console.error('Failed to load customer data', e);
-      } finally {
-        setLoading(false);
-      }
-    }
     loadData();
   }, []);
 
+  const handleSaveName = async () => {
+    if (!editNameVal.trim()) return;
+    try {
+      const res = await fetch('/api/auth/me', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: editNameVal.trim() }),
+      });
+      if (res.ok) {
+        setUserName(editNameVal.trim());
+        setIsEditingName(false);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleAddFamilyMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMemberName.trim()) return;
+    setAddingMember(true);
+    try {
+      const res = await fetch('/api/customer/family-profiles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newMemberName.trim(),
+          relationship: newMemberRel.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.profile) {
+        setFamilyProfiles((prev) => [...prev, data.profile]);
+        setSelectedProfileId(data.profile.id);
+        setNewMemberName('');
+        setShowAddFamily(false);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setAddingMember(false);
+    }
+  };
+
   const filteredOrders = orders.filter((ord) => {
-    if (selectedProfile === 'MOTHER') return ord.familyProfile?.relationship === 'mother';
-    if (selectedProfile === 'SELF') return !ord.familyProfile || ord.familyProfile.relationship === 'self';
-    return true;
+    if (selectedProfileId === 'ALL') return true;
+    if (selectedProfileId === 'SELF') return !ord.familyProfile;
+    return ord.familyProfile?.id === selectedProfileId;
   });
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 py-4">
       {/* ─── 1. FAMILY PROFILE SWITCHER ───────────────────────── */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-lg border border-stone-200">
-        <div>
-          <span className="text-xs uppercase font-semibold text-stone-500 block">
-            {t('profileFor')}
-          </span>
-          <h2 className="text-lg font-bold text-stone-900">Debasish Ghosh’s Family</h2>
+      <div className="bg-white p-4 rounded-lg border border-stone-200 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <span className="text-xs uppercase font-semibold text-stone-500 block">
+              {t('profileFor')}
+            </span>
+            {isEditingName ? (
+              <div className="flex items-center gap-2 mt-1">
+                <input
+                  type="text"
+                  value={editNameVal}
+                  onChange={(e) => setEditNameVal(e.target.value)}
+                  className="px-2 py-1 text-sm border rounded font-bold text-stone-900 focus:outline-teal-600"
+                  autoFocus
+                />
+                <Button size="sm" onClick={handleSaveName}>
+                  Save
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => setIsEditingName(false)}
+                  className="text-xs text-stone-500 hover:underline"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold text-stone-900">
+                  {userName ? `${userName}’s Family` : 'My Family'}
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setIsEditingName(true)}
+                  className="text-xs text-teal-700 hover:underline cursor-pointer"
+                >
+                  (Edit Name)
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setSelectedProfileId('ALL')}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md border transition-colors cursor-pointer ${
+                selectedProfileId === 'ALL'
+                  ? 'bg-teal-700 text-white border-teal-700'
+                  : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
+              }`}
+            >
+              All Members
+            </button>
+            <button
+              onClick={() => setSelectedProfileId('SELF')}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md border transition-colors cursor-pointer ${
+                selectedProfileId === 'SELF'
+                  ? 'bg-teal-700 text-white border-teal-700'
+                  : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
+              }`}
+            >
+              {t('self')}
+            </button>
+            {familyProfiles.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => setSelectedProfileId(p.id)}
+                className={`px-3 py-1.5 text-sm font-medium rounded-md border transition-colors cursor-pointer capitalize ${
+                  selectedProfileId === p.id
+                    ? 'bg-teal-700 text-white border-teal-700'
+                    : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
+                }`}
+              >
+                {p.relationship}: {p.name}
+              </button>
+            ))}
+
+            <button
+              type="button"
+              onClick={() => setShowAddFamily(!showAddFamily)}
+              className="px-2.5 py-1.5 text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-md cursor-pointer"
+            >
+              + Add Family Member
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setSelectedProfile('ALL')}
-            className={`px-3 py-1.5 text-sm font-medium rounded-md border transition-colors ${
-              selectedProfile === 'ALL'
-                ? 'bg-teal-700 text-white border-teal-700'
-                : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
-            }`}
+
+        {/* Inline Add Family Member Form */}
+        {showAddFamily && (
+          <form
+            onSubmit={handleAddFamilyMember}
+            className="pt-3 border-t border-stone-100 flex flex-wrap items-center gap-3 bg-stone-50 p-3 rounded-md"
           >
-            All Members
-          </button>
-          <button
-            onClick={() => setSelectedProfile('MOTHER')}
-            className={`px-3 py-1.5 text-sm font-medium rounded-md border transition-colors ${
-              selectedProfile === 'MOTHER'
-                ? 'bg-teal-700 text-white border-teal-700'
-                : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
-            }`}
-          >
-            {t('mother')} (Anjali Ghosh)
-          </button>
-          <button
-            onClick={() => setSelectedProfile('SELF')}
-            className={`px-3 py-1.5 text-sm font-medium rounded-md border transition-colors ${
-              selectedProfile === 'SELF'
-                ? 'bg-teal-700 text-white border-teal-700'
-                : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
-            }`}
-          >
-            {t('self')}
-          </button>
-        </div>
+            <span className="text-xs font-bold text-stone-700">Add Member:</span>
+            <input
+              type="text"
+              placeholder="Full Name (e.g. Ramesh Ghosh)"
+              value={newMemberName}
+              onChange={(e) => setNewMemberName(e.target.value)}
+              className="text-xs px-2.5 py-1.5 border rounded bg-white font-medium"
+              required
+            />
+            <select
+              value={newMemberRel}
+              onChange={(e) => setNewMemberRel(e.target.value)}
+              className="text-xs px-2 py-1.5 border rounded bg-white font-medium"
+            >
+              <option value="mother">Mother</option>
+              <option value="father">Father</option>
+              <option value="spouse">Spouse</option>
+              <option value="child">Child</option>
+              <option value="other">Other</option>
+            </select>
+            <Button size="sm" type="submit" isLoading={addingMember}>
+              Save Member
+            </Button>
+            <button
+              type="button"
+              onClick={() => setShowAddFamily(false)}
+              className="text-xs text-stone-500 hover:underline"
+            >
+              Cancel
+            </button>
+          </form>
+        )}
       </div>
 
       {/* ─── 2. VERY LARGE PROMINENT REORDER BUTTON (SPEC REQUIREMENT) ─── */}
@@ -153,31 +331,53 @@ export default function CustomerHomePage() {
               Calculated based on your prescribed dosage to make sure you never run out.
             </p>
           </div>
-          <Badge variant="caution">Refill Alert</Badge>
+          <Badge variant={refills.length > 0 ? 'caution' : 'default'}>
+            {refills.length > 0 ? 'Refill Alert' : 'Active Monitoring'}
+          </Badge>
         </CardHeader>
         <CardContent>
-          <div className="border border-amber-200 bg-amber-50/60 rounded-lg p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-base text-stone-900">
-                  Metformin 500 mg (Strip of 15)
-                </span>
-                <Badge variant="h">Schedule H</Badge>
-              </div>
-              <p className="text-sm text-stone-600">
-                For: <span className="font-semibold text-stone-800">Mother (Anjali Ghosh)</span> • Prescribed dose: 2 tablets/day
-              </p>
-              <p className="text-xs text-amber-900 font-medium">
-                Supply runs low in approximately 5 days.
+          {refills.length > 0 ? (
+            <div className="space-y-3">
+              {refills.map((refill) => (
+                <div
+                  key={refill.id}
+                  className="border border-amber-200 bg-amber-50/60 rounded-lg p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-base text-stone-900">
+                        {refill.productName} ({refill.packSize})
+                      </span>
+                      <Badge variant={refill.schedule === 'H' ? 'h' : 'default'}>
+                        Schedule {refill.schedule}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-stone-600">
+                      For: <span className="font-semibold text-stone-800 capitalize">{refill.forProfile}</span>
+                    </p>
+                    <p className="text-xs text-amber-900 font-medium">
+                      Estimated run-out date: {new Date(refill.runOutDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </p>
+                  </div>
+
+                  <Link href="/customer/order/new">
+                    <Button size="sm" className="whitespace-nowrap">
+                      {t('oneTapReorder')}
+                    </Button>
+                  </Link>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="border border-stone-200 bg-stone-50/70 rounded-lg p-4 text-xs text-stone-600 space-y-1">
+              <span className="font-semibold text-stone-800 block text-sm">
+                No immediate refill alerts pending.
+              </span>
+              <p>
+                When your prescriptions are approved and dispensed, we automatically calculate remaining supply based on doctor-prescribed dosage and alert you 5 days before your medicine runs out.
               </p>
             </div>
-
-            <Link href="/customer/order/new">
-              <Button size="sm" className="whitespace-nowrap">
-                {t('oneTapReorder')}
-              </Button>
-            </Link>
-          </div>
+          )}
         </CardContent>
       </Card>
 
@@ -196,7 +396,7 @@ export default function CustomerHomePage() {
             </div>
           ) : filteredOrders.length === 0 ? (
             <div className="text-center py-8 text-stone-500">
-              No orders found for this profile. Tap &quot;Reorder My Medicines&quot; above to place your monthly refill.
+              No orders found for this profile. Tap &quot;Reorder My Monthly Medicines&quot; above to place your refill.
             </div>
           ) : (
             <div className="divide-y divide-stone-100">
@@ -217,7 +417,7 @@ export default function CustomerHomePage() {
                         <span className="font-bold text-stone-900 text-base">{ord.displayId}</span>
                         <Badge variant={statusBadgeVariant}>{ord.status.replace('_', ' ')}</Badge>
                         {ord.familyProfile && (
-                          <span className="text-xs text-stone-500">
+                          <span className="text-xs text-stone-500 capitalize">
                             (For {ord.familyProfile.relationship}: {ord.familyProfile.name})
                           </span>
                         )}
@@ -311,4 +511,3 @@ export default function CustomerHomePage() {
     </div>
   );
 }
-

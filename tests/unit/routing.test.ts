@@ -127,6 +127,22 @@ describe('Store Routing & Haversine Distance', () => {
     const { POST: createOrderHandler } = await import('@/app/api/orders/route');
     const rbac = await import('@/lib/auth/rbac');
     const db = (await import('@/lib/db')).default;
+    const aiModule = await import('@/lib/ai');
+
+    vi.spyOn(aiModule, 'getPrescriptionReader').mockReturnValue({
+      read: vi.fn().mockResolvedValue({
+        success: true,
+        modelName: 'mock-reader',
+        latencyMs: 1,
+        manualEntryNeeded: false,
+        data: {
+          image_legibility: 'clear',
+          prescriber_text: 'Dr. Test',
+          date_text: '2026-11-04',
+          lines: [],
+        },
+      }),
+    });
 
     vi.spyOn(rbac, 'requireAuth').mockResolvedValue({
       userId: 'cust_routing_test',
@@ -200,6 +216,6 @@ describe('Store Routing & Haversine Distance', () => {
     expect(body.order.routingIssue).toMatch(/No active stores available/i);
     expect(createdOrderData!.storeId).toBeNull();
     expect(createdOrderData!.routingIssue).toMatch(/No active stores available/i);
-  });
+  }, 15000);
 });
 

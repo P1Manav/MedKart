@@ -22,13 +22,15 @@ export const MockUpiModal: React.FC<MockUpiModalProps> = ({
   onFailure,
   onClose,
 }) => {
-  const [vpa, setVpa] = useState('debasish@okhdfcbank');
+  const [vpa, setVpa] = useState('customer@upi');
+  const [vpaError, setVpaError] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState(299); // 5 minutes countdown
   const [simulating, setSimulating] = useState(false);
 
   useEffect(() => {
     if (!isOpen) {
       setTimeLeft(299);
+      setVpaError(null);
       return;
     }
     const timer = setInterval(() => {
@@ -43,11 +45,26 @@ export const MockUpiModal: React.FC<MockUpiModalProps> = ({
   const seconds = timeLeft % 60;
   const timeFormatted = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 
+  const validateVpa = (val: string): boolean => {
+    const trimmed = val.trim();
+    if (!trimmed) {
+      setVpaError('Please enter a UPI ID (e.g. yourname@bank)');
+      return false;
+    }
+    if (!trimmed.includes('@') || trimmed.startsWith('@') || trimmed.endsWith('@')) {
+      setVpaError('Invalid UPI ID format. Must include username and bank handle (e.g. mobile@upi)');
+      return false;
+    }
+    setVpaError(null);
+    return true;
+  };
+
   const handleSimulateSuccess = () => {
+    if (!validateVpa(vpa)) return;
     setSimulating(true);
     setTimeout(() => {
       setSimulating(false);
-      onSuccess(vpa);
+      onSuccess(vpa.trim());
     }, 600);
   };
 
@@ -65,7 +82,7 @@ export const MockUpiModal: React.FC<MockUpiModalProps> = ({
         {/* Test Mode Banner */}
         <div className="bg-amber-500 text-amber-950 text-xs font-bold py-1.5 px-4 text-center tracking-wide uppercase flex items-center justify-center gap-2 border-b border-amber-600">
           <span className="w-2 h-2 rounded-full bg-amber-900 animate-ping"></span>
-          TEST MODE — Mock UPI Payment (No Real Money Charged)
+          Simulated UPI Sandbox Gateway (NPCI Test Spec)
         </div>
 
         <CardHeader className="bg-stone-50 border-b border-stone-200 pb-4">
@@ -78,7 +95,7 @@ export const MockUpiModal: React.FC<MockUpiModalProps> = ({
                 <CardTitle className="text-base font-bold text-stone-900">
                   Unified Payments Interface
                 </CardTitle>
-                <p className="text-xs text-stone-500">NPCI Mock Sandbox Gateway</p>
+                <p className="text-xs text-stone-500">Fast & Secure Bank Transfer</p>
               </div>
             </div>
             <div className="text-right">
@@ -132,39 +149,62 @@ export const MockUpiModal: React.FC<MockUpiModalProps> = ({
               </div>
             </div>
             <p className="text-xs text-stone-600">
-              Scan with any simulated UPI App (GPay, PhonePe, Paytm)
+              Scan with any UPI App (Google Pay, PhonePe, Paytm, BHIM)
             </p>
             <div className="text-xs text-stone-400">
-              Expires in: <span className="font-mono font-bold text-amber-700">{timeFormatted}</span>
+              Session expires in: <span className="font-mono font-bold text-amber-700">{timeFormatted}</span>
             </div>
           </div>
 
           {/* VPA Input & Quick Fill */}
           <div className="space-y-2">
             <label className="block text-xs font-semibold text-stone-700">
-              Or Pay via Virtual Payment Address (VPA) / UPI ID:
+              Or Enter Virtual Payment Address (VPA) / UPI ID:
             </label>
             <div className="relative">
               <input
                 type="text"
                 value={vpa}
-                onChange={(e) => setVpa(e.target.value)}
-                placeholder="username@bank"
+                onChange={(e) => {
+                  setVpa(e.target.value);
+                  if (vpaError) setVpaError(null);
+                }}
+                placeholder="e.g. mobile@upi or username@bank"
                 className="w-full px-3 py-2 border border-stone-300 rounded-md text-sm font-mono focus:ring-2 focus:ring-teal-600 focus:outline-none"
               />
             </div>
-            <div className="flex flex-wrap gap-1.5 pt-1">
-              <span className="text-[11px] text-stone-500 self-center">Demo VPAs:</span>
+            {vpaError && (
+              <p className="text-xs text-red-600 font-medium">{vpaError}</p>
+            )}
+
+            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+              <span className="text-[11px] text-stone-500">Quick Test VPAs:</span>
               <button
                 type="button"
-                onClick={() => setVpa('debasish@okhdfcbank')}
+                onClick={() => {
+                  setVpa('customer@upi');
+                  setVpaError(null);
+                }}
+                className="text-[11px] bg-stone-100 hover:bg-stone-200 text-stone-700 px-2 py-0.5 rounded border border-stone-300 cursor-pointer"
+              >
+                customer@upi
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setVpa('debasish@okhdfcbank');
+                  setVpaError(null);
+                }}
                 className="text-[11px] bg-stone-100 hover:bg-stone-200 text-stone-700 px-2 py-0.5 rounded border border-stone-300 cursor-pointer"
               >
                 debasish@okhdfcbank
               </button>
               <button
                 type="button"
-                onClick={() => setVpa('anjali.ghosh@icici')}
+                onClick={() => {
+                  setVpa('anjali.ghosh@icici');
+                  setVpaError(null);
+                }}
                 className="text-[11px] bg-stone-100 hover:bg-stone-200 text-stone-700 px-2 py-0.5 rounded border border-stone-300 cursor-pointer"
               >
                 anjali.ghosh@icici
@@ -180,28 +220,26 @@ export const MockUpiModal: React.FC<MockUpiModalProps> = ({
               onClick={handleSimulateSuccess}
               isLoading={simulating}
             >
-              <span>✓ Simulate Instant Payment Success</span>
+              Verify & Authorize UPI Payment ₹{amount.toFixed(2)}
             </Button>
 
-            <div className="grid grid-cols-2 gap-2">
-              <Button
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <button
                 type="button"
-                variant="outline"
-                className="border-red-300 text-red-700 hover:bg-red-50 text-xs"
                 onClick={handleSimulateFailure}
                 disabled={simulating}
+                className="text-xs text-red-700 hover:bg-red-50 p-1.5 rounded border border-red-200 font-medium transition-colors cursor-pointer"
               >
-                Simulate Bank Decline
-              </Button>
-              <Button
+                Simulate Bank Decline (Test Error)
+              </button>
+              <button
                 type="button"
-                variant="ghost"
-                className="text-stone-600 hover:bg-stone-100 text-xs"
                 onClick={onClose}
                 disabled={simulating}
+                className="text-xs text-stone-600 hover:bg-stone-100 p-1.5 rounded border border-stone-200 transition-colors cursor-pointer"
               >
-                Cancel / Switch Payment
-              </Button>
+                Cancel / Choose Other Method
+              </button>
             </div>
           </div>
         </CardContent>

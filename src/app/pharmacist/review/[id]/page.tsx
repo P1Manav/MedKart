@@ -320,6 +320,7 @@ export default function PharmacistReviewPage({
           </Button>
           <Button
             size="sm"
+            data-testid="approve-order-header-btn"
             onClick={handleApproveOrder}
             disabled={
               order.status === 'APPROVED' ||
@@ -336,7 +337,7 @@ export default function PharmacistReviewPage({
             }
             className="shadow-sm"
           >
-            {tc('approved')} &rarr;
+            {t('approveFullOrder')} &rarr;
           </Button>
         </div>
       </div>

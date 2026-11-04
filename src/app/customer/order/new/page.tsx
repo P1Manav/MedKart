@@ -27,6 +27,12 @@ interface CartItem {
   quantity: number;
 }
 
+interface FamilyProfile {
+  id: string;
+  name: string;
+  relationship: string;
+}
+
 export default function OrderBuilderPage() {
   const t = useTranslations('customer');
   const tc = useTranslations('common');
@@ -47,8 +53,16 @@ export default function OrderBuilderPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // User and Profiles state
+  const [userName, setUserName] = useState('');
+  const [familyProfiles, setFamilyProfiles] = useState<FamilyProfile[]>([]);
+  const [familyProfile, setFamilyProfile] = useState<string>('self');
+  const [showAddFamily, setShowAddFamily] = useState(false);
+  const [newMemberName, setNewMemberName] = useState('');
+  const [newMemberRel, setNewMemberRel] = useState('mother');
+  const [addingMember, setAddingMember] = useState(false);
+
   // Address and payment state
-  const [familyProfile, setFamilyProfile] = useState<'prof_debasish_mother' | 'self'>('prof_debasish_mother');
   const [address, setAddress] = useState('Block BD-12, Sector 1, Salt Lake, Kolkata - 700064');
   const [paymentMethod, setPaymentMethod] = useState<'MOCK_UPI' | 'COD'>('COD');
 
@@ -56,6 +70,28 @@ export default function OrderBuilderPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showUpiModal, setShowUpiModal] = useState(false);
+
+  // Fetch session details on mount
+  useEffect(() => {
+    async function loadUserData() {
+      try {
+        const res = await fetch('/api/auth/me');
+        const data = await res.json();
+        if (data.authenticated && data.user) {
+          setUserName(data.user.name || '');
+          if (Array.isArray(data.user.familyProfiles)) {
+            setFamilyProfiles(data.user.familyProfiles);
+          }
+          if (data.user.addresses && data.user.addresses.length > 0 && data.user.addresses[0].addressText) {
+            setAddress(data.user.addresses[0].addressText);
+          }
+        }
+      } catch {
+        // non-fatal
+      }
+    }
+    loadUserData();
+  }, []);
 
   // Debounced search catalogue
   useEffect(() => {
@@ -180,6 +216,33 @@ export default function OrderBuilderPage() {
     }
   };
 
+  const handleAddFamilyMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMemberName.trim()) return;
+    setAddingMember(true);
+    try {
+      const res = await fetch('/api/customer/family-profiles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newMemberName.trim(),
+          relationship: newMemberRel.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.profile) {
+        setFamilyProfiles((prev) => [...prev, data.profile]);
+        setFamilyProfile(data.profile.id);
+        setNewMemberName('');
+        setShowAddFamily(false);
+      }
+    } catch {
+      // non-fatal
+    } finally {
+      setAddingMember(false);
+    }
+  };
+
   const executeSubmission = async (overridePayment?: 'MOCK_UPI' | 'COD') => {
     if (!file) {
       setError('Please attach or take a photo of your prescription.');
@@ -251,180 +314,197 @@ export default function OrderBuilderPage() {
 
   const handleUpiFailure = (reason: string) => {
     setShowUpiModal(false);
-    setError(`Mock UPI Payment Declined: ${reason}. Please retry or choose Cash on Delivery.`);
+    setError(`Payment Unsuccessful: ${reason}. You can retry or switch to Cash on Delivery.`);
   };
 
   const cartTotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
 
   return (
-    <div className="max-w-3xl mx-auto py-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-stone-900">Upload Prescription & Reorder</h1>
-          <p className="text-sm text-stone-600 mt-1">
-            Our AI reads your doctor’s prescription as a draft. Every line is checked and verified by a licensed pharmacist.
-          </p>
-        </div>
+    <div className="max-w-3xl mx-auto space-y-8 py-6">
+      <div>
+        <span className="text-xs uppercase font-semibold text-stone-500 block">
+          Healthcare Commerce &bull; Reorder
+        </span>
+        <h1 className="text-2xl font-bold text-stone-900 mt-0.5">
+          {t('reorderMedicines')}
+        </h1>
+        <p className="text-stone-600 text-sm mt-1">
+          {t('pharmacistCheckNotice')}
+        </p>
       </div>
 
       {error && <ErrorState message={error} />}
 
-      {/* Mode Switcher: Prescription vs Catalogue Search */}
+      {/* Mode Switcher: Prescription vs Catalogue */}
       <div className="flex border-b border-stone-200">
         <button
           type="button"
           onClick={() => setActiveTab('PRESCRIPTION')}
-          className={`py-3 px-6 text-sm font-bold border-b-2 transition-colors cursor-pointer ${
+          className={`pb-3 px-4 font-bold text-sm border-b-2 transition-colors cursor-pointer ${
             activeTab === 'PRESCRIPTION'
-              ? 'border-teal-700 text-teal-800'
-              : 'border-transparent text-stone-500 hover:text-stone-800'
+              ? 'border-teal-700 text-teal-900'
+              : 'border-transparent text-stone-500 hover:text-stone-700'
           }`}
         >
-          📷 1. Prescription Upload (Fast Reorder)
+          {t('uploadPrescription')}
         </button>
         <button
           type="button"
           onClick={() => setActiveTab('CATALOGUE')}
-          className={`py-3 px-6 text-sm font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-2 ${
+          className={`pb-3 px-4 font-bold text-sm border-b-2 transition-colors cursor-pointer flex items-center gap-2 ${
             activeTab === 'CATALOGUE'
-              ? 'border-teal-700 text-teal-800'
-              : 'border-transparent text-stone-500 hover:text-stone-800'
+              ? 'border-teal-700 text-teal-900'
+              : 'border-transparent text-stone-500 hover:text-stone-700'
           }`}
         >
-          🔍 2. Search Catalogue & Cart
+          <span>Search Catalogue & Cart</span>
           {cart.length > 0 && (
-            <span className="bg-teal-700 text-white text-[11px] px-2 py-0.5 rounded-full font-bold">
-              {cart.length}
+            <span className="bg-teal-700 text-white text-[11px] font-bold px-1.5 py-0.2 rounded-full">
+              {cart.reduce((s, i) => s + i.quantity, 0)}
             </span>
           )}
         </button>
       </div>
 
-      {/* ─── CATALOGUE SEARCH & CART TAB ──────────────────── */}
+      {/* Catalogue & Cart Builder View */}
       {activeTab === 'CATALOGUE' && (
-        <Card className="border-teal-200 bg-stone-50/50">
-          <CardHeader>
-            <CardTitle className="text-base font-bold text-stone-900 flex items-center justify-between">
-              <span>Search Store Catalogue</span>
-              <span className="text-xs text-stone-500 font-normal">Schedule X / Narcotics are strictly blocked</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {blockedNotice && (
-              <div className="p-3 bg-red-50 border border-red-300 rounded-md text-xs text-red-900 font-medium">
-                ⛔ {blockedNotice}
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base font-bold text-stone-900">
+                Search Kolkata Medicine Catalogue
+              </CardTitle>
+              <p className="text-xs text-stone-500">
+                Add prescribed medicines directly to your reorder basket before attaching your prescription image.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="relative">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search medicines (e.g. Metformin, Telmisartan, Pantoprazole)..."
+                  className="w-full pl-10 pr-4 py-2.5 border border-stone-300 rounded-md text-sm focus:ring-2 focus:ring-teal-600 focus:outline-none"
+                />
+                <svg
+                  className="w-4 h-4 text-stone-400 absolute left-3 top-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
               </div>
-            )}
 
-            <div className="relative">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search medicines by name or salt (e.g. Metformin, Telmisartan, Paracetamol, Diazepam)..."
-                className="w-full p-3 border border-stone-300 rounded-md text-sm focus:ring-2 focus:ring-teal-600 focus:outline-none bg-white"
-              />
-              {searching && (
-                <span className="absolute right-3 top-3 text-xs text-stone-400">Searching...</span>
+              {blockedNotice && (
+                <div className="p-3 bg-red-50 border border-red-200 text-red-900 text-xs rounded-md">
+                  {blockedNotice}
+                </div>
               )}
-            </div>
 
-            {/* Search Results */}
-            {searchResults.length > 0 && (
-              <div className="border border-stone-200 rounded-md divide-y divide-stone-100 max-h-60 overflow-y-auto bg-white">
-                {searchResults.map((item) => (
-                  <div key={item.id} className="p-3 flex items-center justify-between gap-3 text-xs">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <strong className="text-stone-900 text-sm">{item.name}</strong>
-                        <span className="text-stone-500">{item.strength}</span>
-                        <Badge
-                          variant={
-                            item.schedule === 'OTC'
-                              ? 'otc'
-                              : item.schedule === 'H'
-                              ? 'h'
-                              : item.schedule === 'H1'
-                              ? 'h1'
-                              : 'blocked'
-                          }
-                        >
-                          {item.schedule}
-                        </Badge>
-                      </div>
-                      <p className="text-stone-500 mt-0.5">
-                        {item.packSize} • ₹{item.price}
-                        {!item.canSellOnline && (
-                          <span className="text-red-700 font-semibold ml-2">Blocked Online (Schedule {item.schedule})</span>
-                        )}
-                      </p>
-                    </div>
+              {searching && (
+                <p className="text-xs text-stone-500 italic">Searching catalogue...</p>
+              )}
 
-                    <Button
-                      size="sm"
-                      variant={item.canSellOnline ? 'primary' : 'outline'}
-                      onClick={() => handleAddToCart(item)}
-                      className={!item.canSellOnline ? 'text-red-700 border-red-300 hover:bg-red-50' : ''}
-                    >
-                      {item.canSellOnline ? 'Add to Order +' : 'Blocked Online ⛔'}
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Selected Cart Items */}
-            {cart.length > 0 && (
-              <div className="bg-white p-4 rounded-lg border border-teal-200 space-y-3">
-                <span className="text-xs font-bold uppercase tracking-wider text-teal-900 block">
-                  Your Reorder Basket ({cart.length} item{cart.length === 1 ? '' : 's'}):
-                </span>
-                <div className="divide-y divide-stone-100">
-                  {cart.map((item) => (
-                    <div key={item.product.id} className="py-2 flex items-center justify-between text-xs">
+              {searchResults.length > 0 && (
+                <div className="divide-y divide-stone-100 max-h-64 overflow-y-auto border border-stone-200 rounded-md">
+                  {searchResults.map((item) => (
+                    <div key={item.id} className="p-3 flex items-center justify-between text-xs hover:bg-stone-50">
                       <div>
-                        <span className="font-semibold text-stone-900">
-                          {item.product.name} {item.product.strength}
-                        </span>
-                        <Badge variant="h" className="ml-2 text-[10px]">
-                          {item.product.schedule}
-                        </Badge>
-                        <p className="text-stone-500">₹{item.product.price} each</p>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-stone-900 text-sm">{item.name}</span>
+                          <span className="text-stone-500">{item.strength}</span>
+                          <Badge
+                            variant={
+                              item.schedule === 'OTC'
+                                ? 'otc'
+                                : item.schedule === 'H'
+                                ? 'h'
+                                : item.schedule === 'H1'
+                                ? 'h1'
+                                : 'blocked'
+                            }
+                          >
+                            {item.schedule}
+                          </Badge>
+                        </div>
+                        <p className="text-stone-500 mt-0.5">
+                          {item.packSize} • ₹{item.price}
+                          {!item.canSellOnline && (
+                            <span className="text-red-700 font-semibold ml-2">Blocked Online (Schedule {item.schedule})</span>
+                          )}
+                        </p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateQuantity(item.product.id, -1)}
-                          className="w-6 h-6 border rounded flex items-center justify-center font-bold hover:bg-stone-50 cursor-pointer"
-                        >
-                          -
-                        </button>
-                        <span className="font-mono font-bold w-5 text-center">{item.quantity}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateQuantity(item.product.id, 1)}
-                          className="w-6 h-6 border rounded flex items-center justify-center font-bold hover:bg-stone-50 cursor-pointer"
-                        >
-                          +
-                        </button>
-                        <span className="font-bold text-teal-900 ml-2">
-                          ₹{item.product.price * item.quantity}
-                        </span>
-                      </div>
+
+                      <Button
+                        size="sm"
+                        variant={item.canSellOnline ? 'primary' : 'outline'}
+                        onClick={() => handleAddToCart(item)}
+                        className={!item.canSellOnline ? 'text-red-700 border-red-300 hover:bg-red-50' : ''}
+                      >
+                        {item.canSellOnline ? 'Add to Order +' : 'Blocked Online ⛔'}
+                      </Button>
                     </div>
                   ))}
                 </div>
-                <div className="pt-2 border-t border-stone-200 flex justify-between font-bold text-sm text-stone-900">
-                  <span>Estimated Total:</span>
-                  <span className="text-teal-900">₹{cartTotal}</span>
+              )}
+
+              {/* Selected Cart Items */}
+              {cart.length > 0 && (
+                <div className="bg-white p-4 rounded-lg border border-teal-200 space-y-3">
+                  <span className="text-xs font-bold uppercase tracking-wider text-teal-900 block">
+                    Your Reorder Basket ({cart.length} item{cart.length === 1 ? '' : 's'}):
+                  </span>
+                  <div className="divide-y divide-stone-100">
+                    {cart.map((item) => (
+                      <div key={item.product.id} className="py-2 flex items-center justify-between text-xs">
+                        <div>
+                          <span className="font-semibold text-stone-900">
+                            {item.product.name} {item.product.strength}
+                          </span>
+                          <Badge variant="h" className="ml-2 text-[10px]">
+                            {item.product.schedule}
+                          </Badge>
+                          <p className="text-stone-500">₹{item.product.price} each</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateQuantity(item.product.id, -1)}
+                            className="w-6 h-6 border rounded flex items-center justify-center font-bold hover:bg-stone-50 cursor-pointer"
+                          >
+                            -
+                          </button>
+                          <span className="font-bold w-4 text-center">{item.quantity}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateQuantity(item.product.id, 1)}
+                            className="w-6 h-6 border rounded flex items-center justify-center font-bold hover:bg-stone-50 cursor-pointer"
+                          >
+                            +
+                          </button>
+                          <span className="font-bold text-stone-900 ml-3">
+                            ₹{(item.product.price * item.quantity).toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="pt-2 border-t border-stone-200 flex justify-between items-center text-sm font-bold">
+                    <span>Estimated Total:</span>
+                    <span className="text-teal-900 text-base">₹{cartTotal.toFixed(2)}</span>
+                  </div>
+
+                  <p className="text-[11px] text-stone-500">
+                    * Final billed total will be confirmed upon pharmacist verification of your prescription.
+                  </p>
                 </div>
-                <p className="text-[11px] text-amber-800 bg-amber-50 p-2 rounded border border-amber-200">
-                  * Prescription upload below is mandatory for Schedule H / H1 medicines in your basket.
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -475,7 +555,7 @@ export default function OrderBuilderPage() {
                 {/* Demo Quick-Pick Synthetic Prescriptions */}
                 <div className="pt-4 border-t border-stone-200 text-left">
                   <span className="text-xs font-semibold text-stone-500 block mb-2">
-                    Or select a synthetic test prescription:
+                    Or select a synthetic test prescription for testing:
                   </span>
                   <div className="flex flex-wrap gap-2 text-xs">
                     <button
@@ -538,27 +618,8 @@ export default function OrderBuilderPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <label
-                className={`p-4 border rounded-lg cursor-pointer flex items-center gap-3 transition-colors ${
-                  familyProfile === 'prof_debasish_mother'
-                    ? 'border-teal-600 bg-teal-50/50 text-teal-900 font-semibold ring-1 ring-teal-600'
-                    : 'border-stone-200 hover:bg-stone-50'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="familyProfile"
-                  checked={familyProfile === 'prof_debasish_mother'}
-                  onChange={() => setFamilyProfile('prof_debasish_mother')}
-                  className="text-teal-600 focus:ring-teal-500"
-                />
-                <div>
-                  <span className="block text-base">{t('mother')} (Anjali Ghosh)</span>
-                  <span className="block text-xs text-stone-500">Caregiver monthly refill</span>
-                </div>
-              </label>
-
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Option 1: For Myself (Default) */}
               <label
                 className={`p-4 border rounded-lg cursor-pointer flex items-center gap-3 transition-colors ${
                   familyProfile === 'self'
@@ -574,10 +635,85 @@ export default function OrderBuilderPage() {
                   className="text-teal-600 focus:ring-teal-500"
                 />
                 <div>
-                  <span className="block text-base">{t('self')} (Debasish Ghosh)</span>
+                  <span className="block text-base font-semibold">
+                    {t('self')} {userName ? `(${userName})` : ''}
+                  </span>
                   <span className="block text-xs text-stone-500">Personal order</span>
                 </div>
               </label>
+
+              {/* Option 2+: Any Registered Family Profiles */}
+              {familyProfiles.map((p) => (
+                <label
+                  key={p.id}
+                  className={`p-4 border rounded-lg cursor-pointer flex items-center gap-3 transition-colors ${
+                    familyProfile === p.id
+                      ? 'border-teal-600 bg-teal-50/50 text-teal-900 font-semibold ring-1 ring-teal-600'
+                      : 'border-stone-200 hover:bg-stone-50'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="familyProfile"
+                    checked={familyProfile === p.id}
+                    onChange={() => setFamilyProfile(p.id)}
+                    className="text-teal-600 focus:ring-teal-500"
+                  />
+                  <div>
+                    <span className="block text-base font-semibold capitalize">
+                      {p.relationship} ({p.name})
+                    </span>
+                    <span className="block text-xs text-stone-500">Caregiver monthly refill</span>
+                  </div>
+                </label>
+              ))}
+            </div>
+
+            {/* Quick Add Family Member Inline */}
+            <div className="pt-2">
+              {!showAddFamily ? (
+                <button
+                  type="button"
+                  onClick={() => setShowAddFamily(true)}
+                  className="text-xs font-semibold text-teal-700 hover:underline cursor-pointer"
+                >
+                  + Add another family member (Mother, Father, Spouse, Child)
+                </button>
+              ) : (
+                <div className="bg-stone-50 p-3 rounded-md border border-stone-200 space-y-2 text-xs">
+                  <span className="font-bold text-stone-700 block">Add New Family Member:</span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder="Full Name (e.g. Anjali Ghosh)"
+                      value={newMemberName}
+                      onChange={(e) => setNewMemberName(e.target.value)}
+                      className="px-2.5 py-1.5 border rounded bg-white font-medium"
+                    />
+                    <select
+                      value={newMemberRel}
+                      onChange={(e) => setNewMemberRel(e.target.value)}
+                      className="px-2 py-1.5 border rounded bg-white font-medium"
+                    >
+                      <option value="mother">Mother</option>
+                      <option value="father">Father</option>
+                      <option value="spouse">Spouse</option>
+                      <option value="child">Child</option>
+                      <option value="other">Other</option>
+                    </select>
+                    <Button size="sm" type="button" onClick={handleAddFamilyMember} isLoading={addingMember}>
+                      Add & Select
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddFamily(false)}
+                      className="text-stone-500 hover:underline"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -585,9 +721,18 @@ export default function OrderBuilderPage() {
         {/* ─── 3. DELIVERY ADDRESS & STORE ROUTING ───────────── */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg font-bold text-stone-900">
-              3. {t('deliveryAddress')}
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg font-bold text-stone-900">
+                3. {t('deliveryAddress')}
+              </CardTitle>
+              <button
+                type="button"
+                onClick={() => setAddress('Block BD-12, Sector 1, Salt Lake, Kolkata - 700064')}
+                className="text-xs text-teal-700 hover:underline font-medium cursor-pointer"
+              >
+                Fill Sample Kolkata Address
+              </button>
+            </div>
           </CardHeader>
           <CardContent className="space-y-3">
             <div>
@@ -597,6 +742,7 @@ export default function OrderBuilderPage() {
               <textarea
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
+                placeholder="House/Flat number, Street name, Area, Kolkata or Howrah with PIN code"
                 rows={2}
                 className="w-full p-3 border border-stone-300 rounded-md text-sm focus:ring-2 focus:ring-teal-600 focus:outline-none"
                 required
@@ -607,7 +753,7 @@ export default function OrderBuilderPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
-              Automatic nearest store routing: Salt Lake store will fulfill if stocked, with automatic fallback to nearest stocked location.
+              Automatic nearest store routing: Nearest Kolkata/Howrah store will fulfill if stocked, with automatic fallback to nearest stocked location.
             </p>
           </CardContent>
         </Card>
@@ -655,7 +801,7 @@ export default function OrderBuilderPage() {
                 />
                 <div>
                   <span className="block text-sm">{t('mockUpi')}</span>
-                  <span className="block text-xs text-stone-500">Simulated instant payment</span>
+                  <span className="block text-xs text-stone-500">UPI (Google Pay, PhonePe, Paytm, QR)</span>
                 </div>
               </label>
             </div>

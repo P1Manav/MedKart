@@ -47,7 +47,7 @@ export default function StoreOrdersPage() {
 
   async function loadOrders() {
     try {
-      const res = await fetch('/api/orders');
+      const res = await fetch('/api/orders?limit=100');
       const data = await res.json();
       if (data.orders) {
         setOrders(data.orders);
