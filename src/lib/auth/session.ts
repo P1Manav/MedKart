@@ -1,0 +1,68 @@
+// src/lib/auth/session.ts
+import { SignJWT, jwtVerify } from 'jose';
+import { cookies } from 'next/headers';
+import type { UserRole } from '@prisma/client';
+
+const SESSION_COOKIE_NAME = 'medkart_session';
+const DEFAULT_EXPIRATION = '7d';
+
+export interface SessionPayload {
+  userId: string;
+  phone: string;
+  role: UserRole;
+  name: string;
+  pharmacistRegNo?: string | null;
+  storeId?: string | null;
+}
+
+function getSecretKey(): Uint8Array {
+  const secret = process.env.SESSION_SECRET || 'medkart-dev-session-secret-fallback-minimum-32-chars';
+  return new TextEncoder().encode(secret);
+}
+
+export async function createSessionToken(payload: SessionPayload): Promise<string> {
+  return await new SignJWT({ ...payload })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime(DEFAULT_EXPIRATION)
+    .sign(getSecretKey());
+}
+
+export async function verifySessionToken(token: string): Promise<SessionPayload | null> {
+  try {
+    const { payload } = await jwtVerify(token, getSecretKey(), {
+      algorithms: ['HS256'],
+    });
+    return payload as unknown as SessionPayload;
+  } catch {
+    return null;
+  }
+}
+
+export async function getSession(): Promise<SessionPayload | null> {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+    if (!token) return null;
+    return await verifySessionToken(token);
+  } catch {
+    return null;
+  }
+}
+
+export async function setSessionCookie(payload: SessionPayload): Promise<void> {
+  const token = await createSessionToken(payload);
+  const cookieStore = await cookies();
+  cookieStore.set(SESSION_COOKIE_NAME, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 7 * 24 * 60 * 60, // 7 days
+    path: '/',
+  });
+}
+
+export async function clearSessionCookie(): Promise<void> {
+  const cookieStore = await cookies();
+  cookieStore.delete(SESSION_COOKIE_NAME);
+}
