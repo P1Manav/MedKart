@@ -82,6 +82,21 @@ export const safeOrderSelect = {
           schedule: true,
           price: true,
           packSize: true,
+          genericOriginals: {
+            select: {
+              id: true,
+              genericProduct: {
+                select: {
+                  id: true,
+                  name: true,
+                  strength: true,
+                  form: true,
+                  price: true,
+                  packSize: true,
+                },
+              },
+            },
+          },
         },
       },
     },

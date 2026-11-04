@@ -41,6 +41,17 @@ interface ReviewOrder {
       schedule: string;
       price: number;
       packSize: string;
+      genericOriginals?: Array<{
+        id: string;
+        genericProduct: {
+          id: string;
+          name: string;
+          strength: string;
+          form: string;
+          price: number;
+          packSize: string;
+        };
+      }>;
     } | null;
   }>;
 }
@@ -507,7 +518,9 @@ export default function PharmacistReviewPage({
               const isRejected = line.lineStatus === 'REJECTED';
               const isBlocked = line.lineStatus === 'BLOCKED_NOT_SOLD_ONLINE';
               const isH1 = line.product?.schedule === 'H1';
-              const hasGeneric = line.product?.name.includes('Brand');
+              const genericSub = line.product?.genericOriginals?.[0]?.genericProduct;
+              const priceDiff =
+                genericSub && line.product ? Math.round(line.product.price - genericSub.price) : 0;
 
               return (
                 <Card
@@ -582,11 +595,15 @@ export default function PharmacistReviewPage({
                     )}
 
                     {/* GENERIC SUBSTITUTION OFFER & CONSENT */}
-                    {hasGeneric && (
+                    {genericSub && (
                       <div className="p-3 bg-teal-50 border border-teal-200 rounded text-xs text-teal-950 space-y-2">
                         <div className="flex justify-between font-semibold">
-                          <span>Generic Alternative Available: Rosuvastatin 10 mg (Generic)</span>
-                          <span className="text-emerald-800 font-bold">Save ₹115 (₹65 vs ₹180)</span>
+                          <span>
+                            Generic Alternative Available: {genericSub.name} {genericSub.strength}
+                          </span>
+                          <span className="text-emerald-800 font-bold">
+                            Save ₹{priceDiff} (₹{genericSub.price} vs ₹{line.product?.price})
+                          </span>
                         </div>
                         <p className="text-[11px] text-stone-600">
                           Price difference only; no clinical claim. Requires both pharmacist approval AND patient consent.
@@ -594,7 +611,7 @@ export default function PharmacistReviewPage({
                         <label className="flex items-center gap-2 font-medium cursor-pointer pt-1">
                           <input
                             type="checkbox"
-                            checked={!!genericConsents[line.id]}
+                            checked={!!genericConsents[line.id] || line.customerConsentGeneric}
                             onChange={(e) =>
                               setGenericConsents({ ...genericConsents, [line.id]: e.target.checked })
                             }
