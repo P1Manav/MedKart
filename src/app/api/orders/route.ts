@@ -1,5 +1,6 @@
 // src/app/api/orders/route.ts
 import { NextResponse } from 'next/server';
+import type { OrderStatus } from '@prisma/client';
 import db from '@/lib/db';
 import { requireAuth } from '@/lib/auth/rbac';
 import { encryptPrescription } from '@/lib/crypto/encrypt';
@@ -9,60 +10,167 @@ import { routeOrderToStore, type StoreStockItem, type OrderItemRequirement } fro
 import { computePrescriptionValidUntil } from '@/domain/assert-dispatchable';
 import { validatePrescriptionFile } from '@/lib/validators/upload';
 
-export async function GET() {
+export const safeOrderSelect = {
+  id: true,
+  displayId: true,
+  customerId: true,
+  familyProfileId: true,
+  storeId: true,
+  status: true,
+  addressText: true,
+  addressLat: true,
+  addressLng: true,
+  paymentMethod: true,
+  prescriptionMime: true,
+  prescriptionStatus: true,
+  prescriptionValidUntil: true,
+  aiImageLegibility: true,
+  aiPrescriberText: true,
+  aiDateText: true,
+  aiModelName: true,
+  aiLatencyMs: true,
+  manualEntryNeeded: true,
+  createdAt: true,
+  updatedAt: true,
+  customer: {
+    select: {
+      id: true,
+      name: true,
+    },
+  },
+  familyProfile: {
+    select: {
+      id: true,
+      name: true,
+      relationship: true,
+    },
+  },
+  store: {
+    select: {
+      id: true,
+      name: true,
+      address: true,
+      pincode: true,
+    },
+  },
+  lines: {
+    select: {
+      id: true,
+      productId: true,
+      rawText: true,
+      aiDrugName: true,
+      aiStrength: true,
+      aiConfidence: true,
+      aiAlternatives: true,
+      lineStatus: true,
+      quantity: true,
+      unitPrice: true,
+      needsReview: true,
+      rejectReason: true,
+      pharmacistId: true,
+      pharmacistRegNo: true,
+      customerConsentGeneric: true,
+      product: {
+        select: {
+          id: true,
+          name: true,
+          strength: true,
+          form: true,
+          schedule: true,
+          price: true,
+          packSize: true,
+        },
+      },
+    },
+  },
+  auditEvents: {
+    select: {
+      id: true,
+      actorRole: true,
+      fromStatus: true,
+      toStatus: true,
+      reason: true,
+      timestamp: true,
+    },
+    orderBy: { timestamp: 'desc' as const },
+  },
+};
+
+export async function GET(req: Request) {
   try {
     const session = await requireAuth();
+    const url = new URL(req.url);
+
+    const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') || '25', 10), 1), 100);
+    const cursor = url.searchParams.get('cursor');
+    const statusFilter = (url.searchParams.get('status') as OrderStatus | null) || undefined;
+    const storeFilter = url.searchParams.get('storeId') || undefined;
+
+    const paginationArgs = {
+      take: limit + 1,
+      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+    };
 
     if (session.role === 'CUSTOMER') {
       const orders = await db.order.findMany({
-        where: { customerId: session.userId },
-        include: {
-          familyProfile: true,
-          store: true,
-          lines: {
-            include: { product: true },
-          },
+        where: {
+          customerId: session.userId,
+          ...(statusFilter ? { status: statusFilter } : {}),
         },
+        select: safeOrderSelect,
         orderBy: { createdAt: 'desc' },
+        ...paginationArgs,
       });
 
-      return NextResponse.json({ orders });
+      const hasMore = orders.length > limit;
+      const results = hasMore ? orders.slice(0, limit) : orders;
+      const nextCursor = hasMore ? results[results.length - 1]?.id : null;
+
+      return NextResponse.json({ orders: results, nextCursor });
     }
 
     if (session.role === 'PHARMACIST' || session.role === 'OPS') {
       const orders = await db.order.findMany({
-        include: {
-          customer: true,
-          familyProfile: true,
-          store: true,
-          lines: {
-            include: { product: true },
-          },
+        where: {
+          ...(statusFilter ? { status: statusFilter } : {}),
+          ...(storeFilter ? { storeId: storeFilter } : {}),
         },
+        select: safeOrderSelect,
         orderBy: { createdAt: 'desc' },
+        ...paginationArgs,
       });
 
-      return NextResponse.json({ orders });
+      const hasMore = orders.length > limit;
+      const results = hasMore ? orders.slice(0, limit) : orders;
+      const nextCursor = hasMore ? results[results.length - 1]?.id : null;
+
+      return NextResponse.json({ orders: results, nextCursor });
     }
 
     if (session.role === 'STORE_STAFF') {
+      // Fix storeId undefined over-fetching bug: if storeId is missing, return empty
+      if (!session.storeId) {
+        return NextResponse.json({ orders: [], nextCursor: null });
+      }
+
       const orders = await db.order.findMany({
-        where: { storeId: session.storeId || undefined },
-        include: {
-          customer: true,
-          familyProfile: true,
-          store: true,
-          lines: {
-            include: { product: true },
-          },
+        where: {
+          storeId: session.storeId,
+          ...(statusFilter ? { status: statusFilter } : {}),
         },
+        select: safeOrderSelect,
         orderBy: { createdAt: 'desc' },
+        ...paginationArgs,
       });
 
-      return NextResponse.json({ orders });
+      const hasMore = orders.length > limit;
+      const results = hasMore ? orders.slice(0, limit) : orders;
+      const nextCursor = hasMore ? results[results.length - 1]?.id : null;
+
+      return NextResponse.json({ orders: results, nextCursor });
     }
 
-    return NextResponse.json({ orders: [] });
+    return NextResponse.json({ orders: [], nextCursor: null });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Unauthorized';
     return NextResponse.json({ error: msg }, { status: 401 });

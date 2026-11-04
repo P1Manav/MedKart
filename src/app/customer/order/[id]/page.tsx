@@ -60,15 +60,12 @@ export default function OrderTrackingPage({
 
   async function loadOrder() {
     try {
-      const res = await fetch('/api/orders');
+      const res = await fetch(`/api/orders/${id}`);
       const data = await res.json();
-      if (data.orders) {
-        const found = data.orders.find((o: OrderDetail) => o.id === id || o.displayId === id);
-        if (found) {
-          setOrder(found);
-        } else {
-          setError('Order not found or you do not have permission to view it.');
-        }
+      if (res.ok && data.order) {
+        setOrder(data.order);
+      } else {
+        setError(data.error || 'Order not found or you do not have permission to view it.');
       }
     } catch {
       setError('Failed to fetch order details.');

@@ -84,28 +84,26 @@ export default function PharmacistReviewPage({
 
   async function loadOrder() {
     try {
-      const res = await fetch('/api/orders');
+      const res = await fetch(`/api/orders/${id}`);
       const data = await res.json();
-      if (data.orders) {
-        const found = data.orders.find((o: ReviewOrder) => o.id === id || o.displayId === id);
-        if (found) {
-          setOrder(found);
-          // Initialise H1 details with defaults
-          const initialH1: typeof h1Inputs = {};
-          found.lines.forEach((l: ReviewOrder['lines'][0]) => {
-            if (l.product?.schedule === 'H1') {
-              initialH1[l.id] = {
-                prescriberName: 'Dr. Subir Mukherjee',
-                prescriberRegNo: 'WBMC-48192',
-                patientName: found.familyProfile?.name || found.customer.name,
-                quantity: l.quantity,
-              };
-            }
-          });
-          setH1Inputs(initialH1);
-        } else {
-          setError('Order not found.');
-        }
+      if (res.ok && data.order) {
+        const found = data.order;
+        setOrder(found);
+        // Initialise H1 details with defaults
+        const initialH1: typeof h1Inputs = {};
+        found.lines.forEach((l: ReviewOrder['lines'][0]) => {
+          if (l.product?.schedule === 'H1') {
+            initialH1[l.id] = {
+              prescriberName: 'Dr. Subir Mukherjee',
+              prescriberRegNo: 'WBMC-48192',
+              patientName: found.familyProfile?.name || found.customer.name,
+              quantity: l.quantity,
+            };
+          }
+        });
+        setH1Inputs(initialH1);
+      } else {
+        setError(data.error || 'Order not found.');
       }
     } catch {
       setError('Failed to fetch order.');
