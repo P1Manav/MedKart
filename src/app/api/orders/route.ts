@@ -9,6 +9,7 @@ import { matchPrescriptionLine, type CatalogueProduct } from '@/lib/ai/fuzzy-mat
 import { routeOrderToStore, type StoreStockItem, type OrderItemRequirement } from '@/domain/routing';
 import { computePrescriptionValidUntil } from '@/domain/assert-dispatchable';
 import { validatePrescriptionFile } from '@/lib/validators/upload';
+import { CreateOrderInputSchema, PrescriptionFileSchema } from '@/lib/validators/order-input';
 
 export const safeOrderSelect = {
   id: true,
@@ -183,7 +184,54 @@ export async function POST(req: Request) {
     const session = await requireAuth(['CUSTOMER']);
     const formData = await req.formData();
 
-    const familyProfileId = (formData.get('familyProfileId') as string) || null;
+    // Check optional pre-selected cart items
+    const cartItemsRaw = formData.get('cartItems') as string | null;
+    let rawCartItems: unknown = [];
+    if (cartItemsRaw) {
+      try {
+        rawCartItems = JSON.parse(cartItemsRaw);
+      } catch {
+        return NextResponse.json(
+          {
+            error: 'Invalid cartItems format: must be valid JSON array',
+            fieldErrors: { cartItems: ['Invalid JSON format'] },
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    const rawInput = {
+      addressText: formData.get('addressText') ?? undefined,
+      addressLat: formData.get('addressLat') ?? undefined,
+      addressLng: formData.get('addressLng') ?? undefined,
+      paymentMethod: formData.get('paymentMethod') ?? undefined,
+      familyProfileId: formData.get('familyProfileId') || null,
+      cartItems: rawCartItems,
+    };
+
+    const parsedInput = CreateOrderInputSchema.safeParse(rawInput);
+    if (!parsedInput.success) {
+      const fieldErrors: Record<string, string[]> = {};
+      parsedInput.error.issues.forEach((issue) => {
+        const path = issue.path.join('.') || 'root';
+        fieldErrors[path] = fieldErrors[path] || [];
+        fieldErrors[path].push(issue.message);
+      });
+      return NextResponse.json(
+        { error: parsedInput.error.issues[0]?.message || 'Validation failed on order submission', fieldErrors },
+        { status: 400 }
+      );
+    }
+
+    const {
+      addressText,
+      addressLat,
+      addressLng,
+      paymentMethod,
+      familyProfileId,
+      cartItems,
+    } = parsedInput.data;
 
     if (familyProfileId) {
       const familyProfile = await db.familyProfile.findUnique({
@@ -195,22 +243,6 @@ export async function POST(req: Request) {
           { error: 'Invalid family profile or access denied.' },
           { status: 403 }
         );
-      }
-    }
-    const addressText = (formData.get('addressText') as string) || 'Salt Lake, Kolkata';
-    const addressLat = parseFloat((formData.get('addressLat') as string) || '22.5875');
-    const addressLng = parseFloat((formData.get('addressLng') as string) || '88.4190');
-    const paymentMethod = (formData.get('paymentMethod') as 'MOCK_UPI' | 'COD') || 'COD';
-    const file = formData.get('prescription') as File | null;
-
-    // Check optional pre-selected cart items
-    const cartItemsRaw = formData.get('cartItems') as string | null;
-    let cartItems: Array<{ productId: string; quantity: number }> = [];
-    if (cartItemsRaw) {
-      try {
-        cartItems = JSON.parse(cartItemsRaw);
-      } catch {
-        cartItems = [];
       }
     }
 
@@ -242,14 +274,27 @@ export async function POST(req: Request) {
       }
     }
 
-    if (!file) {
-      return NextResponse.json({ error: 'Prescription image is required.' }, { status: 400 });
+    const file = formData.get('prescription') as File | null;
+    if (!file || !(file instanceof File) || file.size === 0) {
+      return NextResponse.json(
+        {
+          error: 'Prescription image is required.',
+          fieldErrors: { prescription: ['Prescription image file is required'] },
+        },
+        { status: 400 }
+      );
     }
 
-    // Validate size (≤5MB) and MIME type (JPEG/PNG) per ASSUMPTION A6
-    const fileValidation = validatePrescriptionFile({ size: file.size, type: file.type });
-    if (!fileValidation.valid) {
-      return NextResponse.json({ error: fileValidation.error }, { status: 400 });
+    const fileValidation = PrescriptionFileSchema.safeParse({ size: file.size, type: file.type });
+    if (!fileValidation.success) {
+      const msg = fileValidation.error.issues[0]?.message || 'Invalid prescription image';
+      return NextResponse.json(
+        {
+          error: msg,
+          fieldErrors: { prescription: [msg] },
+        },
+        { status: 400 }
+      );
     }
 
     // Read bytes

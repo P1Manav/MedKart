@@ -3,13 +3,13 @@
 
 import { z } from 'zod';
 
-export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024; // 5 MB
+export const MAX_UPLOAD_BYTES = 8 * 1024 * 1024; // 8 MB
 export const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
 
 export const PrescriptionUploadSchema = z.object({
-  size: z.number().max(MAX_UPLOAD_BYTES, 'Prescription image size must not exceed 5 MB'),
+  size: z.number().max(MAX_UPLOAD_BYTES, 'Prescription image size must not exceed 8 MB'),
   type: z.string().refine((val) => ALLOWED_MIME_TYPES.includes(val as typeof ALLOWED_MIME_TYPES[number]), {
-    message: 'Allowed file formats are JPEG and PNG',
+    message: 'Allowed file formats are JPEG, PNG, and WebP',
   }),
 });
 
