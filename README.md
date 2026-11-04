@@ -2,9 +2,9 @@
 
 A regulated healthcare commerce web application built for a pharmacy chain in Kolkata and Howrah (10 seeded demo stores across key Kolkata and Howrah clusters, representing the 46-store network with central warehouse operations).
 
-[![CI](https://github.com/P1Manav/isocode_assignment/actions/workflows/ci.yml/badge.svg)](https://github.com/P1Manav/isocode_assignment/actions/workflows/ci.yml)
-[![Tests Passing](https://img.shields.io/badge/tests-166%20passing-brightgreen)](https://github.com/P1Manav/isocode_assignment)
-[![TypeScript Strict](https://img.shields.io/badge/TypeScript-strict-blue)](https://github.com/P1Manav/isocode_assignment)
+[![CI](https://github.com/P1Manav/MedKart/actions/workflows/ci.yml/badge.svg)](https://github.com/P1Manav/MedKart/actions/workflows/ci.yml)
+[![Tests Passing](https://img.shields.io/badge/tests-166%20passing-brightgreen)](https://github.com/P1Manav/MedKart)
+[![TypeScript Strict](https://img.shields.io/badge/TypeScript-strict-blue)](https://github.com/P1Manav/MedKart)
 
 ---
 
@@ -40,8 +40,8 @@ A regulated healthcare commerce web application built for a pharmacy chain in Ko
 
 ### 1. Clone & Install
 ```bash
-git clone https://github.com/P1Manav/isocode_assignment.git
-cd isocode_assignment
+git clone https://github.com/P1Manav/MedKart.git
+cd MedKart
 npm install
 ```
 
