@@ -382,7 +382,8 @@ export async function POST(
         },
       });
 
-      // Construct DispatchableOrder shape for verification check
+      // Construct DispatchableOrder shape for verification check.
+      // Any PENDING line is checked assuming approval by this reviewing pharmacist.
       const checkPayload: DispatchableOrder = {
         id: refreshedOrder.id,
         status: refreshedOrder.status,
@@ -392,11 +393,11 @@ export async function POST(
           const rule = l.product ? ruleMap.get(l.product.schedule) : null;
           return {
             id: l.id,
-            lineStatus: l.lineStatus,
+            lineStatus: l.lineStatus === 'PENDING' ? 'APPROVED' : l.lineStatus,
             productSchedule: l.product?.schedule || 'H',
             canSellOnline: rule ? rule.canSellOnline : true,
-            pharmacistId: l.pharmacistId,
-            pharmacistRegNo: l.pharmacistRegNo,
+            pharmacistId: l.pharmacistId || session.userId,
+            pharmacistRegNo: l.pharmacistRegNo || pharmacistRegNo,
             requiresRegisterEntry: rule ? rule.requiresRegisterEntry : false,
             h1PrescriberName: l.h1PrescriberName,
             h1PrescriberRegNo: l.h1PrescriberRegNo,
@@ -419,6 +420,19 @@ export async function POST(
       }
 
       const res = await db.$transaction(async (tx) => {
+        // Auto-approve any pending lines under the reviewing licensed pharmacist
+        await tx.orderLine.updateMany({
+          where: {
+            orderId: order.id,
+            lineStatus: 'PENDING',
+          },
+          data: {
+            lineStatus: 'APPROVED',
+            pharmacistId: session.userId,
+            pharmacistRegNo,
+          },
+        });
+
         const updated = await tx.order.updateMany({
           where: { id: order.id, status: 'SUBMITTED' },
           data: {

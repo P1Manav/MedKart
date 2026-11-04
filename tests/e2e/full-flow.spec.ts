@@ -27,20 +27,23 @@ test.describe('MedKart Full Pharmacy Lifecycle Flow', () => {
     await expect(page.locator('text=Store Fulfillment & Packing Desk')).toBeVisible();
 
     // 3. Locate unapproved pending order (RX-50214 which is Awaiting Pharmacist)
-    const pendingOrderSection = page.locator('text=RX-50214').locator('..').locator('..');
-    await expect(pendingOrderSection).toBeVisible();
+    const orderCard = page.locator('div.divide-y > div').filter({ hasText: 'RX-50214' });
+    await expect(orderCard).toBeVisible();
 
     // 4. Assert Pack Order button is disabled with visible statutory reason
-    const packButton = pendingOrderSection.locator('button:has-text("Pack Order")');
+    const packButton = orderCard.locator('button:has-text("Pack Order")');
     await expect(packButton).toBeDisabled();
 
     // 5. Assert reason is displayed
     await expect(
-      pendingOrderSection.locator('text=Awaiting Pharmacist Prescription Approval')
+      orderCard.locator('text=Awaiting Pharmacist Prescription Approval')
     ).toBeVisible();
   });
 
   test('customer uploads prescription, pharmacist verifies, and store packs approved order', async ({ page }) => {
+    // Ensure desktop viewport for side-by-side pharmacist verification
+    await page.setViewportSize({ width: 1280, height: 800 });
+
     // 1. Log in as Customer (Debasish Ghosh)
     await loginAs(page, '9830011111');
     await page.goto('/customer/home');
@@ -64,26 +67,38 @@ test.describe('MedKart Full Pharmacy Lifecycle Flow', () => {
     expect(orderIdMatch).toBeTruthy();
     const orderId = orderIdMatch![1];
 
+    // Read the generated displayId (e.g. RX-2611-XXXXX)
+    await expect(page.locator('h1')).toBeVisible();
+    const displayId = (await page.locator('h1').textContent())?.trim();
+    expect(displayId).toBeTruthy();
+
     // 3. Pharmacist logs in and verifies prescription
     await loginAs(page, '9830044444'); // Pharmacist Sunita Banerjee
     await page.goto(`/pharmacist/review/${orderId}`);
     await expect(page.locator('text=Prescription Document')).toBeVisible();
 
     // Verify and confirm prescription date checkbox
-    const confirmCheckbox = page.locator('input[type="checkbox"]');
+    const confirmCheckbox = page
+      .locator('label')
+      .filter({ hasText: 'within validity window' })
+      .locator('input[type="checkbox"]');
     await confirmCheckbox.check();
 
     // Click Approve Order
     await page.click('button:has-text("Approved")');
-    await expect(page.locator('text=Approved successfully')).toBeVisible();
+    await expect(
+      page.locator('text=Order approved and ready for store packing!')
+    ).toBeVisible();
 
     // 4. Store fulfillment: Store Staff / Ops logs in and packs the approved order
     await loginAs(page, '9830099999'); // Ops
     await page.goto('/store/orders');
     await expect(page.locator('text=Store Fulfillment & Packing Desk')).toBeVisible();
 
-    // Locate the "Pack Order" button for approved orders
-    const packOrderBtn = page.locator('button:has-text("Pack Order (Enter Invoice)")').first();
+    // Locate the "Pack Order" button for the approved order using its displayId
+    const approvedOrderCard = page.locator('div.divide-y > div').filter({ hasText: displayId! });
+    await expect(approvedOrderCard).toBeVisible();
+    const packOrderBtn = approvedOrderCard.locator('button:has-text("Pack Order (Enter Invoice)")');
     await packOrderBtn.click();
 
     // Enter GST invoice number in modal
