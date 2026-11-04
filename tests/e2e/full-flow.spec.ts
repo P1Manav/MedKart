@@ -53,6 +53,17 @@ test.describe('MedKart Full Pharmacy Lifecycle Flow', () => {
     // 2. Order builder page
     await expect(page).toHaveURL(/.*\/customer\/order\/new/);
 
+    // Search catalogue and add Metformin to basket
+    await page.click('button:has-text("Search Catalogue & Cart")');
+    const searchInput = page.locator('input[placeholder*="Search medicines"]');
+    await searchInput.fill('Metformin');
+    const addToOrderBtn = page.locator('button:has-text("Add to Order +")').first();
+    await expect(addToOrderBtn).toBeVisible();
+    await addToOrderBtn.click();
+
+    // Switch back to prescription upload
+    await page.click('button:has-text("Prescription Upload")');
+
     // Pick synthetic sample prescription (Clean Metformin)
     await page.click('text=Sample 1: Metformin 500 mg (Clean)');
     await expect(page.locator('text=Image ready for secure encrypted upload')).toBeVisible();
