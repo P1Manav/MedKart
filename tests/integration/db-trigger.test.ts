@@ -137,6 +137,10 @@ describe('Postgres Dispatch Guard Trigger (Real PostgreSQL Integration)', () => 
     await expect(
       prisma.$executeRawUnsafe(`UPDATE orders SET status = 'PACKED' WHERE id = '${testId}'`)
     ).rejects.toThrow(/Prescription image is missing/);
+
+    // Assert row immutability on rejected raw SQL update
+    const unmodOrder = await prisma.order.findUniqueOrThrow({ where: { id: testId } });
+    expect(unmodOrder.status).toBe('APPROVED');
   });
 
   it('rejects raw SQL status transition to PACKED when prescription is expired', async () => {
@@ -172,6 +176,9 @@ describe('Postgres Dispatch Guard Trigger (Real PostgreSQL Integration)', () => 
     await expect(
       prisma.$executeRawUnsafe(`UPDATE orders SET status = 'PACKED' WHERE id = '${testId}'`)
     ).rejects.toThrow(/Prescription is expired or invalid/);
+
+    const unmodOrder = await prisma.order.findUniqueOrThrow({ where: { id: testId } });
+    expect(unmodOrder.status).toBe('APPROVED');
   });
 
   it('rejects raw SQL status transition to PACKED when an active line is PENDING', async () => {
@@ -205,6 +212,9 @@ describe('Postgres Dispatch Guard Trigger (Real PostgreSQL Integration)', () => 
     await expect(
       prisma.$executeRawUnsafe(`UPDATE orders SET status = 'PACKED' WHERE id = '${testId}'`)
     ).rejects.toThrow(/lack valid pharmacist approval/);
+
+    const unmodOrder = await prisma.order.findUniqueOrThrow({ where: { id: testId } });
+    expect(unmodOrder.status).toBe('SUBMITTED');
   });
 
   it('rejects raw SQL status transition to PACKED when pharmacist registration is missing', async () => {
@@ -240,6 +250,9 @@ describe('Postgres Dispatch Guard Trigger (Real PostgreSQL Integration)', () => 
     await expect(
       prisma.$executeRawUnsafe(`UPDATE orders SET status = 'PACKED' WHERE id = '${testId}'`)
     ).rejects.toThrow(/lack valid pharmacist approval/);
+
+    const unmodOrder = await prisma.order.findUniqueOrThrow({ where: { id: testId } });
+    expect(unmodOrder.status).toBe('APPROVED');
   });
 
   it('rejects raw SQL status transition to PACKED when Schedule H1 line lacks register details', async () => {
@@ -281,6 +294,9 @@ describe('Postgres Dispatch Guard Trigger (Real PostgreSQL Integration)', () => 
     await expect(
       prisma.$executeRawUnsafe(`UPDATE orders SET status = 'PACKED' WHERE id = '${testId}'`)
     ).rejects.toThrow(/Schedule H1 line\(s\) missing mandatory register entry/);
+
+    const unmodOrder = await prisma.order.findUniqueOrThrow({ where: { id: testId } });
+    expect(unmodOrder.status).toBe('APPROVED');
   });
 
   it('rejects raw SQL status transition to PACKED when a Schedule X line is approved', async () => {
@@ -316,6 +332,9 @@ describe('Postgres Dispatch Guard Trigger (Real PostgreSQL Integration)', () => 
     await expect(
       prisma.$executeRawUnsafe(`UPDATE orders SET status = 'PACKED' WHERE id = '${testId}'`)
     ).rejects.toThrow(/cannot be sold online/);
+
+    const unmodOrder = await prisma.order.findUniqueOrThrow({ where: { id: testId } });
+    expect(unmodOrder.status).toBe('APPROVED');
   });
 
   it('permits raw SQL status transition to PACKED when all safety criteria are satisfied', async () => {
