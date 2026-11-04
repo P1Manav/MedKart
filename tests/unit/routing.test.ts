@@ -153,6 +153,15 @@ describe('Store Routing & Haversine Distance', () => {
 
     // Zero active stores
     vi.spyOn(db.store, 'findMany').mockResolvedValue([]);
+    vi.spyOn(db.scheduleRule, 'findMany').mockResolvedValue([
+      {
+        schedule: 'H',
+        canSellOnline: true,
+        requiresPrescription: true,
+        requiresPharmacistApproval: true,
+        requiresRegisterEntry: false,
+      },
+    ]);
     vi.spyOn(db.messageOutbox, 'create').mockResolvedValue(
       {} as unknown as Awaited<ReturnType<typeof db.messageOutbox.create>>
     );

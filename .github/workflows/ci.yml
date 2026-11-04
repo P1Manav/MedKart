@@ -13,6 +13,13 @@ concurrency:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: "postgresql://postgres:postgrespassword@localhost:5432/medkart_test"
+      SESSION_SECRET: "ci-test-session-secret-must-be-at-least-32-chars-long"
+      PRESCRIPTION_ENC_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+      CRON_SECRET: "ci-test-cron-secret-12345"
+      OTP_MOCK: "true"
+      DEMO_MODE: "true"
 
     services:
       postgres:
