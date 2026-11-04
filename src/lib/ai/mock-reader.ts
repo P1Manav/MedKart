@@ -10,7 +10,6 @@ export class MockReader implements PrescriptionReader {
     this.scenario = scenario;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async read(_imageBytes: Buffer | Uint8Array): Promise<ReadResult> {
     const start = Date.now();
 
