@@ -7,6 +7,7 @@ import { validatePrescriptionFile } from '@/lib/validators/upload';
 import { encryptPrescription } from '@/lib/crypto/encrypt';
 import { getPrescriptionReader } from '@/lib/ai';
 import { matchPrescriptionLine, type CatalogueProduct } from '@/lib/ai/fuzzy-matcher';
+import { routeOrderToStore, type StoreStockItem, type OrderItemRequirement } from '@/domain/routing';
 
 export async function POST(
   req: Request,
@@ -86,6 +87,59 @@ export async function POST(
       };
     });
 
+    // Re-evaluate store routing with the replacement prescription requirements
+    const storesWithStock = await db.store.findMany({
+      where: { active: true },
+      include: { stock: true },
+    });
+
+    const storeItems: StoreStockItem[] = storesWithStock.map((s) => {
+      const stockMap: Record<string, number> = {};
+      s.stock.forEach((st) => {
+        stockMap[st.productId] = st.quantity;
+      });
+      return {
+        storeId: s.id,
+        storeName: s.name,
+        lat: s.lat,
+        lng: s.lng,
+        active: s.active,
+        stock: stockMap,
+      };
+    });
+
+    const aiRequirements: OrderItemRequirement[] = matchedLines
+      .filter((l) => l.match.matchedProduct && !l.match.isBlockedNotSoldOnline)
+      .map((l) => ({
+        productId: l.match.matchedProduct!.id,
+        quantity: l.aiLine.quantity || 1,
+      }));
+
+    let recomputedStoreId: string | null = order.storeId;
+    let routingIssue: string | null = null;
+
+    if (aiRequirements.length > 0 && order.addressLat && order.addressLng) {
+      if (storeItems.length > 0) {
+        try {
+          const routeResult = routeOrderToStore(
+            { lat: order.addressLat, lng: order.addressLng },
+            storeItems,
+            aiRequirements
+          );
+          recomputedStoreId = routeResult.assignedStoreId;
+          if (!routeResult.isFullCoverage) {
+            routingIssue = 'Partial stock at nearest store; requires multi-store split or warehouse dispatch';
+          }
+        } catch (err: unknown) {
+          recomputedStoreId = null;
+          routingIssue = err instanceof Error ? err.message : 'No stocked store found within delivery range';
+        }
+      } else {
+        recomputedStoreId = null;
+        routingIssue = 'No active stores available in network';
+      }
+    }
+
     // Execute in a single atomic transaction
     await db.$transaction(async (tx) => {
       // 1. Delete previous PENDING lines that needed re-checking
@@ -125,6 +179,8 @@ export async function POST(
         data: {
           status: 'SUBMITTED',
           prescriptionStatus: 'PENDING',
+          storeId: recomputedStoreId,
+          routingIssue,
           prescriptionEncrypted: new Uint8Array(enc.encrypted),
           prescriptionIv: new Uint8Array(enc.iv),
           prescriptionAuthTag: new Uint8Array(enc.authTag),
@@ -155,6 +211,8 @@ export async function POST(
       message: 'Prescription successfully re-uploaded. Order returned to pharmacist verification queue.',
       orderId: order.id,
       status: 'SUBMITTED',
+      storeId: recomputedStoreId,
+      routingIssue,
     });
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : 'Re-upload failed';
