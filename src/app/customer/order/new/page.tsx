@@ -3,11 +3,14 @@
 
 import React, { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ErrorState } from '@/components/ui/error-state';
 
 export default function OrderBuilderPage() {
+  const t = useTranslations('customer');
+  const tc = useTranslations('common');
   const router = useRouter();
 
   // Upload state
@@ -156,7 +159,7 @@ export default function OrderBuilderPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-lg font-bold text-stone-900 flex items-center justify-between">
-              <span>1. Doctor’s Prescription</span>
+              <span>1. {t('uploadPrescription')}</span>
               <span className="text-xs font-normal text-teal-800 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
                 AES-256-GCM Encrypted
               </span>
@@ -172,10 +175,10 @@ export default function OrderBuilderPage() {
                 </div>
                 <div className="space-y-1">
                   <p className="text-base font-semibold text-stone-800">
-                    Upload prescription photo
+                    {t('uploadPrescription')}
                   </p>
                   <p className="text-xs text-stone-500">
-                    Camera photo or gallery image (JPEG or PNG, client-resized to ≤1600px)
+                    {t('uploadHelp')}
                   </p>
                 </div>
 
@@ -191,7 +194,7 @@ export default function OrderBuilderPage() {
                   />
                   <label htmlFor="rx-upload">
                     <Button type="button" onClick={() => fileInputRef.current?.click()}>
-                      Take Photo / Choose File
+                      {t('chooseFile')}
                     </Button>
                   </label>
                 </div>
@@ -246,7 +249,7 @@ export default function OrderBuilderPage() {
                 <div className="flex items-center justify-between text-xs text-stone-500">
                   <span>Image ready for secure encrypted upload</span>
                   <Button type="button" variant="outline" size="sm" onClick={handleRetake}>
-                    Change / Retake Photo
+                    {t('retake')}
                   </Button>
                 </div>
               </div>
@@ -258,7 +261,7 @@ export default function OrderBuilderPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-lg font-bold text-stone-900">
-              2. Who is this medicine for?
+              2. {t('profileFor')}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -278,7 +281,7 @@ export default function OrderBuilderPage() {
                   className="text-teal-600 focus:ring-teal-500"
                 />
                 <div>
-                  <span className="block text-base">Mother (Anjali Ghosh)</span>
+                  <span className="block text-base">{t('mother')} (Anjali Ghosh)</span>
                   <span className="block text-xs text-stone-500">Caregiver monthly refill</span>
                 </div>
               </label>
@@ -298,7 +301,7 @@ export default function OrderBuilderPage() {
                   className="text-teal-600 focus:ring-teal-500"
                 />
                 <div>
-                  <span className="block text-base">Myself (Debasish Ghosh)</span>
+                  <span className="block text-base">{t('self')} (Debasish Ghosh)</span>
                   <span className="block text-xs text-stone-500">Personal order</span>
                 </div>
               </label>
@@ -310,13 +313,13 @@ export default function OrderBuilderPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-lg font-bold text-stone-900">
-              3. Delivery Address (Kolkata & Howrah)
+              3. {t('deliveryAddress')}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div>
               <label className="block text-sm font-semibold text-stone-700 mb-1">
-                Saved Address:
+                {t('selectAddress')}:
               </label>
               <textarea
                 value={address}
@@ -340,7 +343,7 @@ export default function OrderBuilderPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-lg font-bold text-stone-900">
-              4. Payment Method (Test Mode)
+              4. {t('paymentMethod')}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -359,7 +362,7 @@ export default function OrderBuilderPage() {
                   onChange={() => setPaymentMethod('COD')}
                 />
                 <div>
-                  <span className="block text-sm">Cash on Delivery</span>
+                  <span className="block text-sm">{t('cod')}</span>
                   <span className="block text-xs text-stone-500">Pay at your doorstep</span>
                 </div>
               </label>
@@ -378,7 +381,7 @@ export default function OrderBuilderPage() {
                   onChange={() => setPaymentMethod('MOCK_UPI')}
                 />
                 <div>
-                  <span className="block text-sm">Mock UPI / Online</span>
+                  <span className="block text-sm">{t('mockUpi')}</span>
                   <span className="block text-xs text-stone-500">Simulated instant payment</span>
                 </div>
               </label>
@@ -406,7 +409,7 @@ export default function OrderBuilderPage() {
           size="lg"
           className="w-full text-lg shadow-md"
         >
-          Submit Order for Pharmacist Verification &rarr;
+          {tc('submit')} &rarr;
         </Button>
       </form>
     </div>

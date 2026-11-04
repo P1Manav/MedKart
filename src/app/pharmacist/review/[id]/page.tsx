@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect, use } from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -49,6 +50,8 @@ export default function PharmacistReviewPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const t = useTranslations('pharmacist');
+  const tc = useTranslations('common');
   const { id } = use(params);
   const [order, setOrder] = useState<ReviewOrder | null>(null);
   const [loading, setLoading] = useState(true);
@@ -294,7 +297,7 @@ export default function PharmacistReviewPage({
         <div className="flex items-center gap-2">
           <Link href="/pharmacist/queue">
             <Button variant="outline" size="sm">
-              &larr; Queue
+              &larr; {tc('back')}
             </Button>
           </Link>
           <Button
@@ -302,7 +305,7 @@ export default function PharmacistReviewPage({
             size="sm"
             onClick={() => setShowReuploadModal(true)}
           >
-            Request Re-upload
+            {t('requestReupload')}
           </Button>
           <Button
             size="sm"
@@ -322,7 +325,7 @@ export default function PharmacistReviewPage({
             }
             className="shadow-sm"
           >
-            Approve Order &rarr;
+            {tc('approved')} &rarr;
           </Button>
         </div>
       </div>
@@ -424,7 +427,7 @@ export default function PharmacistReviewPage({
           <Card className="h-full flex flex-col">
             <CardHeader className="py-3 px-4 flex flex-row items-center justify-between border-b border-stone-100">
               <CardTitle className="text-sm font-bold text-stone-800 flex items-center gap-2">
-                <span>Prescription Document</span>
+                <span>{t('prescriptionViewer')}</span>
                 <span className="text-[10px] bg-teal-50 text-teal-700 px-1.5 py-0.5 rounded font-mono">
                   AES-256 Decrypted
                 </span>
@@ -435,7 +438,7 @@ export default function PharmacistReviewPage({
                   type="button"
                   onClick={() => setZoom((z) => Math.max(0.6, z - 0.2))}
                   className="p-1.5 border rounded hover:bg-stone-100 text-xs font-bold w-7 h-7 flex items-center justify-center cursor-pointer"
-                  title="Zoom Out"
+                  title={t('zoomOut')}
                 >
                   -
                 </button>
@@ -446,7 +449,7 @@ export default function PharmacistReviewPage({
                   type="button"
                   onClick={() => setZoom((z) => Math.min(2.5, z + 0.2))}
                   className="p-1.5 border rounded hover:bg-stone-100 text-xs font-bold w-7 h-7 flex items-center justify-center cursor-pointer"
-                  title="Zoom In"
+                  title={t('zoomIn')}
                 >
                   +
                 </button>
@@ -456,7 +459,7 @@ export default function PharmacistReviewPage({
                   className="p-1.5 border rounded hover:bg-stone-100 text-xs font-semibold px-2 cursor-pointer"
                   title="Rotate 90 degrees"
                 >
-                  Rotate
+                  {t('rotate')}
                 </button>
                 <button
                   type="button"

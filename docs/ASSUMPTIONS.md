@@ -7,7 +7,7 @@
 | A1 | Prescription validity window defaults to 6 months from the date on the prescription | Spec says configurable with a default; 6 months is common in Indian pharmacy practice | `src/domain/assert-dispatchable.ts`, config constant |
 | A2 | `generic_substitutes` is an invented lookup table linking brand products to generic equivalents | Spec §5.5 calls this an ASSUMPTION; no real formulary data | `prisma/schema.prisma`, `GenericSubstitute` model |
 | A3 | Pincode-to-lat/lng is a small seeded lookup table (~20 Kolkata pincodes), not a geocoding API | Spec §5.6 calls this an ASSUMPTION; avoids external dependency | `prisma/schema.prisma`, `PincodeCoord` model; `seed.ts` |
-| A4 | Hindi and Bengali UI strings are AI-drafted and need review by a fluent speaker | Spec §9 requires this disclosure | `messages/hi.json`, `messages/bn.json` |
+| A4 | Hindi and Bengali UI strings are AI-drafted translations and must be reviewed by a native speaker before production use | AI-generated translations may have minor phrasing nuances; required honest disclosure | `messages/hi.json`, `messages/bn.json` |
 | A5 | All prescription images in seed data are SYNTHETIC (invented names, not real prescriptions) | Free-tier AI inputs may be used for training; spec §6 requires this | `seed/prescriptions/`, `scripts/generate-prescriptions.ts` |
 | A6 | Upload size limit is 5 MB per prescription image; accepted MIME types are image/jpeg and image/png | Reasonable mobile photo size; spec doesn't specify exact limit | `src/lib/validators/upload.ts` |
 | A7 | OTP rate limit: max 5 attempts per phone per 15 minutes; login rate limit: max 10 per phone per hour | Spec says rate-limited but doesn't specify exact numbers; these are industry-reasonable | `src/lib/auth/otp.ts` |

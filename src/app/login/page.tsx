@@ -3,11 +3,13 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ErrorState } from '@/components/ui/error-state';
 
 export default function LoginPage() {
+  const t = useTranslations('auth');
   const router = useRouter();
   const [phone, setPhone] = useState('9830011111');
   const [step, setStep] = useState<'PHONE' | 'OTP'>('PHONE');
@@ -89,7 +91,7 @@ export default function LoginPage() {
           <div className="w-12 h-12 bg-teal-700 text-white rounded-lg flex items-center justify-center font-bold text-2xl mx-auto mb-3">
             M
           </div>
-          <CardTitle className="text-2xl font-bold text-stone-900">Log In to MedKart</CardTitle>
+          <CardTitle className="text-2xl font-bold text-stone-900">{t('loginTitle')}</CardTitle>
           <CardDescription className="text-stone-600">
             Monthly prescription medicine reordering with licensed pharmacist safety checks.
           </CardDescription>
@@ -103,7 +105,7 @@ export default function LoginPage() {
             <div className="bg-amber-50 border border-amber-300 rounded-md p-4 text-amber-900">
               <div className="flex items-center gap-2 font-semibold text-sm">
                 <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping"></span>
-                <span>Demo SMS Received:</span>
+                <span>{t('demoCodeText')}</span>
               </div>
               <p className="text-xl font-mono font-bold tracking-widest mt-1 text-teal-900">
                 {mockOtp}
@@ -118,7 +120,7 @@ export default function LoginPage() {
             <form onSubmit={handleRequestOtp} className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-stone-700 mb-1">
-                  10-Digit Mobile Number
+                  {t('enterPhone')}
                 </label>
                 <div className="relative">
                   <span className="absolute left-3 top-3 text-stone-500 font-medium">+91</span>
@@ -126,7 +128,7 @@ export default function LoginPage() {
                     type="tel"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    placeholder="9830012345"
+                    placeholder={t('phonePlaceholder')}
                     className="w-full pl-14 pr-4 py-3 border border-stone-300 rounded-md text-lg font-mono focus:ring-2 focus:ring-teal-600 focus:outline-none"
                     required
                   />
@@ -134,7 +136,7 @@ export default function LoginPage() {
               </div>
 
               <Button type="submit" isLoading={loading} className="w-full text-lg">
-                Send Verification Code
+                {t('getOtp')}
               </Button>
 
               <div className="pt-4 border-t border-stone-200">
@@ -170,7 +172,7 @@ export default function LoginPage() {
               <div>
                 <div className="flex justify-between items-baseline mb-1">
                   <label className="block text-sm font-semibold text-stone-700">
-                    Enter 6-Digit Code
+                    {t('enterOtp')}
                   </label>
                   <button
                     type="button"
@@ -185,7 +187,7 @@ export default function LoginPage() {
                   maxLength={6}
                   value={otp}
                   onChange={(e) => setOtp(e.target.value)}
-                  placeholder="123456"
+                  placeholder={t('otpPlaceholder')}
                   className="w-full px-4 py-3 text-center border border-stone-300 rounded-md text-2xl font-mono tracking-widest focus:ring-2 focus:ring-teal-600 focus:outline-none"
                   autoFocus
                   required
@@ -193,7 +195,7 @@ export default function LoginPage() {
               </div>
 
               <Button type="submit" isLoading={loading} className="w-full text-lg">
-                Verify & Continue
+                {t('verifyOtp')}
               </Button>
 
               <div className="text-center">
@@ -202,7 +204,7 @@ export default function LoginPage() {
                   onClick={() => handleRequestOtp()}
                   className="text-sm text-stone-600 hover:text-teal-700 underline"
                 >
-                  Didn’t receive code? Resend
+                  {t('resend')}
                 </button>
               </div>
             </form>

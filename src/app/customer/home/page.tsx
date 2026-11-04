@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -23,6 +24,7 @@ interface OrderItem {
 }
 
 export default function CustomerHomePage() {
+  const t = useTranslations('customer');
   const [orders, setOrders] = useState<OrderItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedProfile, setSelectedProfile] = useState<'ALL' | 'MOTHER' | 'SELF'>('ALL');
@@ -56,7 +58,7 @@ export default function CustomerHomePage() {
       <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-lg border border-stone-200">
         <div>
           <span className="text-xs uppercase font-semibold text-stone-500 block">
-            Ordering For Profile:
+            {t('profileFor')}
           </span>
           <h2 className="text-lg font-bold text-stone-900">Debasish Ghosh’s Family</h2>
         </div>
@@ -79,7 +81,7 @@ export default function CustomerHomePage() {
                 : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
             }`}
           >
-            Mother (Anjali Ghosh)
+            {t('mother')} (Anjali Ghosh)
           </button>
           <button
             onClick={() => setSelectedProfile('SELF')}
@@ -89,7 +91,7 @@ export default function CustomerHomePage() {
                 : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
             }`}
           >
-            Myself
+            {t('self')}
           </button>
         </div>
       </div>
@@ -102,17 +104,17 @@ export default function CustomerHomePage() {
             Monthly Medicine Refill
           </span>
           <h1 className="text-2xl sm:text-3xl font-bold text-stone-900">
-            Reorder Monthly Prescription in ~1 Minute
+            {t('homeTitle')}
           </h1>
           <p className="text-stone-600 text-base">
-            Upload your prescription. A licensed pharmacist checks every medicine before same-day delivery from your nearest stocked Kolkata store.
+            {t('pharmacistCheckNotice')}
           </p>
         </div>
 
         <div className="pt-2">
           <Link href="/customer/order/new">
             <Button size="xl" className="w-full sm:w-auto px-12 py-5 text-xl font-bold shadow-lg">
-              Reorder My Medicines
+              {t('reorderButton')}
             </Button>
           </Link>
         </div>
@@ -121,7 +123,7 @@ export default function CustomerHomePage() {
           <svg className="w-4 h-4 text-teal-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
           </svg>
-          Every prescription checked by a registered pharmacist. Strictly no Schedule X or narcotics online.
+          {t('pharmacistCheckNotice')}
         </p>
       </div>
 
@@ -130,7 +132,7 @@ export default function CustomerHomePage() {
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <div>
             <CardTitle className="text-lg font-bold text-stone-900">
-              Upcoming Refill Reminders
+              {t('refillReminders')}
             </CardTitle>
             <p className="text-sm text-stone-600">
               Calculated based on your prescribed dosage to make sure you never run out.
@@ -157,7 +159,7 @@ export default function CustomerHomePage() {
 
             <Link href="/customer/order/new">
               <Button size="sm" className="whitespace-nowrap">
-                1-Tap Reorder
+                {t('oneTapReorder')}
               </Button>
             </Link>
           </div>
@@ -168,7 +170,7 @@ export default function CustomerHomePage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-lg font-bold text-stone-900">
-            Recent Orders & Status
+            {t('recentOrders')}
           </CardTitle>
         </CardHeader>
         <CardContent>
