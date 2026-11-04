@@ -14,7 +14,7 @@ export class GeminiReader implements PrescriptionReader {
   private modelName: string;
 
   constructor() {
-    this.modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+    this.modelName = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
     const apiKey = process.env.GEMINI_API_KEY;
     if (apiKey) {
       this.ai = new GoogleGenAI({ apiKey });
