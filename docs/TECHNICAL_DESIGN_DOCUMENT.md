@@ -2,6 +2,7 @@
 # MedKart Pharmacy — Online Reordering with Pharmacist Prescription Checks
 
 **Repository URL:** [https://github.com/P1Manav/isocode_assignment](https://github.com/P1Manav/isocode_assignment)  
+**Live Deployed Application:** [https://medkart-pharmacyt.vercel.app](https://medkart-pharmacyt.vercel.app)  
 **Author:** Manav Prajapati (maxprajapati606@gmail.com)  
 **Date:** November 2026  
 **Status:** Complete & Verified (v1.0.0)

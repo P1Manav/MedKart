@@ -2,6 +2,9 @@
 
 This document describes how to run MedKart locally step by step, how it is deployed to production on Vercel and Neon (Free Tier), and the demo login details for reviewer evaluation.
 
+- **GitHub Repository:** [https://github.com/P1Manav/isocode_assignment](https://github.com/P1Manav/isocode_assignment)
+- **Live Deployed Application:** [https://medkart-pharmacyt.vercel.app](https://medkart-pharmacyt.vercel.app)
+
 > **SECURITY NOTICE:** Never commit secrets or actual private keys to the repository. All secrets must be configured via environment variables.
 
 ---
