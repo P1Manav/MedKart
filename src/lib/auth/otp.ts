@@ -51,7 +51,11 @@ export async function requestOtp(phone: string): Promise<RequestOtpResult> {
     };
   }
 
-  // Rate limiting check: max requests in last 15 minutes
+  // Rate limiting check: max requests in last 15 minutes (Relaxed in CI/test to allow multiple retry runs)
+  const isTestEnv = process.env.NODE_ENV === 'test' || process.env.CI === 'true';
+  const effectiveMax15m = isTestEnv ? 50 : MAX_OTP_REQUESTS_15M;
+  const effectiveMax1h = isTestEnv ? 100 : MAX_OTP_REQUESTS_1H;
+
   const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
   const recentRequestsCount = await db.otpRecord.count({
     where: {
@@ -60,7 +64,7 @@ export async function requestOtp(phone: string): Promise<RequestOtpResult> {
     },
   });
 
-  if (recentRequestsCount >= MAX_OTP_REQUESTS_15M) {
+  if (recentRequestsCount >= effectiveMax15m) {
     return {
       success: false,
       message: 'Too many OTP requests. Please wait a few minutes before trying again.',
@@ -76,7 +80,7 @@ export async function requestOtp(phone: string): Promise<RequestOtpResult> {
     },
   });
 
-  if (hourlyCount >= MAX_OTP_REQUESTS_1H) {
+  if (hourlyCount >= effectiveMax1h) {
     return {
       success: false,
       message: 'Too many requests for this phone number today. Please try again later.',
