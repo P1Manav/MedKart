@@ -1,0 +1,386 @@
+// prisma/schema.prisma
+// MedKart — Pharmacy Online Reordering System
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ──────────────────────────────────────────────
+
+enum UserRole {
+  CUSTOMER
+  PHARMACIST
+  STORE_STAFF
+  OPS
+}
+
+enum Language {
+  en
+  hi
+  bn
+}
+
+enum ScheduleType {
+  OTC
+  H
+  H1
+  X
+  NARCOTIC
+}
+
+enum OrderStatus {
+  DRAFT
+  SUBMITTED
+  ON_HOLD
+  REJECTED
+  APPROVED
+  PACKED
+  HANDED_OVER
+  DELIVERED
+  CANCELLED
+}
+
+enum LineStatus {
+  PENDING
+  APPROVED
+  EDITED_APPROVED
+  REJECTED
+  BLOCKED_NOT_SOLD_ONLINE
+}
+
+enum PrescriptionStatus {
+  PENDING
+  APPROVED
+  RE_UPLOAD_ASKED
+}
+
+enum PaymentMethod {
+  MOCK_UPI
+  COD
+}
+
+enum MessageChannel {
+  SMS
+  WHATSAPP
+}
+
+enum MessageStatus {
+  PENDING
+  SENT_MOCK
+}
+
+enum AccessAction {
+  VIEW
+  DOWNLOAD
+}
+
+enum ImageLegibility {
+  CLEAR
+  PARTIAL
+  UNREADABLE
+}
+
+// ─── Models ─────────────────────────────────────────────
+
+model User {
+  id               String   @id @default(cuid())
+  phone            String   @unique
+  name             String
+  role             UserRole
+  pharmacistRegNo  String?  @map("pharmacist_reg_no")
+  storeId          String?  @map("store_id")
+  language         Language @default(en)
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  store            Store?           @relation(fields: [storeId], references: [id])
+  familyProfiles   FamilyProfile[]
+  orders           Order[]          @relation("CustomerOrders")
+  pharmacistLines  OrderLine[]      @relation("PharmacistLines")
+  auditEvents      OrderAudit[]
+  accessLogs       PrescriptionAccessLog[]
+  messages         MessageOutbox[]
+  addresses        CustomerAddress[]
+  otpRecords       OtpRecord[]
+  notifications    Notification[]
+
+  @@map("users")
+}
+
+model FamilyProfile {
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  name         String
+  relationship String
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user           User            @relation(fields: [userId], references: [id])
+  orders         Order[]
+  refillTrackers RefillTracker[]
+
+  @@map("family_profiles")
+}
+
+model Store {
+  id       String  @id @default(cuid())
+  name     String
+  lat      Float
+  lng      Float
+  pincode  String
+  active   Boolean @default(true)
+  address  String?
+
+  staff    User[]
+  stock    StoreStock[]
+  orders   Order[]
+
+  @@map("stores")
+}
+
+model Product {
+  id             String       @id @default(cuid())
+  name           String
+  strength       String
+  form           String
+  packSize       String       @map("pack_size")
+  price          Float
+  schedule       ScheduleType
+  genericGroupId String?      @map("generic_group_id")
+  active         Boolean      @default(true)
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  stock              StoreStock[]
+  orderLines         OrderLine[]
+  refillTrackers     RefillTracker[]
+  genericOriginals   GenericSubstitute[] @relation("OriginalProduct")
+  genericAlternatives GenericSubstitute[] @relation("GenericProduct")
+
+  @@map("products")
+}
+
+model ScheduleRule {
+  schedule                   ScheduleType @id
+  canSellOnline              Boolean      @map("can_sell_online")
+  requiresPrescription       Boolean      @map("requires_prescription")
+  requiresPharmacistApproval Boolean      @map("requires_pharmacist_approval")
+  requiresRegisterEntry      Boolean      @map("requires_register_entry")
+
+  @@map("schedule_rules")
+}
+
+model StoreStock {
+  id          String   @id @default(cuid())
+  storeId     String   @map("store_id")
+  productId   String   @map("product_id")
+  quantity    Int
+  lastUpdated DateTime @default(now()) @map("last_updated")
+
+  store   Store   @relation(fields: [storeId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@unique([storeId, productId])
+  @@map("store_stock")
+}
+
+model Order {
+  id                      String             @id @default(cuid())
+  displayId               String             @unique @map("display_id")
+  customerId              String             @map("customer_id")
+  familyProfileId         String?            @map("family_profile_id")
+  storeId                 String?            @map("store_id")
+  status                  OrderStatus        @default(DRAFT)
+  addressText             String?            @map("address_text")
+  addressLat              Float?             @map("address_lat")
+  addressLng              Float?             @map("address_lng")
+  paymentMethod           PaymentMethod?     @map("payment_method")
+  prescriptionEncrypted   Bytes?             @map("prescription_encrypted")
+  prescriptionIv          Bytes?             @map("prescription_iv")
+  prescriptionAuthTag     Bytes?             @map("prescription_auth_tag")
+  prescriptionMime        String?            @map("prescription_mime")
+  prescriptionStatus      PrescriptionStatus? @map("prescription_status")
+  prescriptionValidUntil  DateTime?          @map("prescription_valid_until")
+  aiImageLegibility       ImageLegibility?   @map("ai_image_legibility")
+  aiPrescriberText        String?            @map("ai_prescriber_text")
+  aiDateText              String?            @map("ai_date_text")
+  aiModelName             String?            @map("ai_model_name")
+  aiLatencyMs             Int?               @map("ai_latency_ms")
+  manualEntryNeeded       Boolean            @default(false) @map("manual_entry_needed")
+  createdAt               DateTime           @default(now()) @map("created_at")
+  updatedAt               DateTime           @updatedAt @map("updated_at")
+
+  customer        User              @relation("CustomerOrders", fields: [customerId], references: [id])
+  familyProfile   FamilyProfile?    @relation(fields: [familyProfileId], references: [id])
+  store           Store?            @relation(fields: [storeId], references: [id])
+  lines           OrderLine[]
+  auditEvents     OrderAudit[]
+  accessLogs      PrescriptionAccessLog[]
+
+  @@map("orders")
+}
+
+model OrderLine {
+  id                    String     @id @default(cuid())
+  orderId               String     @map("order_id")
+  productId             String?    @map("product_id")
+  rawText               String?    @map("raw_text")
+  aiDrugName            String?    @map("ai_drug_name")
+  aiStrength            String?    @map("ai_strength")
+  aiConfidence          Float?     @map("ai_confidence")
+  aiAlternatives        Json?      @map("ai_alternatives")
+  lineStatus            LineStatus @default(PENDING) @map("line_status")
+  quantity              Int        @default(1)
+  unitPrice             Float?     @map("unit_price")
+  pharmacistId          String?    @map("pharmacist_id")
+  pharmacistRegNo       String?    @map("pharmacist_reg_no")
+  rejectReason          String?    @map("reject_reason")
+  editNote              String?    @map("edit_note")
+  genericSuggested      Boolean    @default(false) @map("generic_suggested")
+  customerConsentGeneric Boolean   @default(false) @map("customer_consent_generic")
+  consentTimestamp       DateTime?  @map("consent_timestamp")
+  needsReview           Boolean    @default(false) @map("needs_review")
+  // H1 register fields
+  h1PrescriberName      String?    @map("h1_prescriber_name")
+  h1PrescriberRegNo     String?    @map("h1_prescriber_reg_no")
+  h1PatientName         String?    @map("h1_patient_name")
+  h1Date                DateTime?  @map("h1_date")
+  h1Quantity            Int?       @map("h1_quantity")
+  createdAt             DateTime   @default(now()) @map("created_at")
+
+  order     Order    @relation(fields: [orderId], references: [id])
+  product   Product? @relation(fields: [productId], references: [id])
+  pharmacist User?   @relation("PharmacistLines", fields: [pharmacistId], references: [id])
+
+  @@map("order_lines")
+}
+
+model OrderAudit {
+  id         String   @id @default(cuid())
+  orderId    String   @map("order_id")
+  actorId    String   @map("actor_id")
+  actorRole  String   @map("actor_role")
+  fromStatus String   @map("from_status")
+  toStatus   String   @map("to_status")
+  reason     String?
+  timestamp  DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id])
+  actor User  @relation(fields: [actorId], references: [id])
+
+  @@map("order_audit")
+}
+
+model PrescriptionAccessLog {
+  id       String       @id @default(cuid())
+  userId   String       @map("user_id")
+  userRole String       @map("user_role")
+  orderId  String       @map("order_id")
+  action   AccessAction
+  timestamp DateTime    @default(now())
+  ipHash   String       @map("ip_hash")
+
+  user  User  @relation(fields: [userId], references: [id])
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@map("prescription_access_log")
+}
+
+model RefillTracker {
+  id               String   @id @default(cuid())
+  familyProfileId  String   @map("family_profile_id")
+  productId        String   @map("product_id")
+  unitsDispensed   Int      @map("units_dispensed")
+  unitsPerDay      Float    @map("units_per_day")
+  daysOfSupply     Int      @map("days_of_supply")
+  runOutDate       DateTime @map("run_out_date") @db.Date
+  remindDaysBefore Int      @default(5) @map("remind_days_before")
+  reminderSent     Boolean  @default(false) @map("reminder_sent")
+  lastOrderId      String?  @map("last_order_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  familyProfile FamilyProfile @relation(fields: [familyProfileId], references: [id])
+  product       Product       @relation(fields: [productId], references: [id])
+
+  @@unique([familyProfileId, productId])
+  @@map("refill_trackers")
+}
+
+model MessageOutbox {
+  id        String        @id @default(cuid())
+  userId    String        @map("user_id")
+  channel   MessageChannel
+  content   String
+  status    MessageStatus @default(PENDING)
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("message_outbox")
+}
+
+model CustomerAddress {
+  id          String @id @default(cuid())
+  userId      String @map("user_id")
+  label       String
+  addressText String @map("address_text")
+  pincode     String
+  lat         Float
+  lng         Float
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("customer_addresses")
+}
+
+model PincodeCoord {
+  pincode String @id
+  lat     Float
+  lng     Float
+
+  @@map("pincode_coords")
+}
+
+model GenericSubstitute {
+  id                String @id @default(cuid())
+  originalProductId String @map("original_product_id")
+  genericProductId  String @map("generic_product_id")
+
+  originalProduct Product @relation("OriginalProduct", fields: [originalProductId], references: [id])
+  genericProduct  Product @relation("GenericProduct", fields: [genericProductId], references: [id])
+
+  @@unique([originalProductId, genericProductId])
+  @@map("generic_substitutes")
+}
+
+model OtpRecord {
+  id        String   @id @default(cuid())
+  phone     String
+  otpHash   String   @map("otp_hash")
+  attempts  Int      @default(0)
+  expiresAt DateTime @map("expires_at")
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [phone], references: [phone])
+
+  @@map("otp_records")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  title     String
+  body      String
+  read      Boolean  @default(false)
+  link      String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("notifications")
+}
+
