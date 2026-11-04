@@ -48,7 +48,7 @@ npm run seed
 
 ### Step 4: Run Tests & Verification Gates
 ```bash
-# Run unit and integration tests (124 tests)
+# Run unit and integration tests (129 tests across 22 suites)
 npm test
 
 # Run real PostgreSQL trigger integration tests
@@ -59,6 +59,9 @@ npm run typecheck
 
 # Run ESLint check
 npm run lint
+
+# Run Playwright end-to-end smoke tests
+npx playwright test --project=chromium
 ```
 
 ### Step 5: Start Local Development Server
@@ -94,7 +97,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 | `PRESCRIPTION_ENC_KEY` | **Yes** | 64-character hex string for AES-256-GCM encryption |
 | `CRON_SECRET` | **Yes** | Secret bearer token for daily refill cron |
 | `GEMINI_API_KEY` | **Yes** | Google AI Studio free tier key for Gemini 2.5 Flash |
-| `GEMINI_MODEL` | No | AI model name (default: `gemini-2.5-flash`) |
+| `GEMINI_MODEL` | No | AI model name (default: `gemini-2.0-flash`) |
 | `OTP_MOCK` | No | `"true"` for demo mode; `"false"` for real SMS provider |
 | `DEMO_MODE` | No | `"true"` to enable 1-click reviewer ribbon |
 | `NEXT_PUBLIC_APP_URL` | No | Canonical URL of deployed Vercel application |
