@@ -1,0 +1,91 @@
+@import "tailwindcss";
+
+@theme {
+  /* ─── Colors ──────────────────────────────── */
+  --color-primary-50: #f0fdfa;
+  --color-primary-100: #ccfbf1;
+  --color-primary-200: #99f6e4;
+  --color-primary-300: #5eead4;
+  --color-primary-400: #2dd4bf;
+  --color-primary-500: #0f766e;
+  --color-primary-600: #0d6560;
+  --color-primary-700: #0a5550;
+  --color-primary-800: #084540;
+  --color-primary-900: #053530;
+
+  --color-caution-50: #fffbeb;
+  --color-caution-100: #fef3c7;
+  --color-caution-200: #fde68a;
+  --color-caution-300: #fcd34d;
+  --color-caution-400: #fbbf24;
+  --color-caution-500: #b45309;
+  --color-caution-600: #92400e;
+
+  --color-danger-50: #fef2f2;
+  --color-danger-100: #fee2e2;
+  --color-danger-200: #fecaca;
+  --color-danger-300: #fca5a5;
+  --color-danger-400: #f87171;
+  --color-danger-500: #b91c1c;
+  --color-danger-600: #991b1b;
+
+  --color-surface: #fafaf9;
+  --color-surface-raised: #ffffff;
+  --color-text-primary: #1c1917;
+  --color-text-secondary: #57534e;
+  --color-text-muted: #a8a29e;
+  --color-border: #e7e5e4;
+
+  /* ─── Typography ──────────────────────────── */
+  --font-sans: "Noto Sans", "Noto Sans Devanagari", "Noto Sans Bengali", system-ui, sans-serif;
+  --text-base: 1.125rem; /* 18px base */
+  --text-sm: 0.9375rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 1.875rem;
+  --text-3xl: 2.25rem;
+
+  /* ─── Spacing / Sizing ────────────────────── */
+  --min-tap-target: 48px;
+
+  /* ─── Radius ──────────────────────────────── */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+}
+
+/* ─── Base Styles ───────────────────────────── */
+
+body {
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── Focus Ring ────────────────────────────── */
+
+*:focus-visible {
+  outline: 2px solid var(--color-primary-500);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ─── Scrollbar ─────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-text-muted);
+  border-radius: 3px;
+}
