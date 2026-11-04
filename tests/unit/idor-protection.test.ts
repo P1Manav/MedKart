@@ -29,7 +29,7 @@ describe('IDOR & Foreign-Key Integrity Protection (P0-10, Fix #10)', () => {
     vi.spyOn(rbac, 'requireAuth').mockResolvedValue(customerA);
     vi.spyOn(db.familyProfile, 'findUnique').mockResolvedValue({
       id: 'fam_bob_mother',
-      userId: 'cust_bob', // Belongs to customer B!
+      userId: customerB.userId, // Belongs to customer B!
       name: 'Bob Mother',
       relationship: 'Mother',
       createdAt: new Date(),

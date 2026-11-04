@@ -4,10 +4,6 @@ import { POST as createOrderHandler } from '@/app/api/orders/route';
 import {
   CreateOrderInputSchema,
   PrescriptionFileSchema,
-  MIN_KOLKATA_LAT,
-  MAX_KOLKATA_LAT,
-  MIN_KOLKATA_LNG,
-  MAX_KOLKATA_LNG,
 } from '@/lib/validators/order-input';
 import * as rbac from '@/lib/auth/rbac';
 

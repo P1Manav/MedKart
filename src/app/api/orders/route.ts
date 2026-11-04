@@ -8,7 +8,6 @@ import { getPrescriptionReader } from '@/lib/ai';
 import { matchPrescriptionLine, type CatalogueProduct } from '@/lib/ai/fuzzy-matcher';
 import { routeOrderToStore, type StoreStockItem, type OrderItemRequirement } from '@/domain/routing';
 import { computePrescriptionValidUntil } from '@/domain/assert-dispatchable';
-import { validatePrescriptionFile } from '@/lib/validators/upload';
 import { CreateOrderInputSchema, PrescriptionFileSchema } from '@/lib/validators/order-input';
 
 export const safeOrderSelect = {

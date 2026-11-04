@@ -2,8 +2,8 @@
 
 A regulated healthcare commerce web application built for a pharmacy chain in Kolkata and Howrah (10 seeded demo stores across key Kolkata and Howrah clusters, representing the 46-store network with central warehouse operations).
 
-[![CI](https://github.com/P1Manav/isocode_assignment/actions/workflows/ci.yml/badge.svg)](https://github.com/P1Manav/isocode_assignment)
-[![Tests Passing](https://img.shields.io/badge/tests-124%20passing-brightgreen)](https://github.com/P1Manav/isocode_assignment)
+[![CI](https://github.com/P1Manav/isocode_assignment/actions/workflows/ci.yml/badge.svg)](https://github.com/P1Manav/isocode_assignment/actions/workflows/ci.yml)
+[![Tests Passing](https://img.shields.io/badge/tests-166%20passing-brightgreen)](https://github.com/P1Manav/isocode_assignment)
 [![TypeScript Strict](https://img.shields.io/badge/TypeScript-strict-blue)](https://github.com/P1Manav/isocode_assignment)
 
 ---
@@ -64,10 +64,10 @@ npm run seed
 
 ### 4. Run Test Suite
 ```bash
-# Runs 124 unit & integration tests
+# Runs 158 unit & API integration tests across 26 test suites
 npm test
 
-# Run real PostgreSQL trigger integration tests (against local or CI Postgres)
+# Run 8 real PostgreSQL trigger integration tests (against Neon or local Postgres)
 npm run test:db
 
 # Run strict TypeScript typecheck

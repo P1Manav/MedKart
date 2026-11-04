@@ -153,7 +153,9 @@ describe('Store Routing & Haversine Distance', () => {
 
     // Zero active stores
     vi.spyOn(db.store, 'findMany').mockResolvedValue([]);
-    vi.spyOn(db.messageOutbox, 'create').mockResolvedValue({} as any);
+    vi.spyOn(db.messageOutbox, 'create').mockResolvedValue(
+      {} as unknown as Awaited<ReturnType<typeof db.messageOutbox.create>>
+    );
 
     let createdOrderData: Record<string, unknown> | null = null;
     vi.spyOn(db.order, 'create').mockImplementation(((args: { data: Record<string, unknown> }) => {

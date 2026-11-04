@@ -52,7 +52,9 @@ describe('Customer Outbox Messages API', () => {
       },
     ];
 
-    vi.mocked(db.messageOutbox.findMany).mockResolvedValue(mockMessages as any);
+    vi.mocked(db.messageOutbox.findMany).mockResolvedValue(
+      mockMessages as unknown as Awaited<ReturnType<typeof db.messageOutbox.findMany>>
+    );
 
     const res = await GET();
     expect(res.status).toBe(200);
