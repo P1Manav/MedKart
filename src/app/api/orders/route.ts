@@ -214,12 +214,20 @@ export async function POST(req: Request) {
       }
     }
 
-    // Defence-in-depth: Validate cart items against schedule rules
+    // Defence-in-depth: Validate cart items against active catalogue and schedule rules
     if (cartItems.length > 0) {
       const cartProductIds = cartItems.map((c) => c.productId);
       const cartProducts = await db.product.findMany({
-        where: { id: { in: cartProductIds } },
+        where: { id: { in: cartProductIds }, active: true },
       });
+
+      if (cartProducts.length !== new Set(cartProductIds).size) {
+        return NextResponse.json(
+          { error: 'One or more selected products were not found in the active catalogue.' },
+          { status: 400 }
+        );
+      }
+
       const allScheduleRules = await db.scheduleRule.findMany();
       const rulesMap = new Map(allScheduleRules.map((r) => [r.schedule, r]));
 
