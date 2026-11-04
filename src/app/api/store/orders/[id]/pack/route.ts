@@ -43,25 +43,32 @@ export async function POST(
     // State machine check: must transition from APPROVED -> PACKED
     validateTransition(order.status as 'APPROVED', 'PACKED');
 
+    const scheduleRules = await db.scheduleRule.findMany();
+    const ruleMap = new Map(scheduleRules.map((r) => [r.schedule, r]));
+
     // Defence in depth: assertDispatchable check
     const dispatchPayload: DispatchableOrder = {
       id: order.id,
       status: order.status,
       prescriptionEncrypted: order.prescriptionEncrypted,
       prescriptionValidUntil: order.prescriptionValidUntil,
-      lines: order.lines.map((l) => ({
-        id: l.id,
-        lineStatus: l.lineStatus,
-        productSchedule: l.product?.schedule || 'H',
-        pharmacistId: l.pharmacistId,
-        pharmacistRegNo: l.pharmacistRegNo,
-        requiresRegisterEntry: l.product?.schedule === 'H1',
-        h1PrescriberName: l.h1PrescriberName,
-        h1PrescriberRegNo: l.h1PrescriberRegNo,
-        h1PatientName: l.h1PatientName,
-        h1Date: l.h1Date,
-        h1Quantity: l.h1Quantity,
-      })),
+      lines: order.lines.map((l) => {
+        const rule = l.product ? ruleMap.get(l.product.schedule) : null;
+        return {
+          id: l.id,
+          lineStatus: l.lineStatus,
+          productSchedule: l.product?.schedule || 'H',
+          canSellOnline: rule ? rule.canSellOnline : true,
+          pharmacistId: l.pharmacistId,
+          pharmacistRegNo: l.pharmacistRegNo,
+          requiresRegisterEntry: rule ? rule.requiresRegisterEntry : false,
+          h1PrescriberName: l.h1PrescriberName,
+          h1PrescriberRegNo: l.h1PrescriberRegNo,
+          h1PatientName: l.h1PatientName,
+          h1Date: l.h1Date,
+          h1Quantity: l.h1Quantity,
+        };
+      }),
     };
 
     const dispatchCheck = assertDispatchable(dispatchPayload);

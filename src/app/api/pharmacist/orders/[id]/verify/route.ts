@@ -77,6 +77,9 @@ export async function POST(
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
+    const rules = await db.scheduleRule.findMany();
+    const ruleMap = new Map(rules.map((r) => [r.schedule, r]));
+
     const pharmacistRegNo = session.pharmacistRegNo || 'WB-PHARM-2024-4102';
 
     // ── 1. APPROVE SINGLE LINE ─────────────────────────────
@@ -84,6 +87,15 @@ export async function POST(
       const line = order.lines.find((l) => l.id === payload.lineId);
       if (!line) {
         return NextResponse.json({ error: 'Line not found' }, { status: 404 });
+      }
+
+      // Block approval if item cannot be sold online
+      const lineRule = line.product ? ruleMap.get(line.product.schedule) : null;
+      if (line.lineStatus === 'BLOCKED_NOT_SOLD_ONLINE' || (lineRule && !lineRule.canSellOnline)) {
+        return NextResponse.json(
+          { error: "This item cannot be ordered online. Please visit your nearest store." },
+          { status: 409 }
+        );
       }
 
       await db.orderLine.update({
@@ -114,6 +126,15 @@ export async function POST(
       const product = await db.product.findUnique({ where: { id: payload.productId } });
       if (!product) {
         return NextResponse.json({ error: 'Selected product not found' }, { status: 404 });
+      }
+
+      // Block swapping to an item that cannot be sold online
+      const productRule = ruleMap.get(product.schedule);
+      if (productRule && !productRule.canSellOnline) {
+        return NextResponse.json(
+          { error: "This item cannot be ordered online. Please visit your nearest store." },
+          { status: 409 }
+        );
       }
 
       await db.orderLine.update({
@@ -227,19 +248,23 @@ export async function POST(
         status: refreshedOrder.status,
         prescriptionEncrypted: refreshedOrder.prescriptionEncrypted,
         prescriptionValidUntil: refreshedOrder.prescriptionValidUntil,
-        lines: refreshedOrder.lines.map((l) => ({
-          id: l.id,
-          lineStatus: l.lineStatus,
-          productSchedule: l.product?.schedule || 'H',
-          pharmacistId: l.pharmacistId,
-          pharmacistRegNo: l.pharmacistRegNo,
-          requiresRegisterEntry: l.product?.schedule === 'H1',
-          h1PrescriberName: l.h1PrescriberName,
-          h1PrescriberRegNo: l.h1PrescriberRegNo,
-          h1PatientName: l.h1PatientName,
-          h1Date: l.h1Date,
-          h1Quantity: l.h1Quantity,
-        })),
+        lines: refreshedOrder.lines.map((l) => {
+          const rule = l.product ? ruleMap.get(l.product.schedule) : null;
+          return {
+            id: l.id,
+            lineStatus: l.lineStatus,
+            productSchedule: l.product?.schedule || 'H',
+            canSellOnline: rule ? rule.canSellOnline : true,
+            pharmacistId: l.pharmacistId,
+            pharmacistRegNo: l.pharmacistRegNo,
+            requiresRegisterEntry: rule ? rule.requiresRegisterEntry : false,
+            h1PrescriberName: l.h1PrescriberName,
+            h1PrescriberRegNo: l.h1PrescriberRegNo,
+            h1PatientName: l.h1PatientName,
+            h1Date: l.h1Date,
+            h1Quantity: l.h1Quantity,
+          };
+        }),
       };
 
       const dispatchCheck = assertDispatchable(checkPayload);

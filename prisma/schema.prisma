@@ -106,7 +106,6 @@ model User {
   accessLogs       PrescriptionAccessLog[]
   messages         MessageOutbox[]
   addresses        CustomerAddress[]
-  otpRecords       OtpRecord[]
   notifications    Notification[]
 
   @@map("users")
@@ -365,8 +364,7 @@ model OtpRecord {
   used      Boolean  @default(false)
   createdAt DateTime @default(now()) @map("created_at")
 
-  user User? @relation(fields: [phone], references: [phone])
-
+  @@index([phone, createdAt])
   @@map("otp_records")
 }
 

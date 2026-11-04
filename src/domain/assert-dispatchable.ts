@@ -8,6 +8,7 @@ export interface DispatchableOrderLine {
   id: string;
   lineStatus: LineStatus;
   productSchedule: string; // ScheduleType
+  canSellOnline?: boolean;
   pharmacistId: string | null;
   pharmacistRegNo: string | null;
   requiresRegisterEntry: boolean;
@@ -65,7 +66,16 @@ export function assertDispatchable(
     reasons.push('Prescription validity date is not set.');
   }
 
-  // 3. Check each active line
+  // 3. Reject any item that cannot be sold online (Schedule X / Narcotics)
+  for (const line of order.lines) {
+    if (line.lineStatus !== 'REJECTED' && line.canSellOnline === false) {
+      reasons.push(
+        `Line ${line.id} (${line.productSchedule}) cannot be ordered online. This item must be rejected.`
+      );
+    }
+  }
+
+  // 4. Check each active line
   const activeLines = order.lines.filter(
     (l) => l.lineStatus !== 'BLOCKED_NOT_SOLD_ONLINE' && l.lineStatus !== 'REJECTED'
   );

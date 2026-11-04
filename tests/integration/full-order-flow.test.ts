@@ -16,6 +16,7 @@ describe('End-to-End Order Verification & Dispatch Lifecycle', () => {
           id: 'line_1',
           lineStatus: 'PENDING', // Still pending pharmacist review!
           productSchedule: 'H',
+          canSellOnline: true,
           pharmacistId: null,
           pharmacistRegNo: null,
           requiresRegisterEntry: false,
@@ -49,6 +50,7 @@ describe('End-to-End Order Verification & Dispatch Lifecycle', () => {
           id: 'line_1',
           lineStatus: 'APPROVED',
           productSchedule: 'H',
+          canSellOnline: true,
           pharmacistId: 'user_pharm_01',
           pharmacistRegNo: 'WB-PHARM-2024-4102',
           requiresRegisterEntry: false,

@@ -23,6 +23,7 @@ describe('assertDispatchable (Defence in Depth)', () => {
         id: 'line_1',
         lineStatus: 'APPROVED',
         productSchedule: 'H',
+        canSellOnline: true,
         pharmacistId: 'pharm_1',
         pharmacistRegNo: 'WB-PHARM-2024-4102',
         requiresRegisterEntry: false,
@@ -152,7 +153,34 @@ describe('assertDispatchable (Defence in Depth)', () => {
     expect(result.reasons).toHaveLength(0);
   });
 
-  it('ignores rejected and blocked lines when evaluating active dispatchable lines', () => {
+  it('blocks dispatch when a Schedule X line was force-approved with canSellOnline: false', () => {
+    const orderWithForceApprovedX: DispatchableOrder = {
+      ...validOrder,
+      lines: [
+        ...validOrder.lines,
+        {
+          id: 'line_x',
+          lineStatus: 'APPROVED',
+          productSchedule: 'X',
+          canSellOnline: false,
+          pharmacistId: 'pharm_1',
+          pharmacistRegNo: 'WB-PHARM-2024-4102',
+          requiresRegisterEntry: false,
+          h1PrescriberName: null,
+          h1PrescriberRegNo: null,
+          h1PatientName: null,
+          h1Date: null,
+          h1Quantity: null,
+        },
+      ],
+    };
+
+    const result = assertDispatchable(orderWithForceApprovedX);
+    expect(result.canDispatch).toBe(false);
+    expect(result.reasons.some((r) => r.includes('cannot be ordered online'))).toBe(true);
+  });
+
+  it('blocks dispatch when an order line with canSellOnline: false is unrejected', () => {
     const orderWithBlockedLine: DispatchableOrder = {
       ...validOrder,
       lines: [
@@ -161,6 +189,7 @@ describe('assertDispatchable (Defence in Depth)', () => {
           id: 'line_blocked',
           lineStatus: 'BLOCKED_NOT_SOLD_ONLINE',
           productSchedule: 'X',
+          canSellOnline: false,
           pharmacistId: null,
           pharmacistRegNo: null,
           requiresRegisterEntry: false,
@@ -174,7 +203,35 @@ describe('assertDispatchable (Defence in Depth)', () => {
     };
 
     const result = assertDispatchable(orderWithBlockedLine);
+    expect(result.canDispatch).toBe(false);
+    expect(result.reasons.some((r) => r.includes('cannot be ordered online'))).toBe(true);
+  });
+
+  it('allows dispatch if a canSellOnline: false line has been explicitly REJECTED', () => {
+    const orderWithRejectedX: DispatchableOrder = {
+      ...validOrder,
+      lines: [
+        ...validOrder.lines,
+        {
+          id: 'line_x_rejected',
+          lineStatus: 'REJECTED',
+          productSchedule: 'X',
+          canSellOnline: false,
+          pharmacistId: 'pharm_1',
+          pharmacistRegNo: 'WB-PHARM-2024-4102',
+          requiresRegisterEntry: false,
+          h1PrescriberName: null,
+          h1PrescriberRegNo: null,
+          h1PatientName: null,
+          h1Date: null,
+          h1Quantity: null,
+        },
+      ],
+    };
+
+    const result = assertDispatchable(orderWithRejectedX);
     expect(result.canDispatch).toBe(true);
+    expect(result.reasons).toHaveLength(0);
   });
 
   it('computes 6-month validity window accurately', () => {
