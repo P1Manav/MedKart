@@ -7,6 +7,8 @@ import {
   type AiPrescriptionResponse,
 } from './types';
 
+export const GEMINI_TIMEOUT_MS = 20000;
+
 export class GeminiReader implements PrescriptionReader {
   private ai: GoogleGenAI | null = null;
   private modelName: string;
@@ -60,30 +62,60 @@ STRICT SAFETY RULES:
 3. If the entire image is blurry, cropped, or unreadable, set "image_legibility": "unreadable" and empty lines array.
 4. Output JSON ONLY with no markdown ticks or extra text.`;
 
-      const response = await this.ai.models.generateContent({
-        model: this.modelName,
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              { text: prompt },
+      let response: { text?: string } | undefined;
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          const generatePromise = this.ai.models.generateContent({
+            model: this.modelName,
+            contents: [
               {
-                inlineData: {
-                  mimeType,
-                  data: base64Data,
-                },
+                role: 'user',
+                parts: [
+                  { text: prompt },
+                  {
+                    inlineData: {
+                      mimeType,
+                      data: base64Data,
+                    },
+                  },
+                ],
               },
             ],
-          },
-        ],
-        config: {
-          responseMimeType: 'application/json',
-          temperature: 0.1, // low temperature for precise transcription
-        },
-      });
+            config: {
+              responseMimeType: 'application/json',
+              temperature: 0.1, // low temperature for precise transcription
+            },
+          });
+
+          const timeoutPromise = new Promise<{ text?: string }>((_, reject) => {
+            const timer = setTimeout(() => {
+              reject(new Error(`Gemini API call timed out after ${GEMINI_TIMEOUT_MS}ms`));
+            }, GEMINI_TIMEOUT_MS);
+            if (typeof timer.unref === 'function') timer.unref();
+          });
+
+          response = await Promise.race([generatePromise, timeoutPromise]);
+          break;
+        } catch (err: unknown) {
+          const errStr = String(err);
+          const isRetryable =
+            errStr.includes('429') ||
+            errStr.includes('500') ||
+            errStr.includes('503') ||
+            errStr.includes('RESOURCE_EXHAUSTED') ||
+            errStr.includes('ECONNRESET');
+
+          if (attempt === 1 && isRetryable) {
+            console.warn(`[GeminiReader] Retryable error on attempt 1/2: ${errStr}. Retrying in 1000ms...`);
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+            continue;
+          }
+          throw err;
+        }
+      }
 
       const latencyMs = Date.now() - start;
-      const rawText = response.text || '';
+      const rawText = response?.text || '';
 
       if (!rawText.trim()) {
         return {

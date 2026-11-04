@@ -3,8 +3,7 @@ import { NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { requireAuth } from '@/lib/auth/rbac';
 import { encryptPrescription } from '@/lib/crypto/encrypt';
-import { GeminiReader } from '@/lib/ai/gemini-reader';
-import { MockReader } from '@/lib/ai/mock-reader';
+import { getPrescriptionReader } from '@/lib/ai';
 import { matchPrescriptionLine, type CatalogueProduct } from '@/lib/ai/fuzzy-matcher';
 import { routeOrderToStore, type StoreStockItem, type OrderItemRequirement } from '@/domain/routing';
 import { computePrescriptionValidUntil } from '@/domain/assert-dispatchable';
@@ -111,8 +110,8 @@ export async function POST(req: Request) {
       packSize: p.packSize,
     }));
 
-    // Run AI pipeline (GeminiReader if key present, else MockReader)
-    const reader = process.env.GEMINI_API_KEY ? new GeminiReader() : new MockReader('valid');
+    // Run AI pipeline via production-safe reader factory
+    const reader = getPrescriptionReader();
     const aiResult = await reader.read(imageBuffer, file.type || 'image/png');
 
     // Generate unique display ID (RX-NNNNN)
@@ -193,7 +192,7 @@ export async function POST(req: Request) {
         prescriptionValidUntil: validUntil,
         aiImageLegibility: aiResult.data?.image_legibility
           ? (aiResult.data.image_legibility.toUpperCase() as 'CLEAR' | 'PARTIAL' | 'UNREADABLE')
-          : 'CLEAR',
+          : 'UNREADABLE',
         aiPrescriberText: aiResult.data?.prescriber_text,
         aiDateText: aiResult.data?.date_text,
         aiModelName: aiResult.modelName,
@@ -205,8 +204,11 @@ export async function POST(req: Request) {
             rawText: item.aiLine.raw_text,
             aiDrugName: item.aiLine.drug_name,
             aiStrength: item.aiLine.strength,
-            aiConfidence: item.match.confidence,
-            aiAlternatives: item.match.topCandidates as unknown as object,
+            aiConfidence: item.aiLine.confidence, // Model's own per-line confidence per P0-3
+            aiAlternatives: {
+              topCandidates: item.match.topCandidates,
+              matcherScore: item.match.confidence,
+            } as unknown as object,
             lineStatus: item.match.isBlockedNotSoldOnline
               ? 'BLOCKED_NOT_SOLD_ONLINE'
               : 'PENDING',
