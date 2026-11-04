@@ -36,6 +36,22 @@ describe('Secrets Fail-Closed Enforcement (P0-4)', () => {
     ).rejects.toThrow(/SESSION_SECRET/);
   });
 
+  it('cron reminders route fails closed with 500 when CRON_SECRET is not configured', async () => {
+    delete process.env.CRON_SECRET;
+
+    const req = new Request('http://localhost/api/cron/reminders', {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer any-token',
+      },
+    });
+
+    const res = await cronPost(req);
+    expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body.error).toBe('CRON_SECRET not configured');
+  });
+
   it('cron reminders route rejects requests using query param ?secret= with 401', async () => {
     process.env.CRON_SECRET = 'valid-super-secret-cron-token-123';
     const req = new Request('http://localhost/api/cron/reminders?secret=valid-super-secret-cron-token-123', {

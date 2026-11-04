@@ -88,11 +88,15 @@ export async function runRemindersJob(options: RunRemindersOptions = {}) {
 
 async function handleCronRequest(req: Request) {
   try {
-    const authHeader = req.headers.get('authorization');
     const cronSecret = process.env.CRON_SECRET;
 
-    // Fail closed: CRON_SECRET must be configured and match exactly
-    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+    // Fail closed: CRON_SECRET must be configured
+    if (!cronSecret || !cronSecret.trim()) {
+      return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 });
+    }
+
+    const authHeader = req.headers.get('authorization');
+    if (authHeader !== `Bearer ${cronSecret}`) {
       return NextResponse.json({ error: 'Unauthorized cron request. Bearer token required.' }, { status: 401 });
     }
 
