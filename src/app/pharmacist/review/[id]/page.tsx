@@ -14,6 +14,8 @@ interface ReviewOrder {
   displayId: string;
   status: string;
   prescriptionStatus: string;
+  prescriptionValidUntil?: string | null;
+  aiDateText?: string | null;
   createdAt: string;
   customer: { name: string; phone: string };
   familyProfile?: { name: string; relationship: string } | null;
@@ -69,6 +71,10 @@ export default function PharmacistReviewPage({
   // Generic consent toggles
   const [genericConsents, setGenericConsents] = useState<Record<string, boolean>>({});
 
+  // Prescription date confirmation (P0-10)
+  const [prescriptionDate, setPrescriptionDate] = useState<string>('');
+  const [dateConfirmed, setDateConfirmed] = useState<boolean>(false);
+
   // H1 register inputs
   const [h1Inputs, setH1Inputs] = useState<
     Record<
@@ -89,6 +95,11 @@ export default function PharmacistReviewPage({
       if (res.ok && data.order) {
         const found = data.order;
         setOrder(found);
+        if (found.aiDateText && /^\d{4}-\d{2}-\d{2}$/.test(found.aiDateText.trim())) {
+          setPrescriptionDate(found.aiDateText.trim());
+        } else if (!prescriptionDate) {
+          setPrescriptionDate(new Date().toISOString().slice(0, 10));
+        }
         // Initialise H1 details with defaults
         const initialH1: typeof h1Inputs = {};
         found.lines.forEach((l: ReviewOrder['lines'][0]) => {
@@ -178,8 +189,54 @@ export default function PharmacistReviewPage({
     });
   };
 
+  const isPrescriptionExpired = () => {
+    if (!prescriptionDate) return false;
+    const parts = prescriptionDate.split('-');
+    if (parts.length !== 3) return false;
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10) - 1;
+    const d = parseInt(parts[2], 10);
+    const rx = new Date(Date.UTC(y, m, d, 6, 30));
+    if (isNaN(rx.getTime())) return false;
+    const totalMonths = m + 6;
+    const targetY = y + Math.floor(totalMonths / 12);
+    const targetM = ((totalMonths % 12) + 12) % 12;
+    const maxDays = new Date(Date.UTC(targetY, targetM + 1, 0)).getUTCDate();
+    const clampedD = Math.min(d, maxDays);
+    const validUntil = new Date(Date.UTC(targetY, targetM, clampedD, 6, 30));
+    return validUntil.getTime() < Date.now();
+  };
+
+  const getExpirationDateString = () => {
+    if (!prescriptionDate) return '';
+    const parts = prescriptionDate.split('-');
+    if (parts.length !== 3) return '';
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10) - 1;
+    const d = parseInt(parts[2], 10);
+    const totalMonths = m + 6;
+    const targetY = y + Math.floor(totalMonths / 12);
+    const targetM = ((totalMonths % 12) + 12) % 12;
+    const maxDays = new Date(Date.UTC(targetY, targetM + 1, 0)).getUTCDate();
+    const clampedD = Math.min(d, maxDays);
+    const validUntil = new Date(Date.UTC(targetY, targetM, clampedD));
+    return validUntil.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+
   const handleApproveOrder = () => {
-    executeAction({ action: 'APPROVE_ORDER' });
+    if (!prescriptionDate) {
+      setError('Prescription date is required to approve the order.');
+      return;
+    }
+    if (!dateConfirmed) {
+      setError('Please verify and confirm the prescription date.');
+      return;
+    }
+    if (isPrescriptionExpired()) {
+      setError('Cannot approve: this prescription has expired.');
+      return;
+    }
+    executeAction({ action: 'APPROVE_ORDER', prescriptionDate });
   };
 
   const handleRequestReupload = () => {
@@ -250,13 +307,83 @@ export default function PharmacistReviewPage({
           <Button
             size="sm"
             onClick={handleApproveOrder}
-            disabled={order.status === 'APPROVED'}
+            disabled={
+              order.status === 'APPROVED' ||
+              !prescriptionDate ||
+              !dateConfirmed ||
+              isPrescriptionExpired()
+            }
+            title={
+              !dateConfirmed
+                ? 'Please verify and confirm prescription date before approving'
+                : isPrescriptionExpired()
+                ? 'Prescription is expired'
+                : undefined
+            }
             className="shadow-sm"
           >
             Approve Order &rarr;
           </Button>
         </div>
       </div>
+
+      {/* Prescription Date & Validity Verification Card (P0-10) */}
+      <Card className="border-amber-200 bg-amber-50/60">
+        <CardContent className="py-3 px-4 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-4">
+            <div>
+              <span className="text-xs font-semibold uppercase tracking-wider text-stone-600 block">
+                Prescription Date (Rx Issue Date)
+              </span>
+              <div className="flex items-center gap-2 mt-1">
+                <input
+                  type="date"
+                  value={prescriptionDate}
+                  max={new Date().toISOString().slice(0, 10)}
+                  onChange={(e) => {
+                    setPrescriptionDate(e.target.value);
+                    setDateConfirmed(false);
+                  }}
+                  className="text-sm font-medium border border-stone-300 rounded px-2 py-1 bg-white text-stone-900 shadow-xs focus:ring-2 focus:ring-teal-600"
+                />
+                {order.aiDateText && (
+                  <span className="text-xs text-stone-500">
+                    (AI detected: <strong className="text-stone-700">{order.aiDateText}</strong>)
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <label className="flex items-center gap-2 cursor-pointer mt-2 sm:mt-4">
+              <input
+                type="checkbox"
+                checked={dateConfirmed}
+                disabled={!prescriptionDate || isPrescriptionExpired()}
+                onChange={(e) => setDateConfirmed(e.target.checked)}
+                className="rounded border-stone-300 text-teal-700 focus:ring-teal-600 h-4 w-4"
+              />
+              <span className="text-xs font-medium text-stone-800">
+                I verify that the prescription is dated{' '}
+                <span className="font-bold">{prescriptionDate || '...'}</span> and is within validity window
+              </span>
+            </label>
+          </div>
+
+          {prescriptionDate && !isPrescriptionExpired() && (
+            <div className="text-xs text-stone-600">
+              Valid until:{' '}
+              <strong className="text-stone-900 font-bold">{getExpirationDateString()}</strong> (6-month window)
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Red Expiration Warning Banner (P0-10) */}
+      {isPrescriptionExpired() && (
+        <div className="p-3 bg-red-100 border border-red-300 text-red-900 text-sm rounded-md font-semibold flex items-center gap-2">
+          <span>⚠️ Prescription expired on {getExpirationDateString()}. Cannot approve.</span>
+        </div>
+      )}
 
       {actionMessage && (
         <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm rounded-md font-medium">

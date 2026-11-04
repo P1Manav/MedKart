@@ -124,15 +124,55 @@ export function assertDispatchable(
 }
 
 /**
- * Compute prescription valid-until date from a date string.
- * Default: 6 months from prescription date (ASSUMPTION A1, configurable).
+ * Safely adds months to a Date, clamping to the last valid day of the target month.
+ * e.g., 31 Aug + 6 months -> 28 Feb (or 29 Feb in leap year), NOT 3 March.
+ */
+export function addMonthsClamped(date: Date, months: number): Date {
+  const year = date.getUTCFullYear();
+  const month = date.getUTCMonth();
+  const day = date.getUTCDate();
+  const hours = date.getUTCHours();
+  const minutes = date.getUTCMinutes();
+  const seconds = date.getUTCSeconds();
+  const ms = date.getUTCMilliseconds();
+
+  const totalMonths = month + months;
+  const targetYear = year + Math.floor(totalMonths / 12);
+  const targetMonth = ((totalMonths % 12) + 12) % 12;
+
+  // Last day of targetMonth in targetYear:
+  const maxDays = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate();
+  const clampedDay = Math.min(day, maxDays);
+
+  return new Date(Date.UTC(targetYear, targetMonth, clampedDay, hours, minutes, seconds, ms));
+}
+
+/**
+ * Parses a "YYYY-MM-DD" date string in IST (Indian Standard Time, UTC+5:30)
+ * at midday (12:00:00 IST = 06:30:00 UTC) so that when viewed in either IST or UTC,
+ * the calendar date does not slip to adjacent days.
+ */
+export function parseDateInIST(dateString: string): Date {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateString.trim());
+  if (match) {
+    const [, y, m, d] = match;
+    return new Date(Date.UTC(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10), 6, 30, 0));
+  }
+  const d = new Date(dateString);
+  if (isNaN(d.getTime())) {
+    throw new Error(`Invalid date string: ${dateString}`);
+  }
+  return d;
+}
+
+/**
+ * Compute prescription valid-until date from a prescription date.
+ * Default: 6 months from prescription date with calendar-safe month clamping (ASSUMPTION A1, configurable).
  */
 export function computePrescriptionValidUntil(
   prescriptionDate: Date,
   validityMonths: number = DEFAULT_VALIDITY_MONTHS
 ): Date {
-  const validUntil = new Date(prescriptionDate);
-  validUntil.setMonth(validUntil.getMonth() + validityMonths);
-  return validUntil;
+  return addMonthsClamped(prescriptionDate, validityMonths);
 }
 

@@ -210,7 +210,7 @@ describe('Object-Level Access Control & Verification Guards (P0-9)', () => {
 
     const req = new Request('http://localhost/api/pharmacist/orders/ord_already_approved/verify', {
       method: 'POST',
-      body: JSON.stringify({ action: 'APPROVE_ORDER' }),
+      body: JSON.stringify({ action: 'APPROVE_ORDER', prescriptionDate: '2026-10-01' }),
     });
 
     const res = await verifyHandler(req, { params: Promise.resolve({ id: 'ord_already_approved' }) });

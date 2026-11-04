@@ -3,7 +3,12 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import db from '@/lib/db';
 import { requireAuth, AuthorizationError } from '@/lib/auth/rbac';
-import { assertDispatchable, type DispatchableOrder } from '@/domain/assert-dispatchable';
+import {
+  assertDispatchable,
+  computePrescriptionValidUntil,
+  parseDateInIST,
+  type DispatchableOrder,
+} from '@/domain/assert-dispatchable';
 import { validateTransition } from '@/domain/order-state';
 
 const LineActionSchema = z.discriminatedUnion('action', [
@@ -44,6 +49,7 @@ const LineActionSchema = z.discriminatedUnion('action', [
   }),
   z.object({
     action: z.literal('APPROVE_ORDER'),
+    prescriptionDate: z.string().min(10, 'Prescription date is required (YYYY-MM-DD)'),
   }),
   z.object({
     action: z.literal('REJECT_ORDER'),
@@ -69,10 +75,13 @@ export async function POST(
 
     const parsed = LineActionSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: parsed.error.issues[0]?.message || 'Invalid request' },
-        { status: 400 }
-      );
+      const issue = parsed.error.issues[0];
+      const field = issue?.path?.join('.');
+      const msg =
+        field === 'prescriptionDate'
+          ? 'Prescription date is required (YYYY-MM-DD)'
+          : issue?.message || 'Invalid request';
+      return NextResponse.json({ error: msg }, { status: 400 });
     }
 
     const payload = parsed.data;
@@ -95,6 +104,36 @@ export async function POST(
         { error: `Cannot verify order: order is in status ${order.status}. Only SUBMITTED orders can be reviewed.` },
         { status: 409 }
       );
+    }
+
+    let rxDate: Date | null = null;
+    let validUntil: Date | null = null;
+    if (payload.action === 'APPROVE_ORDER') {
+      try {
+        rxDate = parseDateInIST(payload.prescriptionDate);
+      } catch {
+        return NextResponse.json(
+          { error: 'Invalid prescription date format. Please provide YYYY-MM-DD.' },
+          { status: 400 }
+        );
+      }
+
+      const now = new Date();
+      if (rxDate.getTime() > now.getTime()) {
+        return NextResponse.json(
+          { error: 'Prescription date cannot be in the future.' },
+          { status: 400 }
+        );
+      }
+
+      validUntil = computePrescriptionValidUntil(rxDate, 6);
+      if (validUntil.getTime() < now.getTime()) {
+        const expiredStr = validUntil.toISOString().slice(0, 10);
+        return NextResponse.json(
+          { error: `Prescription has expired on ${expiredStr}. Cannot approve an expired prescription.` },
+          { status: 400 }
+        );
+      }
     }
 
     const rules = await db.scheduleRule.findMany();
@@ -348,7 +387,7 @@ export async function POST(
         id: refreshedOrder.id,
         status: refreshedOrder.status,
         prescriptionEncrypted: refreshedOrder.prescriptionEncrypted,
-        prescriptionValidUntil: refreshedOrder.prescriptionValidUntil,
+        prescriptionValidUntil: validUntil!,
         lines: refreshedOrder.lines.map((l) => {
           const rule = l.product ? ruleMap.get(l.product.schedule) : null;
           return {
@@ -362,7 +401,7 @@ export async function POST(
             h1PrescriberName: l.h1PrescriberName,
             h1PrescriberRegNo: l.h1PrescriberRegNo,
             h1PatientName: l.h1PatientName,
-            h1Date: l.h1Date,
+            h1Date: l.h1Date || rxDate!,
             h1Quantity: l.h1Quantity,
           };
         }),
@@ -385,12 +424,25 @@ export async function POST(
           data: {
             status: 'APPROVED',
             prescriptionStatus: 'APPROVED',
+            prescriptionValidUntil: validUntil,
           },
         });
 
         if (updated.count === 0) {
           return { conflict: true };
         }
+
+        // Ensure any H1 lines have h1Date set from prescription date if missing
+        await tx.orderLine.updateMany({
+          where: {
+            orderId: order.id,
+            h1PrescriberName: { not: null },
+            h1Date: null,
+          },
+          data: {
+            h1Date: rxDate,
+          },
+        });
 
         await tx.orderAudit.create({
           data: {

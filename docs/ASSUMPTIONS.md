@@ -20,4 +20,6 @@
 | A14 | Family profile creation is seeded; a simple "add profile" form exists but is not a P0 focus | Spec mentions family profiles but core flow is reordering | `prisma/seed.ts` |
 | A15 | Mock payment always succeeds after a 2-second simulated delay | Spec says payments are mocked | `src/app/api/payment/` |
 | A16 | The app name "MedKart" is invented for this project; not a real brand | Needs a name for UI; spec doesn't specify one | Throughout UI |
+| A17 | Schedule H1 register date (h1Date) records the prescription issue date confirmed by pharmacist | Drugs & Cosmetics Rules require date of prescription on register; defaults to verified prescriptionDate | `src/app/api/pharmacist/orders/[id]/verify/route.ts` |
+
 
