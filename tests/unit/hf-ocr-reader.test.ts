@@ -109,3 +109,4 @@ describe('HfOcrReader 3-Tier Pipeline', () => {
     expect(result.errorMessage).toContain('pharmacist manual queue');
   });
 });
+

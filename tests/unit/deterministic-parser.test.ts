@@ -124,3 +124,4 @@ describe('Deterministic OCR Parser (Non-Generative Perception & Extraction)', ()
     expect(blurryResult.lines.length).toBe(0);
   });
 });
+
