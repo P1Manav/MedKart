@@ -2,12 +2,16 @@
 import { NextResponse } from 'next/server';
 import type { ScheduleType } from '@prisma/client';
 import db from '@/lib/db';
+import { getSession } from '@/lib/auth/session';
 
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
     const query = url.searchParams.get('q')?.trim() || '';
     const schedule = url.searchParams.get('schedule') as ScheduleType | null;
+    const otcOnlyParam = url.searchParams.get('otcOnly') === 'true';
+    const session = await getSession();
+    const publicOtcOnly = process.env.PUBLIC_CATALOGUE_OTC_ONLY === 'true';
 
     const whereClause: {
       active: boolean;
@@ -21,7 +25,9 @@ export async function GET(req: Request) {
       whereClause.name = { contains: query, mode: 'insensitive' };
     }
 
-    if (schedule) {
+    if (otcOnlyParam || (!session && publicOtcOnly)) {
+      whereClause.schedule = 'OTC';
+    } else if (schedule) {
       whereClause.schedule = schedule;
     }
 

@@ -136,6 +136,40 @@ export default function StoreOrdersPage() {
     }
   };
 
+  const handleHandover = async (orderId: string) => {
+    setError(null);
+    try {
+      const res = await fetch(`/api/store/orders/${orderId}/handover`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ partnerName: 'MedKart Local Fleet' }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Handover failed');
+      setActionSuccess(data.message);
+      await mutate();
+      router.refresh();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Handover failed');
+    }
+  };
+
+  const handleDeliver = async (orderId: string) => {
+    setError(null);
+    try {
+      const res = await fetch(`/api/store/orders/${orderId}/deliver`, {
+        method: 'POST',
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Delivery confirmation failed');
+      setActionSuccess(data.message);
+      await mutate();
+      router.refresh();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Delivery confirmation failed');
+    }
+  };
+
   return (
     <div className="max-w-6xl mx-auto py-6 space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -240,8 +274,26 @@ export default function StoreOrdersPage() {
                             {t('packOrder')} &rarr;
                           </Button>
                         ) : isPacked ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold text-emerald-800 bg-emerald-50 px-2 py-1 rounded border border-emerald-200">
+                              {t('readyToPack')}
+                            </span>
+                            <Button size="sm" onClick={() => handleHandover(ord.id)} className="text-xs">
+                              Hand Over to Courier &rarr;
+                            </Button>
+                          </div>
+                        ) : isHandedOver ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold text-indigo-800 bg-indigo-50 px-2 py-1 rounded border border-indigo-200">
+                              Out for Delivery
+                            </span>
+                            <Button size="sm" variant="outline" onClick={() => handleDeliver(ord.id)} className="text-xs">
+                              Confirm Delivered &check;
+                            </Button>
+                          </div>
+                        ) : ord.status === 'DELIVERED' ? (
                           <span className="text-xs font-semibold text-emerald-800 bg-emerald-50 px-2 py-1 rounded border border-emerald-200">
-                            {t('readyToPack')}
+                            ✓ Delivered
                           </span>
                         ) : (
                           <div className="text-right">

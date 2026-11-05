@@ -9,6 +9,7 @@ import { matchPrescriptionLine, type CatalogueProduct } from '@/lib/ai/fuzzy-mat
 import { routeOrderToStore, type StoreStockItem, type OrderItemRequirement } from '@/domain/routing';
 import { computePrescriptionValidUntil } from '@/domain/assert-dispatchable';
 import { CreateOrderInputSchema, PrescriptionFileSchema } from '@/lib/validators/order-input';
+import { validateMagicBytes, stripExifGps } from '@/lib/validators/upload';
 
 export const safeOrderSelect = {
   id: true,
@@ -314,7 +315,22 @@ export async function POST(req: Request) {
 
     // Read bytes
     const arrayBuffer = await file.arrayBuffer();
-    const imageBuffer = Buffer.from(arrayBuffer);
+    let imageBuffer: Buffer = Buffer.from(arrayBuffer);
+
+    // Magic bytes verification
+    const magicResult = validateMagicBytes(imageBuffer);
+    if (!magicResult.valid) {
+      return NextResponse.json(
+        {
+          error: magicResult.error || 'Invalid file format',
+          fieldErrors: { prescription: [magicResult.error || 'Invalid file format'] },
+        },
+        { status: 400 }
+      );
+    }
+
+    // Strip EXIF / GPS metadata before saving
+    imageBuffer = stripExifGps(imageBuffer);
 
     // Encrypt prescription image with AES-256-GCM
     const enc = encryptPrescription(imageBuffer);

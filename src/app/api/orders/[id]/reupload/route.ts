@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { requireAuth } from '@/lib/auth/rbac';
 import { validateTransition } from '@/domain/order-state';
-import { validatePrescriptionFile } from '@/lib/validators/upload';
+import { validatePrescriptionFile, validateMagicBytes, stripExifGps } from '@/lib/validators/upload';
 import { encryptPrescription } from '@/lib/crypto/encrypt';
 import { getPrescriptionReader } from '@/lib/ai';
 import { matchPrescriptionLine, type CatalogueProduct } from '@/lib/ai/fuzzy-matcher';
@@ -58,7 +58,14 @@ export async function POST(
     }
 
     const fileBytes = await file.arrayBuffer();
-    const imageBuffer = Buffer.from(fileBytes);
+    let imageBuffer: Buffer = Buffer.from(fileBytes);
+
+    const magicCheck = validateMagicBytes(imageBuffer);
+    if (!magicCheck.valid) {
+      return NextResponse.json({ error: magicCheck.error || 'Invalid file format' }, { status: 400 });
+    }
+
+    imageBuffer = stripExifGps(imageBuffer);
 
     // Encrypt replacement prescription with fresh IV and auth tag
     const enc = encryptPrescription(imageBuffer);

@@ -9,6 +9,7 @@ describe('Production-Grade OTP & Authentication Hardening (Master Prompt v6)', (
   beforeEach(() => {
     process.env = { ...originalEnv };
     process.env.OTP_PEPPER = 'medkart-test-otp-pepper-at-least-32-chars-long';
+    vi.spyOn(db.otpDelivery, 'create').mockResolvedValue({ id: 'dlv_1' } as never);
   });
 
   afterEach(() => {

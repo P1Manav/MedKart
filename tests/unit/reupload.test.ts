@@ -128,7 +128,8 @@ describe('Order Prescription Re-upload Endpoint (P0-6)', () => {
     });
 
     const formData = new FormData();
-    const file = new File(['valid test prescription bytes'], 'clear_rx.jpg', { type: 'image/jpeg' });
+    const realJpegBytes = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00]);
+    const file = new File([realJpegBytes], 'clear_rx.jpg', { type: 'image/jpeg' });
     formData.append('file', file);
 
     const req = new Request('http://localhost/api/orders/ord_123/reupload', {

@@ -202,7 +202,8 @@ describe('Store Routing & Haversine Distance', () => {
     formData.append('addressLng', '88.4190');
     formData.append('paymentMethod', 'COD');
     formData.append('cartItems', JSON.stringify([{ productId: 'prod_1', quantity: 1 }]));
-    formData.append('prescription', new File(['rx'], 'rx.jpg', { type: 'image/jpeg' }));
+    const realJpegBytes = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00]);
+    formData.append('prescription', new File([realJpegBytes], 'rx.jpg', { type: 'image/jpeg' }));
 
     const req = new Request('http://localhost/api/orders', {
       method: 'POST',
