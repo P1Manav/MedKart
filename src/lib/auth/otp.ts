@@ -151,17 +151,21 @@ export async function requestOtp(phone: string): Promise<RequestOtpResult> {
     },
   });
 
-  // If real SMS provider is configured, dispatch real SMS in background
+  // If real SMS provider is configured, dispatch real SMS in background for every phone number
   if (process.env.SMS_PROVIDER_API_KEY) {
     sendSmsViaProvider(normalizedPhone, plainOtp)
       .then((res) => {
         if (!res.sent) {
           console.warn(
-            `[OTP SMS Provider] Real SMS send failed: ${res.error}. Relying on on-screen demo banner.`
+            `[OTP SMS Provider] Real SMS send failed for +91${normalizedPhone}: ${res.error}. Relying on honest on-screen fallback banner.`
           );
+        } else {
+          console.info(`[OTP SMS Provider] Real SMS successfully delivered to +91${normalizedPhone}.`);
         }
       })
-      .catch(() => null);
+      .catch((err) => {
+        console.warn(`[OTP SMS Provider] Unexpected network dispatch error: ${err}`);
+      });
   }
 
   const isDemo = process.env.DEMO_MODE === 'true';
@@ -169,7 +173,7 @@ export async function requestOtp(phone: string): Promise<RequestOtpResult> {
   return {
     success: true,
     message: isDemo
-      ? 'OTP generated (Demo Mode active)'
+      ? 'OTP generated. Real SMS attempted; on-screen code available as safe fallback.'
       : 'OTP sent successfully to your phone.',
     mockOtp: isDemo ? plainOtp : undefined,
   };

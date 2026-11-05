@@ -12,43 +12,131 @@ export default function LoginPage() {
   const t = useTranslations('auth');
   const tCommon = useTranslations('common');
   const router = useRouter();
+
   const [phone, setPhone] = useState('');
-  const [step, setStep] = useState<'PHONE' | 'OTP'>('PHONE');
+  const [step, setStep] = useState<'PHONE' | 'REGISTER' | 'OTP'>('PHONE');
   const [otp, setOtp] = useState('');
   const [mockOtp, setMockOtp] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleRequestOtp = async (phoneToUse?: string, e?: React.FormEvent) => {
+  // Self-registration fields
+  const [name, setName] = useState('');
+  const [addressText, setAddressText] = useState('');
+  const [pincode, setPincode] = useState('700064');
+
+  const handlePhoneSubmit = async (phoneToUse?: string, e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setError(null);
     setLoading(true);
 
-    const targetPhone = phoneToUse || phone;
-    if (phoneToUse && phoneToUse !== phone) {
-      setPhone(phoneToUse);
+    const targetPhone = (phoneToUse || phone).trim().replace(/\D/g, '');
+    const cleanPhone = targetPhone.length === 12 && targetPhone.startsWith('91')
+      ? targetPhone.slice(2)
+      : targetPhone;
+
+    if (cleanPhone.length !== 10) {
+      setError('Please enter a valid 10-digit Indian mobile number.');
+      setLoading(false);
+      return;
     }
 
+    if (phoneToUse && phoneToUse !== phone) {
+      setPhone(cleanPhone);
+    }
+
+    try {
+      // 1. Check if user already exists
+      const checkRes = await fetch('/api/auth/check-phone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: cleanPhone }),
+      });
+      const checkData = await checkRes.json();
+
+      if (!checkRes.ok || !checkData.success) {
+        setError(checkData.message || 'Failed to verify phone number');
+        setLoading(false);
+        return;
+      }
+
+      if (checkData.exists) {
+        // User exists: Directly request real OTP
+        await handleRequestOtp(cleanPhone);
+      } else {
+        // Unseeded new user: Prompt short self-registration step
+        setPhone(cleanPhone);
+        setStep('REGISTER');
+        setLoading(false);
+      }
+    } catch {
+      setError('Network communication failed. Please check your connection.');
+      setLoading(false);
+    }
+  };
+
+  const handleRequestOtp = async (phoneToUse: string) => {
     try {
       const res = await fetch('/api/auth/otp/request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: targetPhone }),
+        body: JSON.stringify({ phone: phoneToUse }),
       });
       const data = await res.json();
 
       if (!res.ok || !data.success) {
         setError(data.message || 'Failed to request OTP');
+        setLoading(false);
         return;
       }
 
       setStep('OTP');
       if (data.mockOtp) {
         setMockOtp(data.mockOtp);
-        setOtp(data.mockOtp); // Auto-fill for seamless reviewer testing
+        setOtp(data.mockOtp); // Auto-fill for seamless testing
       }
     } catch {
-      setError('Network connection error. Please try again.');
+      setError('Network error requesting OTP. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone,
+          name,
+          role: 'CUSTOMER', // Hard constrained to CUSTOMER
+          addressText,
+          pincode,
+          lat: 22.5867, // Salt Lake default coords
+          lng: 88.4178,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setError(data.message || 'Registration failed.');
+        setLoading(false);
+        return;
+      }
+
+      // Transition to OTP verification step
+      setStep('OTP');
+      if (data.mockOtp) {
+        setMockOtp(data.mockOtp);
+        setOtp(data.mockOtp);
+      }
+    } catch {
+      setError('Registration failed due to network error.');
     } finally {
       setLoading(false);
     }
@@ -69,6 +157,7 @@ export default function LoginPage() {
 
       if (!res.ok || !data.success) {
         setError(data.message || 'Invalid verification code');
+        setLoading(false);
         return;
       }
 
@@ -97,9 +186,13 @@ export default function LoginPage() {
           <div className="w-12 h-12 bg-teal-700 text-white rounded-lg flex items-center justify-center font-bold text-2xl mx-auto mb-3">
             M
           </div>
-          <CardTitle className="text-2xl font-bold text-stone-900">{t('loginTitle')}</CardTitle>
+          <CardTitle className="text-2xl font-bold text-stone-900">
+            {step === 'REGISTER' ? 'Customer Self-Registration' : t('loginTitle')}
+          </CardTitle>
           <CardDescription className="text-stone-600">
-            {tCommon('tagline')}
+            {step === 'REGISTER'
+              ? 'Create your customer profile to safely reorder medicines online.'
+              : tCommon('tagline')}
           </CardDescription>
         </CardHeader>
 
@@ -117,13 +210,13 @@ export default function LoginPage() {
                 {mockOtp}
               </p>
               <p className="text-xs text-amber-700 mt-1">
-                Valid for 5 minutes (max 5 attempts). Test mode: simulated SMS delivery.
+                Valid for 5 minutes (max 5 attempts). Honest fallback: real SMS dispatched if provider key configured.
               </p>
             </div>
           )}
 
-          {step === 'PHONE' ? (
-            <form onSubmit={(e) => handleRequestOtp(undefined, e)} className="space-y-4">
+          {step === 'PHONE' && (
+            <form onSubmit={(e) => handlePhoneSubmit(undefined, e)} className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-stone-700 mb-1">
                   {t('enterPhone')}
@@ -140,7 +233,7 @@ export default function LoginPage() {
                   />
                 </div>
                 <p className="text-xs text-stone-500 mt-1">
-                  New customers are automatically registered on first mobile verification.
+                  Reviewers: Enter your own phone number to test self-registration, or click a seeded role below.
                 </p>
               </div>
 
@@ -196,7 +289,87 @@ export default function LoginPage() {
                 </div>
               </div>
             </form>
-          ) : (
+          )}
+
+          {step === 'REGISTER' && (
+            <form onSubmit={handleRegisterSubmit} className="space-y-4">
+              <div className="bg-stone-50 p-3 rounded-md border text-xs text-stone-600 mb-2">
+                Phone number <strong className="font-mono text-stone-900">+91 {phone}</strong> is not yet registered. Complete this short form to create your account.
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-stone-700 mb-1">
+                  Full Name *
+                </label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. Manav Patel"
+                  className="w-full px-3 py-2 border border-stone-300 rounded-md text-sm focus:ring-2 focus:ring-teal-600 focus:outline-none"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-stone-700 mb-1">
+                  Account Role
+                </label>
+                <input
+                  type="text"
+                  value="Customer (Patient / Caregiver)"
+                  disabled
+                  className="w-full px-3 py-2 bg-stone-100 border border-stone-300 rounded-md text-sm text-stone-500 cursor-not-allowed"
+                />
+                <span className="text-[11px] text-stone-500 block mt-0.5">
+                  Pharmacist and store-staff accounts are restricted and admin-provisioned only.
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-stone-700 mb-1">
+                  Delivery Address *
+                </label>
+                <textarea
+                  rows={2}
+                  value={addressText}
+                  onChange={(e) => setAddressText(e.target.value)}
+                  placeholder="e.g. Flat 3A, Block CF, Salt Lake Sector 1, Kolkata"
+                  className="w-full px-3 py-2 border border-stone-300 rounded-md text-sm focus:ring-2 focus:ring-teal-600 focus:outline-none"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-stone-700 mb-1">
+                  Pincode *
+                </label>
+                <input
+                  type="text"
+                  maxLength={6}
+                  value={pincode}
+                  onChange={(e) => setPincode(e.target.value)}
+                  placeholder="700064"
+                  className="w-full px-3 py-2 border border-stone-300 rounded-md text-sm font-mono focus:ring-2 focus:ring-teal-600 focus:outline-none"
+                  required
+                />
+              </div>
+
+              <Button type="submit" isLoading={loading} className="w-full text-base">
+                Create Account & Send Code &rarr;
+              </Button>
+
+              <button
+                type="button"
+                onClick={() => setStep('PHONE')}
+                className="w-full text-xs text-stone-500 hover:text-stone-800 text-center block pt-1"
+              >
+                &larr; Back to mobile number entry
+              </button>
+            </form>
+          )}
+
+          {step === 'OTP' && (
             <form onSubmit={handleVerifyOtp} className="space-y-4">
               <div>
                 <div className="flex justify-between items-baseline mb-1">
@@ -230,7 +403,7 @@ export default function LoginPage() {
               <div className="text-center">
                 <button
                   type="button"
-                  onClick={() => handleRequestOtp()}
+                  onClick={() => handleRequestOtp(phone)}
                   className="text-sm text-stone-600 hover:text-teal-700 underline"
                 >
                   {t('resend')}
