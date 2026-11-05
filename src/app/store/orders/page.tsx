@@ -342,7 +342,7 @@ export default function StoreOrdersPage() {
                 <div className="text-xs text-stone-600 bg-stone-50 p-2.5 rounded border border-stone-200">
                   Customer: <strong>{confirmingUpiOrder.customer.name}</strong> (+91 {confirmingUpiOrder.customer.phone})
                   <br />
-                  Demo Payee VPA: <span className="font-mono text-teal-800">7778083224@upi</span>
+                  Payee VPA: <span className="font-mono text-teal-800">Configured in UPI_PAYEE_VPA</span>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-stone-700 mb-1">

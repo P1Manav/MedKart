@@ -462,7 +462,7 @@ export async function POST(req: Request) {
         familyProfileId,
         storeId: provisionalStoreId,
         routingIssue,
-        status: 'SUBMITTED',
+        status: paymentMethod === 'DIRECT_UPI' ? 'PAYMENT_PENDING_VERIFICATION' : 'SUBMITTED',
         addressText,
         addressLat,
         addressLng,
@@ -489,8 +489,10 @@ export async function POST(req: Request) {
             actorId: session.userId,
             actorRole: session.role,
             fromStatus: 'DRAFT',
-            toStatus: 'SUBMITTED',
-            reason: 'Order placed by customer with prescription upload',
+            toStatus: paymentMethod === 'DIRECT_UPI' ? 'PAYMENT_PENDING_VERIFICATION' : 'SUBMITTED',
+            reason: paymentMethod === 'DIRECT_UPI'
+              ? 'Order placed with Direct UPI transfer awaiting staff verification of transaction reference'
+              : 'Order placed by customer with prescription upload',
           },
         },
       },

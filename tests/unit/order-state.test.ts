@@ -12,17 +12,25 @@ describe('Order State Machine', () => {
   describe('Legal Transitions', () => {
     const legalPairs: Array<[OrderStatus, OrderStatus]> = [
       ['DRAFT', 'SUBMITTED'],
+      ['DRAFT', 'PAYMENT_PENDING_VERIFICATION'],
       ['DRAFT', 'CANCELLED'],
+      ['PAYMENT_PENDING_VERIFICATION', 'SUBMITTED'],
+      ['PAYMENT_PENDING_VERIFICATION', 'REFUND_DUE'],
+      ['PAYMENT_PENDING_VERIFICATION', 'CANCELLED'],
       ['SUBMITTED', 'APPROVED'],
       ['SUBMITTED', 'ON_HOLD'],
       ['SUBMITTED', 'REJECTED'],
+      ['SUBMITTED', 'REFUND_DUE'],
       ['SUBMITTED', 'CANCELLED'],
       ['ON_HOLD', 'SUBMITTED'],
+      ['ON_HOLD', 'REFUND_DUE'],
       ['ON_HOLD', 'CANCELLED'],
       ['APPROVED', 'PACKED'],
+      ['APPROVED', 'REFUND_DUE'],
       ['APPROVED', 'CANCELLED'],
       ['PACKED', 'HANDED_OVER'],
       ['HANDED_OVER', 'DELIVERED'],
+      ['REFUND_DUE', 'CANCELLED'],
     ];
 
     it.each(legalPairs)('allows transition from %s to %s', (from, to) => {
@@ -55,7 +63,15 @@ describe('Order State Machine', () => {
 
   describe('allowedTransitions', () => {
     it('returns reachable states for DRAFT', () => {
-      expect(allowedTransitions('DRAFT')).toEqual(['SUBMITTED', 'CANCELLED']);
+      expect(allowedTransitions('DRAFT')).toEqual(['SUBMITTED', 'PAYMENT_PENDING_VERIFICATION', 'CANCELLED']);
+    });
+
+    it('returns reachable states for PAYMENT_PENDING_VERIFICATION', () => {
+      expect(allowedTransitions('PAYMENT_PENDING_VERIFICATION')).toEqual(['SUBMITTED', 'CANCELLED', 'REFUND_DUE']);
+    });
+
+    it('returns reachable states for REFUND_DUE', () => {
+      expect(allowedTransitions('REFUND_DUE')).toEqual(['CANCELLED']);
     });
 
     it('returns empty array for terminal states', () => {
@@ -68,13 +84,15 @@ describe('Order State Machine', () => {
   describe('createAuditEvent', () => {
     it('creates an audit event with timestamp and actor details', () => {
       const event = createAuditEvent('ord_123', 'user_pharmacist', 'PHARMACIST', 'SUBMITTED', 'APPROVED', 'Prescription clear');
-      expect(event.orderId).toBe('ord_123');
-      expect(event.actorRole).toBe('PHARMACIST');
-      expect(event.fromStatus).toBe('SUBMITTED');
-      expect(event.toStatus).toBe('APPROVED');
-      expect(event.reason).toBe('Prescription clear');
+      expect(event).toMatchObject({
+        orderId: 'ord_123',
+        actorId: 'user_pharmacist',
+        actorRole: 'PHARMACIST',
+        fromStatus: 'SUBMITTED',
+        toStatus: 'APPROVED',
+        reason: 'Prescription clear',
+      });
       expect(event.timestamp).toBeInstanceOf(Date);
     });
   });
 });
-

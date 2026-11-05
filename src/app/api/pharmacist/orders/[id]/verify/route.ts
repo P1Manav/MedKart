@@ -330,13 +330,15 @@ export async function POST(
 
     // ── 6. REJECT FULL ORDER ──────────────────────────────
     if (payload.action === 'REJECT_ORDER') {
-      validateTransition(order.status as 'SUBMITTED', 'REJECTED');
+      const isPaidMethod = order.paymentMethod === 'MOCK_UPI' || order.paymentMethod === 'DIRECT_UPI';
+      const targetStatus = isPaidMethod ? 'REFUND_DUE' : 'REJECTED';
+      validateTransition(order.status as 'SUBMITTED', targetStatus);
 
       const res = await db.$transaction(async (tx) => {
         const updated = await tx.order.updateMany({
           where: { id: order.id, status: 'SUBMITTED' },
           data: {
-            status: 'REJECTED',
+            status: targetStatus,
           },
         });
 
@@ -350,8 +352,10 @@ export async function POST(
             actorId: session.userId,
             actorRole: session.role,
             fromStatus: order.status,
-            toStatus: 'REJECTED',
-            reason: payload.reason,
+            toStatus: targetStatus,
+            reason: isPaidMethod
+              ? `${payload.reason} [Payment method was ${order.paymentMethod}; refund queued for ops disbursement]`
+              : payload.reason,
           },
         });
 

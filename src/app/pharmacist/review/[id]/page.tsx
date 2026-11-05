@@ -454,7 +454,7 @@ export default function PharmacistReviewPage({
                   }`}>
                     {upiVerified ? '✓ Payment Verified' : 'Direct UPI: Payment Pending Verification'}
                   </span>
-                  <span className="text-xs font-mono text-stone-600">Demo VPA: 7778083224@upi</span>
+                  <span className="text-xs font-mono text-stone-600">Payee VPA: Configured in UPI_PAYEE_VPA</span>
                 </div>
                 <p className="text-xs text-stone-700">
                   {upiVerified

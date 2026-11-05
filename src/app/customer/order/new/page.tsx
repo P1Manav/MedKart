@@ -66,6 +66,16 @@ export default function OrderBuilderPage() {
   // Address and payment state
   const [address, setAddress] = useState('Block BD-12, Sector 1, Salt Lake, Kolkata - 700064');
   const [paymentMethod, setPaymentMethod] = useState<'MOCK_UPI' | 'COD' | 'DIRECT_UPI'>('MOCK_UPI');
+  const [upiConsent, setUpiConsent] = useState(false);
+  const [paymentConfig, setPaymentConfig] = useState<{
+    gatewayConfigured: boolean;
+    directUpi: {
+      enabled: boolean;
+      payeeVpa: string | null;
+      payeeName: string;
+      maxAmountInr: number;
+    };
+  } | null>(null);
 
   // Submission state
   const [loading, setLoading] = useState(false);
@@ -74,12 +84,15 @@ export default function OrderBuilderPage() {
   const [gatewayOrder, setGatewayOrder] = useState<{ orderId?: string; keyId?: string; name?: string } | null>(null);
   const [directUpiData, setDirectUpiData] = useState<{ orderId: string; displayId: string; amount: number } | null>(null);
 
-  // Fetch session details on mount
+  // Fetch session and payment config on mount
   useEffect(() => {
     async function loadUserData() {
       try {
-        const res = await fetch('/api/auth/me');
-        const data = await res.json();
+        const [meRes, payRes] = await Promise.all([
+          fetch('/api/auth/me'),
+          fetch('/api/payments/config'),
+        ]);
+        const data = await meRes.json();
         if (data.authenticated && data.user) {
           setUserName(data.user.name || '');
           if (Array.isArray(data.user.familyProfiles)) {
@@ -88,6 +101,10 @@ export default function OrderBuilderPage() {
           if (data.user.addresses && data.user.addresses.length > 0 && data.user.addresses[0].addressText) {
             setAddress(data.user.addresses[0].addressText);
           }
+        }
+        if (payRes.ok) {
+          const payData = await payRes.json();
+          setPaymentConfig(payData);
         }
       } catch {
         // non-fatal
@@ -312,6 +329,21 @@ export default function OrderBuilderPage() {
     if (!file) {
       setError('Please attach or take a photo of your prescription.');
       return;
+    }
+
+    if (paymentMethod === 'DIRECT_UPI') {
+      if (!paymentConfig?.directUpi?.enabled) {
+        setError('Direct UPI demo transfer is not currently enabled by administrator.');
+        return;
+      }
+      if (paymentConfig.directUpi.maxAmountInr && cartTotal > paymentConfig.directUpi.maxAmountInr) {
+        setError(`Direct UPI demo transfer is capped at ₹${paymentConfig.directUpi.maxAmountInr}. Please select Sandbox Payment or Cash on Delivery.`);
+        return;
+      }
+      if (!upiConsent) {
+        setError('Please confirm the voluntary demo consent checkbox below to proceed with Direct UPI transfer.');
+        return;
+      }
     }
 
     if (paymentMethod === 'MOCK_UPI') {
@@ -843,29 +875,60 @@ export default function OrderBuilderPage() {
                 </div>
               </label>
 
-              {/* Path B (Optional) — Real UPI Demo Transfer */}
-              <label
-                data-testid="payment-direct-upi"
-                className={`p-3.5 border rounded-lg cursor-pointer flex items-center gap-3 ${
-                  paymentMethod === 'DIRECT_UPI'
-                    ? 'border-teal-600 bg-teal-50 text-teal-900 font-semibold shadow-xs'
-                    : 'border-stone-200 hover:bg-stone-50'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="payment"
-                  checked={paymentMethod === 'DIRECT_UPI'}
-                  onChange={() => setPaymentMethod('DIRECT_UPI')}
-                />
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="block text-sm font-semibold">Real UPI Demo Transfer (Optional)</span>
-                    <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Manual Confirm</span>
-                  </div>
-                  <span className="block text-xs text-stone-500 font-normal">Real NPCI upi://pay URI & genuine QR code for mobile UPI apps; verified manually by store staff</span>
+              {/* Path B (Optional) — Real UPI Demo Transfer (Shown only when configured) */}
+              {paymentConfig?.directUpi?.enabled && (
+                <div className="space-y-2">
+                  <label
+                    data-testid="payment-direct-upi"
+                    className={`p-3.5 border rounded-lg flex items-center gap-3 ${
+                      paymentConfig.directUpi.maxAmountInr && cartTotal > paymentConfig.directUpi.maxAmountInr
+                        ? 'opacity-60 bg-stone-50 border-stone-200 cursor-not-allowed'
+                        : paymentMethod === 'DIRECT_UPI'
+                        ? 'border-teal-600 bg-teal-50 text-teal-900 font-semibold shadow-xs cursor-pointer'
+                        : 'border-stone-200 hover:bg-stone-50 cursor-pointer'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="payment"
+                      disabled={Boolean(paymentConfig.directUpi.maxAmountInr && cartTotal > paymentConfig.directUpi.maxAmountInr)}
+                      checked={paymentMethod === 'DIRECT_UPI'}
+                      onChange={() => setPaymentMethod('DIRECT_UPI')}
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="block text-sm font-semibold">Real UPI Demo Transfer (Optional)</span>
+                        <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Manual Confirm</span>
+                        {paymentConfig.directUpi.maxAmountInr && cartTotal > paymentConfig.directUpi.maxAmountInr && (
+                          <span className="text-[10px] bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-semibold">
+                            Capped at ₹{paymentConfig.directUpi.maxAmountInr}
+                          </span>
+                        )}
+                      </div>
+                      <span className="block text-xs text-stone-500 font-normal">
+                        Real NPCI upi://pay URI & genuine QR code; verified manually by store staff before dispatch
+                      </span>
+                    </div>
+                  </label>
+
+                  {/* Mandatory voluntary demo consent when Path B selected */}
+                  {paymentMethod === 'DIRECT_UPI' && (
+                    <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg text-xs space-y-1">
+                      <label className="flex items-start gap-2 cursor-pointer font-medium text-amber-950 dark:text-amber-200">
+                        <input
+                          type="checkbox"
+                          checked={upiConsent}
+                          onChange={(e) => setUpiConsent(e.target.checked)}
+                          className="mt-0.5 rounded text-teal-600 focus:ring-teal-500"
+                        />
+                        <span>
+                          Voluntary Demo Consent: I understand this is a demo environment and I am voluntarily transferring money to support test order verification.
+                        </span>
+                      </label>
+                    </div>
+                  )}
                 </div>
-              </label>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -906,13 +969,15 @@ export default function OrderBuilderPage() {
         onClose={() => setShowUpiModal(false)}
       />
 
-      {/* Path B: Real UPI Demo Transfer Modal (Master Prompt v5) */}
+      {/* Path B: Real UPI Demo Transfer Modal */}
       {directUpiData && (
         <DirectUpiModal
           isOpen={true}
           orderId={directUpiData.orderId}
           displayId={directUpiData.displayId}
           amount={directUpiData.amount}
+          payeeVpa={paymentConfig?.directUpi?.payeeVpa || undefined}
+          payeeName={paymentConfig?.directUpi?.payeeName || undefined}
           onClose={() => setDirectUpiData(null)}
         />
       )}

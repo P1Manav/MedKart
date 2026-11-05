@@ -3,6 +3,7 @@
 
 export const ORDER_STATUSES = [
   'DRAFT',
+  'PAYMENT_PENDING_VERIFICATION',
   'SUBMITTED',
   'ON_HOLD',
   'REJECTED',
@@ -10,6 +11,7 @@ export const ORDER_STATUSES = [
   'PACKED',
   'HANDED_OVER',
   'DELIVERED',
+  'REFUND_DUE',
   'CANCELLED',
 ] as const;
 
@@ -30,13 +32,15 @@ export type LineStatus = (typeof LINE_STATUSES)[number];
  * Any transition not listed here is illegal and will throw.
  */
 const TRANSITIONS: Record<OrderStatus, readonly OrderStatus[]> = {
-  DRAFT: ['SUBMITTED', 'CANCELLED'],
-  SUBMITTED: ['APPROVED', 'ON_HOLD', 'REJECTED', 'CANCELLED'],
-  ON_HOLD: ['SUBMITTED', 'CANCELLED'],
+  DRAFT: ['SUBMITTED', 'PAYMENT_PENDING_VERIFICATION', 'CANCELLED'],
+  PAYMENT_PENDING_VERIFICATION: ['SUBMITTED', 'CANCELLED', 'REFUND_DUE'],
+  SUBMITTED: ['APPROVED', 'ON_HOLD', 'REJECTED', 'CANCELLED', 'REFUND_DUE'],
+  ON_HOLD: ['SUBMITTED', 'CANCELLED', 'REFUND_DUE'],
   REJECTED: [],
-  APPROVED: ['PACKED', 'CANCELLED'],
+  APPROVED: ['PACKED', 'CANCELLED', 'REFUND_DUE'],
   PACKED: ['HANDED_OVER'],
   HANDED_OVER: ['DELIVERED'],
+  REFUND_DUE: ['CANCELLED'],
   DELIVERED: [],
   CANCELLED: [],
 };
@@ -64,44 +68,30 @@ export function validateTransition(from: OrderStatus, to: OrderStatus): OrderSta
 }
 
 /**
- * Returns all statuses reachable from the given status.
+ * Returns the list of valid next statuses for a given status.
  */
-export function allowedTransitions(from: OrderStatus): readonly OrderStatus[] {
-  return TRANSITIONS[from] ?? [];
+export function allowedTransitions(status: OrderStatus): readonly OrderStatus[] {
+  return TRANSITIONS[status] ?? [];
 }
 
 /**
- * Audit event shape for every state transition.
- */
-export interface OrderAuditEvent {
-  orderId: string;
-  actorId: string;
-  actorRole: string;
-  fromStatus: OrderStatus;
-  toStatus: OrderStatus;
-  reason?: string;
-  timestamp: Date;
-}
-
-/**
- * Creates an audit event for a transition.
+ * Creates an audit event payload for an order status transition.
  */
 export function createAuditEvent(
   orderId: string,
   actorId: string,
   actorRole: string,
-  from: OrderStatus,
-  to: OrderStatus,
+  fromStatus: OrderStatus,
+  toStatus: OrderStatus,
   reason?: string
-): OrderAuditEvent {
+) {
   return {
     orderId,
     actorId,
     actorRole,
-    fromStatus: from,
-    toStatus: to,
-    reason,
+    fromStatus,
+    toStatus,
+    reason: reason ?? null,
     timestamp: new Date(),
   };
 }
-

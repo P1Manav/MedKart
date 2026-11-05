@@ -119,6 +119,24 @@ export async function GET() {
       },
     });
 
+    // 6. Orders awaiting refund settlement
+    const refundDueOrders = await db.order.findMany({
+      where: { status: 'REFUND_DUE' },
+      select: {
+        id: true,
+        displayId: true,
+        paymentMethod: true,
+        createdAt: true,
+        customer: { select: { name: true, phone: true } },
+        auditEvents: {
+          select: { reason: true, timestamp: true },
+          orderBy: { timestamp: 'desc' },
+          take: 1,
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
     return NextResponse.json({
       success: true,
       metrics: {
@@ -133,6 +151,15 @@ export async function GET() {
         blockedItemsCount,
         blockedItemsRate,
         totalLinesCount,
+        refundDueOrders: refundDueOrders.map((r) => ({
+          id: r.id,
+          displayId: r.displayId || r.id,
+          paymentMethod: r.paymentMethod || 'COD',
+          customerName: r.customer?.name || 'Customer',
+          customerPhone: r.customer?.phone || '',
+          reason: r.auditEvents?.[0]?.reason || 'Order cancelled/rejected',
+          createdAt: (r.createdAt instanceof Date ? r.createdAt : new Date(r.createdAt || Date.now())).toISOString(),
+        })),
         recentOutboxMessages: recentOutboxMessages.map((m) => ({
           id: m.id,
           recipient: `${m.user.name} (${m.user.phone})`,

@@ -62,7 +62,8 @@ async function main() {
   console.log('3. Testing Path B Direct UPI NPCI URI & Dynamic QR Code Generation:');
   const displayId = 'RX-50225';
   const amount = 345.0;
-  const upiUri = `upi://pay?pa=7778083224@upi&pn=MedKart%20Demo&am=${amount.toFixed(2)}&cu=INR&tn=Order%20${encodeURIComponent(displayId)}`;
+  const payeeVpa = process.env.UPI_PAYEE_VPA || 'demo_rx@bank';
+  const upiUri = `upi://pay?pa=${encodeURIComponent(payeeVpa)}&pn=MedKart%20Demo&am=${amount.toFixed(2)}&cu=INR&tn=Order%20${encodeURIComponent(displayId)}`;
   console.log(`- Generated NPCI URI: ${upiUri}`);
 
   const qrDataUrl = await QRCode.toDataURL(upiUri);

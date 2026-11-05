@@ -58,16 +58,27 @@ export async function POST(req: Request) {
       );
     }
 
-    // Record real audit log confirming manual payment verification
-    await db.orderAudit.create({
-      data: {
-        orderId: order.id,
-        actorId: session.userId,
-        actorRole: session.role,
-        fromStatus: order.status,
-        toStatus: order.status,
-        reason: `Direct UPI payment verified by ${session.role} (${session.name || session.userId}). UTR / Ref: ${utrReference}`,
-      },
+    const nextStatus = order.status === 'PAYMENT_PENDING_VERIFICATION' ? 'SUBMITTED' : order.status;
+
+    // Record real audit log confirming manual payment verification and update status
+    await db.$transaction(async (tx) => {
+      if (nextStatus !== order.status) {
+        await tx.order.update({
+          where: { id: order.id },
+          data: { status: nextStatus },
+        });
+      }
+
+      await tx.orderAudit.create({
+        data: {
+          orderId: order.id,
+          actorId: session.userId,
+          actorRole: session.role,
+          fromStatus: order.status,
+          toStatus: nextStatus,
+          reason: `Direct UPI payment verified by ${session.role} (${session.name || session.userId}). UTR / Ref: ${utrReference}`,
+        },
+      });
     });
 
     // Notify customer in message outbox
