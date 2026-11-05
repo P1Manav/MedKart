@@ -62,6 +62,7 @@ enum PrescriptionStatus {
 enum PaymentMethod {
   MOCK_UPI
   COD
+  DIRECT_UPI
 }
 
 enum MessageChannel {

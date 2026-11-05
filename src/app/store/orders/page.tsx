@@ -18,6 +18,12 @@ interface StoreOrder {
   createdAt: string;
   customer: { name: string; phone: string };
   store?: { id: string; name: string } | null;
+  auditEvents?: Array<{
+    id: string;
+    actorRole: string;
+    reason: string | null;
+    timestamp: string;
+  }>;
   lines: Array<{
     id: string;
     lineStatus: string;
@@ -44,6 +50,11 @@ export default function StoreOrdersPage() {
   const [packingOrder, setPackingOrder] = useState<StoreOrder | null>(null);
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [packing, setPacking] = useState(false);
+
+  // Direct UPI confirmation modal state (Master Prompt v5)
+  const [confirmingUpiOrder, setConfirmingUpiOrder] = useState<StoreOrder | null>(null);
+  const [upiUtrInput, setUpiUtrInput] = useState('');
+  const [confirmingUpi, setConfirmingUpi] = useState(false);
 
   async function loadOrders() {
     try {
@@ -95,6 +106,37 @@ export default function StoreOrdersPage() {
     }
   };
 
+  const handleConfirmUpiSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!confirmingUpiOrder || !upiUtrInput.trim()) return;
+
+    setConfirmingUpi(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/payments/confirm-manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: confirmingUpiOrder.id,
+          utrReference: upiUtrInput.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setError(data.message || 'Failed to confirm Direct UPI receipt');
+      } else {
+        setActionSuccess(data.message);
+        setConfirmingUpiOrder(null);
+        setUpiUtrInput('');
+        await loadOrders();
+      }
+    } catch {
+      setError('Network communication failed.');
+    } finally {
+      setConfirmingUpi(false);
+    }
+  };
+
   return (
     <div className="max-w-6xl mx-auto py-6 space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -136,6 +178,9 @@ export default function StoreOrdersPage() {
                 const canPack = ord.status === 'APPROVED';
                 const isPacked = ord.status === 'PACKED';
                 const isHandedOver = ord.status === 'HANDED_OVER';
+                const isUpiConfirmed = ord.auditEvents?.some((a) =>
+                  a.reason?.includes('Direct UPI payment verified')
+                );
 
                 return (
                   <div key={ord.id} className="py-4 space-y-3">
@@ -156,6 +201,17 @@ export default function StoreOrdersPage() {
                           >
                             {ord.status}
                           </Badge>
+                          {ord.paymentMethod === 'DIRECT_UPI' && (
+                            <span
+                              className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${
+                                isUpiConfirmed
+                                  ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                                  : 'bg-amber-100 text-amber-900 border-amber-300'
+                              }`}
+                            >
+                              {isUpiConfirmed ? '✓ Direct UPI Verified' : 'Direct UPI: Unverified'}
+                            </span>
+                          )}
                           <span className="text-xs text-stone-500">
                             Fulfillment Store: <strong className="text-stone-800">{ord.store?.name || 'Local Store'}</strong>
                           </span>
@@ -167,6 +223,19 @@ export default function StoreOrdersPage() {
 
                       {/* Store Staff Action Buttons */}
                       <div className="flex items-center gap-2">
+                        {ord.paymentMethod === 'DIRECT_UPI' && !isUpiConfirmed && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setConfirmingUpiOrder(ord);
+                              setUpiUtrInput('');
+                            }}
+                            className="border-amber-400 text-amber-900 hover:bg-amber-50 text-xs"
+                          >
+                            Confirm UPI Receipt
+                          </Button>
+                        )}
                         {canPack ? (
                           <Button size="sm" onClick={() => setPackingOrder(ord)}>
                             {t('packOrder')} &rarr;
@@ -248,6 +317,66 @@ export default function StoreOrdersPage() {
                   </Button>
                   <Button type="submit" size="sm" isLoading={packing}>
                     {t('packOrder')}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Direct UPI Receipt Confirmation Modal (Master Prompt v5) */}
+      {confirmingUpiOrder && (
+        <div className="fixed inset-0 bg-stone-900/50 flex items-center justify-center p-4 z-50">
+          <Card className="max-w-md w-full bg-white shadow-2xl border-amber-300">
+            <CardHeader>
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-amber-100 text-amber-900 w-fit">
+                Staff Verification
+              </span>
+              <CardTitle className="text-lg font-bold text-stone-900 mt-1">
+                Confirm Direct UPI Receipt — {confirmingUpiOrder.displayId}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleConfirmUpiSubmit} className="space-y-4">
+                <div className="text-xs text-stone-600 bg-stone-50 p-2.5 rounded border border-stone-200">
+                  Customer: <strong>{confirmingUpiOrder.customer.name}</strong> (+91 {confirmingUpiOrder.customer.phone})
+                  <br />
+                  Demo Payee VPA: <span className="font-mono text-teal-800">7778083224@upi</span>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-stone-700 mb-1">
+                    12-digit UPI UTR / Bank Reference Number *
+                  </label>
+                  <input
+                    type="text"
+                    value={upiUtrInput}
+                    onChange={(e) => setUpiUtrInput(e.target.value)}
+                    placeholder="e.g. 431209871234"
+                    className="w-full p-2.5 border rounded-md text-sm font-mono focus:ring-2 focus:ring-teal-600 focus:outline-none"
+                    autoFocus
+                    required
+                  />
+                  <p className="text-[11px] text-stone-500 mt-1">
+                    Verifying this transaction writes an immutable audit record with your staff ID and timestamp.
+                  </p>
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setConfirmingUpiOrder(null)}
+                  >
+                    {tc('cancel')}
+                  </Button>
+                  <Button
+                    type="submit"
+                    size="sm"
+                    isLoading={confirmingUpi}
+                    className="bg-teal-700 hover:bg-teal-800"
+                  >
+                    Verify & Confirm Receipt
                   </Button>
                 </div>
               </form>

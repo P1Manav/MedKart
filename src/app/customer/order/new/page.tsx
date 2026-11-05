@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ErrorState } from '@/components/ui/error-state';
 import { MockUpiModal } from '@/components/payment/mock-upi-modal';
+import { DirectUpiModal } from '@/components/payment/direct-upi-modal';
 
 interface CatalogueItem {
   id: string;
@@ -64,13 +65,14 @@ export default function OrderBuilderPage() {
 
   // Address and payment state
   const [address, setAddress] = useState('Block BD-12, Sector 1, Salt Lake, Kolkata - 700064');
-  const [paymentMethod, setPaymentMethod] = useState<'MOCK_UPI' | 'COD'>('COD');
+  const [paymentMethod, setPaymentMethod] = useState<'MOCK_UPI' | 'COD' | 'DIRECT_UPI'>('MOCK_UPI');
 
   // Submission state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showUpiModal, setShowUpiModal] = useState(false);
   const [gatewayOrder, setGatewayOrder] = useState<{ orderId?: string; keyId?: string; name?: string } | null>(null);
+  const [directUpiData, setDirectUpiData] = useState<{ orderId: string; displayId: string; amount: number } | null>(null);
 
   // Fetch session details on mount
   useEffect(() => {
@@ -244,7 +246,7 @@ export default function OrderBuilderPage() {
     }
   };
 
-  const executeSubmission = async (overridePayment?: 'MOCK_UPI' | 'COD') => {
+  const executeSubmission = async (overridePayment?: 'MOCK_UPI' | 'COD' | 'DIRECT_UPI') => {
     if (!file) {
       setError('Please attach or take a photo of your prescription.');
       return;
@@ -254,13 +256,14 @@ export default function OrderBuilderPage() {
     setError(null);
 
     try {
+      const finalPayment = overridePayment || paymentMethod;
       const formData = new FormData();
       formData.append('prescription', file);
       formData.append('familyProfileId', familyProfile === 'self' ? '' : familyProfile);
       formData.append('addressText', address);
       formData.append('addressLat', '22.5875');
       formData.append('addressLng', '88.4190');
-      formData.append('paymentMethod', overridePayment || paymentMethod);
+      formData.append('paymentMethod', finalPayment);
 
       if (cart.length > 0) {
         formData.append(
@@ -282,6 +285,17 @@ export default function OrderBuilderPage() {
       const data = await res.json();
       if (!res.ok || !data.success) {
         setError(data.error || 'Failed to submit order.');
+        setLoading(false);
+        return;
+      }
+
+      if (finalPayment === 'DIRECT_UPI') {
+        const orderAmount = cartTotal > 0 ? cartTotal : 185.0;
+        setDirectUpiData({
+          orderId: data.order.id,
+          displayId: data.order.displayId,
+          amount: orderAmount,
+        });
         setLoading(false);
         return;
       }
@@ -783,11 +797,35 @@ export default function OrderBuilderPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-3">
+              {/* Path A (Default) — Real Sandbox Gateway */}
+              <label
+                className={`p-3.5 border rounded-lg cursor-pointer flex items-center gap-3 ${
+                  paymentMethod === 'MOCK_UPI'
+                    ? 'border-teal-600 bg-teal-50 text-teal-900 font-semibold shadow-xs'
+                    : 'border-stone-200 hover:bg-stone-50'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="payment"
+                  checked={paymentMethod === 'MOCK_UPI'}
+                  onChange={() => setPaymentMethod('MOCK_UPI')}
+                />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="block text-sm font-semibold">Online Payment (Razorpay Sandbox — Test Mode)</span>
+                    <span className="text-[10px] bg-teal-100 text-teal-800 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Default</span>
+                  </div>
+                  <span className="block text-xs text-stone-500 font-normal">Real sandbox gateway calls with HMAC signature verification (Zero real money charged)</span>
+                </div>
+              </label>
+
+              {/* Cash on Delivery */}
               <label
                 className={`p-3.5 border rounded-lg cursor-pointer flex items-center gap-3 ${
                   paymentMethod === 'COD'
-                    ? 'border-teal-600 bg-teal-50 text-teal-900 font-semibold'
+                    ? 'border-teal-600 bg-teal-50 text-teal-900 font-semibold shadow-xs'
                     : 'border-stone-200 hover:bg-stone-50'
                 }`}
               >
@@ -798,27 +836,31 @@ export default function OrderBuilderPage() {
                   onChange={() => setPaymentMethod('COD')}
                 />
                 <div>
-                  <span className="block text-sm">{t('cod')}</span>
-                  <span className="block text-xs text-stone-500">Pay at your doorstep</span>
+                  <span className="block text-sm font-semibold">{t('cod')}</span>
+                  <span className="block text-xs text-stone-500 font-normal">Pay cash or scan QR at your doorstep upon medicine delivery</span>
                 </div>
               </label>
 
+              {/* Path B (Optional) — Real UPI Demo Transfer */}
               <label
                 className={`p-3.5 border rounded-lg cursor-pointer flex items-center gap-3 ${
-                  paymentMethod === 'MOCK_UPI'
-                    ? 'border-teal-600 bg-teal-50 text-teal-900 font-semibold'
+                  paymentMethod === 'DIRECT_UPI'
+                    ? 'border-teal-600 bg-teal-50 text-teal-900 font-semibold shadow-xs'
                     : 'border-stone-200 hover:bg-stone-50'
                 }`}
               >
                 <input
                   type="radio"
                   name="payment"
-                  checked={paymentMethod === 'MOCK_UPI'}
-                  onChange={() => setPaymentMethod('MOCK_UPI')}
+                  checked={paymentMethod === 'DIRECT_UPI'}
+                  onChange={() => setPaymentMethod('DIRECT_UPI')}
                 />
-                <div>
-                  <span className="block text-sm">{t('mockUpi')}</span>
-                  <span className="block text-xs text-stone-500">UPI (Google Pay, PhonePe, Paytm, QR)</span>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="block text-sm font-semibold">Real UPI Demo Transfer (Optional)</span>
+                    <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Manual Confirm</span>
+                  </div>
+                  <span className="block text-xs text-stone-500 font-normal">Real NPCI upi://pay URI & genuine QR code for mobile UPI apps; verified manually by store staff</span>
                 </div>
               </label>
             </div>
@@ -859,6 +901,17 @@ export default function OrderBuilderPage() {
         onFailure={handleUpiFailure}
         onClose={() => setShowUpiModal(false)}
       />
+
+      {/* Path B: Real UPI Demo Transfer Modal (Master Prompt v5) */}
+      {directUpiData && (
+        <DirectUpiModal
+          isOpen={true}
+          orderId={directUpiData.orderId}
+          displayId={directUpiData.displayId}
+          amount={directUpiData.amount}
+          onClose={() => setDirectUpiData(null)}
+        />
+      )}
     </div>
   );
 }

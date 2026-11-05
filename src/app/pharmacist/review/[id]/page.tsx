@@ -14,6 +14,7 @@ interface ReviewOrder {
   id: string;
   displayId: string;
   status: string;
+  paymentMethod?: string | null;
   prescriptionStatus: string;
   prescriptionValidUntil?: string | null;
   aiDateText?: string | null;
@@ -21,6 +22,12 @@ interface ReviewOrder {
   customer: { name: string; phone: string };
   familyProfile?: { name: string; relationship: string } | null;
   store?: { name: string } | null;
+  auditEvents?: Array<{
+    id: string;
+    actorRole: string;
+    reason: string | null;
+    timestamp: string;
+  }>;
   lines: Array<{
     id: string;
     rawText: string;
@@ -88,6 +95,10 @@ export default function PharmacistReviewPage({
   // Prescription date confirmation (P0-10)
   const [prescriptionDate, setPrescriptionDate] = useState<string>('');
   const [dateConfirmed, setDateConfirmed] = useState<boolean>(false);
+
+  // Direct UPI confirmation states (Master Prompt v5)
+  const [upiUtrInput, setUpiUtrInput] = useState('');
+  const [confirmingUpi, setConfirmingUpi] = useState(false);
 
   // H1 register inputs
   const [h1Inputs, setH1Inputs] = useState<
@@ -264,6 +275,37 @@ export default function PharmacistReviewPage({
     });
   };
 
+  const handleConfirmDirectUpi = async () => {
+    if (!upiUtrInput.trim() || upiUtrInput.trim().length < 4) {
+      setError('Please enter a valid UTR or payment reference (min 4 characters).');
+      return;
+    }
+    setConfirmingUpi(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/payments/confirm-manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: order?.id,
+          utrReference: upiUtrInput.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setError(data.message || 'Failed to confirm Direct UPI receipt.');
+      } else {
+        setActionMessage(data.message);
+        setUpiUtrInput('');
+        await loadOrder();
+      }
+    } catch {
+      setError('Network communication failed.');
+    } finally {
+      setConfirmingUpi(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="py-8 max-w-7xl mx-auto space-y-4">
@@ -392,6 +434,54 @@ export default function PharmacistReviewPage({
           )}
         </CardContent>
       </Card>
+
+      {/* Path B: Direct UPI Payment Verification (Master Prompt v5) */}
+      {order.paymentMethod === 'DIRECT_UPI' && (() => {
+        const upiVerified = order.auditEvents?.find((a) =>
+          a.reason?.includes('Direct UPI payment verified')
+        );
+        return (
+          <Card className={upiVerified ? 'border-emerald-200 bg-emerald-50/60' : 'border-amber-300 bg-amber-50/70'}>
+            <CardContent className="py-3 px-4 flex flex-wrap items-center justify-between gap-3">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
+                    upiVerified ? 'bg-emerald-200 text-emerald-900' : 'bg-amber-200 text-amber-950'
+                  }`}>
+                    {upiVerified ? '✓ Payment Verified' : 'Direct UPI: Payment Pending Verification'}
+                  </span>
+                  <span className="text-xs font-mono text-stone-600">Demo VPA: 7778083224@upi</span>
+                </div>
+                <p className="text-xs text-stone-700">
+                  {upiVerified
+                    ? upiVerified.reason
+                    : 'Customer chose Direct UPI Transfer. Verify the 12-digit UTR on bank statement before dispensing.'}
+                </p>
+              </div>
+
+              {!upiVerified && (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={upiUtrInput}
+                    onChange={(e) => setUpiUtrInput(e.target.value)}
+                    placeholder="Enter 12-digit UTR Ref"
+                    className="text-xs font-mono border border-stone-300 rounded px-2.5 py-1.5 bg-white text-stone-900 w-44 focus:ring-2 focus:ring-teal-600"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={handleConfirmDirectUpi}
+                    isLoading={confirmingUpi}
+                    className="text-xs whitespace-nowrap bg-teal-700 hover:bg-teal-800"
+                  >
+                    Confirm Direct UPI Receipt
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* Red Expiration Warning Banner (P0-10) */}
       {isPrescriptionExpired() && (

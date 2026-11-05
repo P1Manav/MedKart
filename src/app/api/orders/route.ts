@@ -516,7 +516,16 @@ export async function POST(req: Request) {
         data: {
           userId: session.userId,
           channel: 'SMS',
-          content: `MedKart: Mock UPI payment confirmed for Order ${order.displayId}. (Test Sandbox Mode — No real money charged).`,
+          content: `MedKart: Sandbox payment confirmed for Order ${order.displayId}. (Razorpay Sandbox Mode — No real money charged).`,
+          status: 'SENT_MOCK',
+        },
+      }).catch(() => null);
+    } else if (paymentMethod === 'DIRECT_UPI') {
+      await db.messageOutbox.create({
+        data: {
+          userId: session.userId,
+          channel: 'SMS',
+          content: `MedKart: Direct UPI transfer pending verification for Order ${order.displayId}. Store staff will confirm receipt against transaction note before dispatch.`,
           status: 'SENT_MOCK',
         },
       }).catch(() => null);

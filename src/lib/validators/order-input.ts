@@ -39,8 +39,8 @@ export const CreateOrderInputSchema = z.object({
     )
     .default(88.4190),
   paymentMethod: z
-    .enum(['MOCK_UPI', 'COD'], {
-      message: 'Payment method must be either MOCK_UPI or COD',
+    .enum(['MOCK_UPI', 'COD', 'DIRECT_UPI'], {
+      message: 'Payment method must be MOCK_UPI, COD, or DIRECT_UPI',
     })
     .default('COD'),
   familyProfileId: z.string().min(1).nullable().optional(),
