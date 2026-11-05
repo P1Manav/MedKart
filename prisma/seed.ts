@@ -359,7 +359,7 @@ async function main() {
       prescriptionMime: 'image/png',
       prescriptionStatus: PrescriptionStatus.APPROVED,
       prescriptionValidUntil: validity6Months,
-      aiModelName: 'gemini-2.5-flash',
+      aiModelName: 'microsoft/trocr-base-handwritten',
       aiLatencyMs: 820,
     },
   });
@@ -401,7 +401,7 @@ async function main() {
       prescriptionMime: 'image/png',
       prescriptionStatus: PrescriptionStatus.PENDING,
       prescriptionValidUntil: validity6Months,
-      aiModelName: 'gemini-2.5-flash',
+      aiModelName: 'microsoft/trocr-base-handwritten',
       aiLatencyMs: 910,
     },
   });
@@ -442,7 +442,7 @@ async function main() {
       prescriptionStatus: PrescriptionStatus.RE_UPLOAD_ASKED,
       prescriptionValidUntil: validity6Months,
       manualEntryNeeded: true,
-      aiModelName: 'gemini-2.5-flash',
+      aiModelName: 'microsoft/trocr-base-handwritten',
       aiLatencyMs: 1100,
     },
   });

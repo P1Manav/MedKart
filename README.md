@@ -115,7 +115,7 @@ flowchart TD
         AUTH["jose HS256 JWT Signed Session Cookies"]
         RBAC["Deny-by-default RBAC Guards"]
         DOMAIN["Domain Services: State Machine & assertDispatchable"]
-        AI["AI Pipeline: Gemini API + MockReader Fallback"]
+        AI["AI Pipeline: Non-Generative OCR (HF TrOCR + Tesseract.js WASM + Deterministic Parser)"]
         CRYPTO["AES-256-GCM Prescription Encryptor & Access Logger"]
     end
 

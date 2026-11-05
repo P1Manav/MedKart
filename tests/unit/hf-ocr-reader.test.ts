@@ -108,5 +108,32 @@ describe('HfOcrReader 3-Tier Pipeline', () => {
     expect(result.data?.lines).toHaveLength(0);
     expect(result.errorMessage).toContain('pharmacist manual queue');
   });
+
+  it('Tier 1 Confidence Signal: Dynamically calculates confidence and falls back when text is garbled noise', async () => {
+    process.env.HF_API_TOKEN = 'hf_mock_token_12345';
+
+    // Mock fetch returning garbled OCR noise without medical entities
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [{ generated_text: '!!??... ##$$' }],
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    const reader = new HfOcrReader();
+    const tesseractSpy = vi
+      .spyOn(reader as unknown as { callTesseractOcr: (b: Buffer) => Promise<unknown> }, 'callTesseractOcr')
+      .mockResolvedValue({
+        image_legibility: 'unreadable',
+        prescriber_text: null,
+        date_text: null,
+        lines: [],
+      });
+
+    const result = await reader.read(dummyBuffer, 'image/png');
+
+    // Because Tier 1 text was noise (confidence < 0.45), it fell back to Tier 2
+    expect(tesseractSpy).toHaveBeenCalled();
+    expect(result.manualEntryNeeded).toBe(true);
+  });
 });
 

@@ -10,6 +10,66 @@ import {
 
 export const HF_TIMEOUT_MS = 25000;
 
+/**
+ * Computes a deterministic lexical sanity and medical entity density confidence score.
+ * Hugging Face Serverless Inference API for TrOCR returns strictly `{ generated_text: string }`
+ * without per-token probabilities. To honestly eliminate hardcoded constants:
+ * - Length check (>= 6 chars, >= 2 words)
+ * - Alphanumeric character ratio (punishes non-printable / garbled OCR symbols)
+ * - Character entropy / uniqueness (punishes degenerate repetition loops like "............")
+ * - Medical entity density (presence of dosage/unit patterns: mg, mcg, ml, tab, cap, etc.)
+ */
+export function computeTrOcrConfidence(text: string): {
+  overallConfidence: number;
+  wordConfidence: (w: string) => number;
+} {
+  const trimmed = text.trim();
+  if (trimmed.length < 5) {
+    return {
+      overallConfidence: 0.1,
+      wordConfidence: () => 0.1,
+    };
+  }
+
+  const totalChars = trimmed.length;
+  const alnumMatches = trimmed.match(/[a-zA-Z0-9]/g);
+  const alnumChars = alnumMatches ? alnumMatches.length : 0;
+  const alnumRatio = Math.min(1.0, alnumChars / totalChars);
+
+  // Character entropy (unique lowercased characters vs sample size)
+  const uniqueChars = new Set(trimmed.toLowerCase().replace(/\s+/g, '')).size;
+  const entropyRatio = Math.min(1.0, uniqueChars / Math.max(8, Math.min(20, totalChars)));
+
+  // Medical keyword & dosage density
+  const medicalRegex = /\b(\d+\s?(mg|mcg|ml|g|tablets?|capsules?|syrup)|tab|cap|od|bd|tds|sos|daily|po)\b/gi;
+  const medMatches = trimmed.match(medicalRegex) || [];
+  let medBonus = 0.0;
+  if (medMatches.length >= 2) {
+    medBonus = 0.35;
+  } else if (medMatches.length === 1) {
+    medBonus = 0.20;
+  }
+
+  // Raw score clamped between 0.10 and 0.95
+  const rawScore = 0.35 * alnumRatio + 0.30 * entropyRatio + medBonus;
+  const overallConfidence = Math.round(Math.max(0.1, Math.min(0.95, rawScore)) * 100) / 100;
+
+  const wordConfidence = (w: string): number => {
+    const cleanWord = w.trim();
+    if (!cleanWord) return 0.1;
+    const isMed = /\b(\d+\s?(mg|mcg|ml|g|tablets?|capsules?|syrup)|tab|cap|od|bd|tds|sos|daily|po)\b/i.test(cleanWord);
+    if (isMed) {
+      return Math.round(Math.min(0.95, overallConfidence + 0.05) * 100) / 100;
+    }
+    if (cleanWord.length <= 1 || /^[^a-zA-Z0-9]+$/.test(cleanWord)) {
+      return Math.round(Math.max(0.1, overallConfidence - 0.25) * 100) / 100;
+    }
+    return overallConfidence;
+  };
+
+  return { overallConfidence, wordConfidence };
+}
+
 export class HfOcrReader implements PrescriptionReader {
   private modelName: string;
   private apiToken: string | undefined;
@@ -129,6 +189,13 @@ export class HfOcrReader implements PrescriptionReader {
         return null;
       }
 
+      const { overallConfidence, wordConfidence } = computeTrOcrConfidence(generatedText);
+
+      // If text sanity score is below 0.45, treat as unreadable/low confidence so it safely falls back
+      if (overallConfidence < 0.45) {
+        return null;
+      }
+
       const rawLines = generatedText
         .split('\n')
         .map((l) => l.trim())
@@ -137,19 +204,23 @@ export class HfOcrReader implements PrescriptionReader {
       const ocrLines: OcrRawLine[] = rawLines.map((line) => {
         const words: OcrWord[] = line.split(/\s+/).map((w) => ({
           text: w,
-          confidence: 0.88, // Default TrOCR token confidence
+          confidence: wordConfidence(w),
         }));
+        const lineConfidence =
+          words.length > 0
+            ? Math.round((words.reduce((sum, w) => sum + w.confidence, 0) / words.length) * 100) / 100
+            : overallConfidence;
         return {
           text: line,
           words,
-          confidence: 0.88,
+          confidence: lineConfidence,
         };
       });
 
       const ocrOutput: OcrEngineOutput = {
         rawText: generatedText,
         lines: ocrLines,
-        meanWordConfidence: 0.88,
+        meanWordConfidence: overallConfidence,
         modelName: this.modelName,
         engineTier: 'tier1_hf_trocr',
       };
