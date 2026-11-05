@@ -6,26 +6,26 @@ import { test, expect, type Page } from '@playwright/test';
  */
 async function loginAs(page: Page, phone: string) {
   await page.goto('/login');
-  await page.fill('input[type="tel"]', phone);
-  await page.click('button[type="submit"]');
+  await page.fill('[data-testid="phone-input"]', phone);
+  await page.click('[data-testid="get-otp-btn"]');
 
   // The login screen displays demo code and auto-fills OTP input
-  const otpInput = page.locator('input[type="text"]');
+  const otpInput = page.locator('[data-testid="otp-input"]');
   await expect(otpInput).toBeVisible({ timeout: 10000 });
 
   // Wait for OTP input to be populated or read demo code from banner
   await page.waitForFunction(() => {
-    const el = document.querySelector('input[type="text"]') as HTMLInputElement | null;
+    const el = document.querySelector('[data-testid="otp-input"]') as HTMLInputElement | null;
     return el && el.value.length === 6;
   }, { timeout: 5000 }).catch(async () => {
-    const codeEl = page.locator('p.tracking-widest');
+    const codeEl = page.locator('[data-testid="demo-otp-code"]');
     if (await codeEl.isVisible()) {
       const text = await codeEl.textContent();
       if (text) await otpInput.fill(text.trim());
     }
   });
 
-  const submitBtn = page.locator('button[type="submit"]');
+  const submitBtn = page.locator('[data-testid="verify-otp-btn"]');
   await expect(submitBtn).toBeEnabled();
   await submitBtn.click();
 
@@ -43,11 +43,11 @@ test.describe('MedKart Full Pharmacy Lifecycle Flow', () => {
     await expect(page.locator('h1')).toBeVisible();
 
     // 3. Locate unapproved pending order (RX-50214 which is Awaiting Pharmacist)
-    const orderCard = page.locator('div.divide-y > div').filter({ hasText: 'RX-50214' });
+    const orderCard = page.locator('[data-testid="order-card-RX-50214"]');
     await expect(orderCard).toBeVisible({ timeout: 15000 });
 
     // 4. Assert Pack Order button is disabled with visible statutory reason
-    const packButton = orderCard.locator('button').filter({ hasText: /pack/i });
+    const packButton = page.locator('[data-testid="pack-order-btn-RX-50214"]');
     await expect(packButton).toBeDisabled();
 
     // 5. Assert reason is displayed
@@ -85,8 +85,11 @@ test.describe('MedKart Full Pharmacy Lifecycle Flow', () => {
     await customerPage.click('text=Sample 1: Metformin 500 mg (Clean)');
     await expect(customerPage.locator('text=Image ready for secure encrypted upload')).toBeVisible();
 
+    // Select Cash on Delivery to proceed directly to order tracking without payment modal
+    await customerPage.click('[data-testid="payment-cod"]');
+
     // Submit order for pharmacist verification
-    await customerPage.click('button:has-text("Submit Order")');
+    await customerPage.click('[data-testid="submit-order-btn"]');
 
     // Wait for redirect to tracking page: /customer/order/[orderId] (must NOT remain on /new)
     await customerPage.waitForURL(
@@ -145,17 +148,17 @@ test.describe('MedKart Full Pharmacy Lifecycle Flow', () => {
     await expect(storePage.locator('h1')).toBeVisible();
 
     // Locate the "Pack Order" button for the approved order using its displayId
-    const approvedOrderCard = storePage.locator('div.divide-y > div').filter({ hasText: displayId! });
+    const approvedOrderCard = storePage.locator(`[data-testid="order-card-${displayId}"]`);
     await expect(approvedOrderCard).toBeVisible();
-    const packOrderBtn = approvedOrderCard.locator('button').filter({ hasText: /pack/i });
+    const packOrderBtn = storePage.locator(`[data-testid="pack-order-btn-${displayId}"]`);
     await packOrderBtn.click();
 
     // Enter GST invoice number in modal
-    const invoiceInput = storePage.locator('input[placeholder*="INV-"]');
+    const invoiceInput = storePage.locator('[data-testid="invoice-number-input"]');
     await invoiceInput.fill('INV-SL-2026-9011');
 
     // Confirm & Mark Packed
-    await storePage.click('button[type="submit"]');
+    await storePage.click('[data-testid="confirm-pack-btn"]');
 
     // Verify order is packed!
     await expect(storePage.locator('text=successfully packed!')).toBeVisible();

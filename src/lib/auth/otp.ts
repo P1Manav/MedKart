@@ -7,6 +7,20 @@ export const MAX_OTP_ATTEMPTS = 5;
 export const MAX_OTP_REQUESTS_15M = 5;
 export const MAX_OTP_REQUESTS_1H = 10;
 
+export interface OtpLimitsConfig {
+  maxRequests15m: number;
+  maxRequests1h: number;
+  maxAttempts: number;
+  expiryMinutes: number;
+}
+
+export const DEFAULT_OTP_LIMITS: OtpLimitsConfig = {
+  maxRequests15m: MAX_OTP_REQUESTS_15M,
+  maxRequests1h: MAX_OTP_REQUESTS_1H,
+  maxAttempts: MAX_OTP_ATTEMPTS,
+  expiryMinutes: OTP_EXPIRY_MINUTES,
+};
+
 export function hashOtp(otp: string): string {
   return createHash('sha256').update(otp).digest('hex');
 }
@@ -78,7 +92,10 @@ export async function sendSmsViaProvider(
   }
 }
 
-export async function requestOtp(phone: string): Promise<RequestOtpResult> {
+export async function requestOtp(
+  phone: string,
+  limits: OtpLimitsConfig = DEFAULT_OTP_LIMITS
+): Promise<RequestOtpResult> {
   const normalizedPhone = phone.trim().replace(/\D/g, '');
   if (normalizedPhone.length < 10) {
     return { success: false, message: 'Invalid phone number format.' };
@@ -94,11 +111,7 @@ export async function requestOtp(phone: string): Promise<RequestOtpResult> {
     };
   }
 
-  // Rate limiting check: max requests in last 15 minutes (Relaxed in CI/test to allow multiple retry runs)
-  const isTestEnv = process.env.NODE_ENV === 'test' || process.env.CI === 'true';
-  const effectiveMax15m = isTestEnv ? 50 : MAX_OTP_REQUESTS_15M;
-  const effectiveMax1h = isTestEnv ? 100 : MAX_OTP_REQUESTS_1H;
-
+  // Rate limiting check: max requests in last 15 minutes (injected limits config)
   const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
   const recentRequestsCount = await db.otpRecord.count({
     where: {
@@ -107,7 +120,7 @@ export async function requestOtp(phone: string): Promise<RequestOtpResult> {
     },
   });
 
-  if (recentRequestsCount >= effectiveMax15m) {
+  if (recentRequestsCount >= limits.maxRequests15m) {
     return {
       success: false,
       message: 'Too many OTP requests. Please wait a few minutes before trying again.',
@@ -123,7 +136,7 @@ export async function requestOtp(phone: string): Promise<RequestOtpResult> {
     },
   });
 
-  if (hourlyCount >= effectiveMax1h) {
+  if (hourlyCount >= limits.maxRequests1h) {
     return {
       success: false,
       message: 'Too many requests for this phone number today. Please try again later.',
@@ -132,7 +145,7 @@ export async function requestOtp(phone: string): Promise<RequestOtpResult> {
 
   const plainOtp = generateNumericOtp();
   const hashedOtp = hashOtp(plainOtp);
-  const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
+  const expiresAt = new Date(Date.now() + limits.expiryMinutes * 60 * 1000);
 
   // Invalidate any previously active OTPs for this phone
   await db.otpRecord.updateMany({
@@ -179,7 +192,11 @@ export async function requestOtp(phone: string): Promise<RequestOtpResult> {
   };
 }
 
-export async function verifyOtp(phone: string, submittedOtp: string): Promise<VerifyOtpResult> {
+export async function verifyOtp(
+  phone: string,
+  submittedOtp: string,
+  limits: OtpLimitsConfig = DEFAULT_OTP_LIMITS
+): Promise<VerifyOtpResult> {
   const normalizedPhone = phone.trim().replace(/\D/g, '');
   const hashed = hashOtp(submittedOtp.trim());
 
@@ -197,7 +214,7 @@ export async function verifyOtp(phone: string, submittedOtp: string): Promise<Ve
   }
 
   // Check attempt limit
-  if (record.attempts >= MAX_OTP_ATTEMPTS) {
+  if (record.attempts >= limits.maxAttempts) {
     await db.otpRecord.updateMany({
       where: { id: record.id },
       data: { used: true },
@@ -226,14 +243,14 @@ export async function verifyOtp(phone: string, submittedOtp: string): Promise<Ve
   const isMatch = bufferA.length === bufferB.length && timingSafeEqual(bufferA, bufferB);
 
   if (!isMatch) {
-    // Atomic attempt increment guarded by lt: MAX_OTP_ATTEMPTS
+    // Atomic attempt increment guarded by lt: limits.maxAttempts
     await db.otpRecord.updateMany({
-      where: { id: record.id, attempts: { lt: MAX_OTP_ATTEMPTS }, used: false },
+      where: { id: record.id, attempts: { lt: limits.maxAttempts }, used: false },
       data: { attempts: { increment: 1 } },
     });
 
     const newAttempts = record.attempts + 1;
-    if (newAttempts >= MAX_OTP_ATTEMPTS) {
+    if (newAttempts >= limits.maxAttempts) {
       await db.otpRecord.updateMany({
         where: { id: record.id },
         data: { used: true },
@@ -244,7 +261,7 @@ export async function verifyOtp(phone: string, submittedOtp: string): Promise<Ve
       };
     }
 
-    const remaining = MAX_OTP_ATTEMPTS - newAttempts;
+    const remaining = limits.maxAttempts - newAttempts;
     return {
       success: false,
       message: `Invalid OTP. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining.`,
@@ -253,7 +270,7 @@ export async function verifyOtp(phone: string, submittedOtp: string): Promise<Ve
 
   // Success! Atomically mark used
   const consumed = await db.otpRecord.updateMany({
-    where: { id: record.id, used: false, attempts: { lt: MAX_OTP_ATTEMPTS } },
+    where: { id: record.id, used: false, attempts: { lt: limits.maxAttempts } },
     data: { used: true },
   });
 

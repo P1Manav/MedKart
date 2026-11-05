@@ -13,6 +13,7 @@ concurrency:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     env:
       DATABASE_URL: "postgresql://postgres:postgrespassword@localhost:5432/medkart_test"
       SESSION_SECRET: "ci-test-session-secret-must-be-at-least-32-chars-long"
@@ -44,6 +45,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'npm'
 
       - name: Install Dependencies
         run: npm ci
@@ -90,8 +92,30 @@ jobs:
           OTP_MOCK: "true"
           DEMO_MODE: "true"
 
+      - name: Cache Playwright Browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
+
       - name: Install Playwright Browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright System Dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Non-Interactive Reset & Re-Seed Database Before Playwright
+        run: npm run seed:reset -- --yes
+        env:
+          DATABASE_URL: "postgresql://postgres:postgrespassword@localhost:5432/medkart_test"
+          SESSION_SECRET: "ci-test-session-secret-must-be-at-least-32-chars-long"
+          PRESCRIPTION_ENC_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+          CRON_SECRET: "ci-test-cron-secret-12345"
+          OTP_MOCK: "true"
+          DEMO_MODE: "true"
 
       - name: Run Playwright E2E Smoke Tests
         run: npx playwright test --project=chromium
@@ -104,7 +128,7 @@ jobs:
           DEMO_MODE: "true"
 
       - name: Upload Playwright Report & Artifacts
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report

@@ -6,6 +6,12 @@ export default defineConfig({
     environment: 'node',
     globals: true,
     setupFiles: ['./vitest.setup.ts'],
+    fileParallelism: false,
+    poolOptions: {
+      forks: {
+        singleFork: true,
+      },
+    },
     include: ['tests/**/*.test.ts'],
     exclude: ['tests/integration/db-*.test.ts', 'node_modules/**', 'dist/**'],
   },

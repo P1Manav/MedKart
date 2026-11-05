@@ -183,7 +183,7 @@ export default function StoreOrdersPage() {
                 );
 
                 return (
-                  <div key={ord.id} className="py-4 space-y-3">
+                  <div key={ord.id} data-testid={`order-card-${ord.displayId}`} className="py-4 space-y-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="space-y-0.5">
                         <div className="flex items-center gap-2">
@@ -237,7 +237,7 @@ export default function StoreOrdersPage() {
                           </Button>
                         )}
                         {canPack ? (
-                          <Button size="sm" onClick={() => setPackingOrder(ord)}>
+                          <Button size="sm" data-testid={`pack-order-btn-${ord.displayId}`} onClick={() => setPackingOrder(ord)}>
                             {t('packOrder')} &rarr;
                           </Button>
                         ) : isPacked ? (
@@ -246,7 +246,7 @@ export default function StoreOrdersPage() {
                           </span>
                         ) : (
                           <div className="text-right">
-                            <Button size="sm" disabled variant="outline">
+                            <Button size="sm" data-testid={`pack-order-btn-${ord.displayId}`} disabled variant="outline">
                               {t('packOrder')}
                             </Button>
                             <span className="block text-[10px] text-amber-800 font-medium mt-0.5">
@@ -300,6 +300,7 @@ export default function StoreOrdersPage() {
                   </label>
                   <input
                     type="text"
+                    data-testid="invoice-number-input"
                     value={invoiceNumber}
                     onChange={(e) => setInvoiceNumber(e.target.value)}
                     placeholder="e.g. INV-SL-2026-8812"
@@ -315,7 +316,7 @@ export default function StoreOrdersPage() {
                   <Button type="button" variant="ghost" size="sm" onClick={() => setPackingOrder(null)}>
                     {tc('cancel')}
                   </Button>
-                  <Button type="submit" size="sm" isLoading={packing}>
+                  <Button type="submit" data-testid="confirm-pack-btn" size="sm" isLoading={packing}>
                     {t('packOrder')}
                   </Button>
                 </div>

@@ -141,4 +141,22 @@ describe('OTP & Authentication Hardening (P0-5)', () => {
     expect(finalRes.success).toBe(false);
     expect(finalRes.message).toContain('Maximum OTP verification attempts exceeded');
   });
+
+  it('enforces injected OtpLimitsConfig without branching on CI or NODE_ENV', async () => {
+    process.env.DEMO_MODE = 'true';
+    process.env.OTP_MOCK = 'true';
+
+    vi.spyOn(db.otpRecord, 'count').mockResolvedValue(2);
+
+    const customLimits = {
+      maxRequests15m: 2,
+      maxRequests1h: 5,
+      maxAttempts: 3,
+      expiryMinutes: 1,
+    };
+
+    const res = await requestOtp('9830012345', customLimits);
+    expect(res.success).toBe(false);
+    expect(res.message).toContain('Too many OTP requests');
+  });
 });

@@ -1,4 +1,6 @@
 // src/lib/ai/hf-ocr-reader.ts
+import fs from 'fs';
+import path from 'path';
 import { createWorker } from 'tesseract.js';
 import type { PrescriptionReader, ReadResult, AiPrescriptionResponse } from './types';
 import {
@@ -236,7 +238,25 @@ export class HfOcrReader implements PrescriptionReader {
    * Extracts real per-word and per-line confidence scores.
    */
   private async callTesseractOcr(imageBytes: Buffer): Promise<AiPrescriptionResponse> {
-    const worker = await createWorker('eng');
+    let workerOptions: { workerPath?: string } = {};
+    try {
+      const localWorkerPath = path.join(
+        process.cwd(),
+        'node_modules',
+        'tesseract.js',
+        'src',
+        'worker-script',
+        'node',
+        'index.js'
+      );
+      if (fs.existsSync(localWorkerPath)) {
+        workerOptions = { workerPath: localWorkerPath };
+      }
+    } catch {
+      // Fallback to default worker resolution if filesystem check fails
+    }
+
+    const worker = await createWorker('eng', 1, workerOptions);
     try {
       const result = await worker.recognize(imageBytes);
       const data = result.data;
@@ -302,7 +322,9 @@ export class HfOcrReader implements PrescriptionReader {
 
       return parseOcrOutputToPrescription(ocrOutput);
     } finally {
-      await worker.terminate();
+      if (worker) {
+        await worker.terminate().catch(() => {});
+      }
     }
   }
 }

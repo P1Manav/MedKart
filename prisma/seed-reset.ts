@@ -22,7 +22,12 @@ async function confirmReset(): Promise<boolean> {
 }
 
 async function reset() {
-  const isYes = process.argv.includes('--force') || (await confirmReset());
+  const isYes =
+    process.argv.includes('--force') ||
+    process.argv.includes('--yes') ||
+    process.argv.includes('-y') ||
+    process.env.CI === 'true' ||
+    (await confirmReset());
   if (!isYes) {
     console.log('Seed reset cancelled.');
     process.exit(0);

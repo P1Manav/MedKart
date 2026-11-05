@@ -800,6 +800,7 @@ export default function OrderBuilderPage() {
             <div className="flex flex-col gap-3">
               {/* Path A (Default) — Real Sandbox Gateway */}
               <label
+                data-testid="payment-sandbox"
                 className={`p-3.5 border rounded-lg cursor-pointer flex items-center gap-3 ${
                   paymentMethod === 'MOCK_UPI'
                     ? 'border-teal-600 bg-teal-50 text-teal-900 font-semibold shadow-xs'
@@ -823,6 +824,7 @@ export default function OrderBuilderPage() {
 
               {/* Cash on Delivery */}
               <label
+                data-testid="payment-cod"
                 className={`p-3.5 border rounded-lg cursor-pointer flex items-center gap-3 ${
                   paymentMethod === 'COD'
                     ? 'border-teal-600 bg-teal-50 text-teal-900 font-semibold shadow-xs'
@@ -843,6 +845,7 @@ export default function OrderBuilderPage() {
 
               {/* Path B (Optional) — Real UPI Demo Transfer */}
               <label
+                data-testid="payment-direct-upi"
                 className={`p-3.5 border rounded-lg cursor-pointer flex items-center gap-3 ${
                   paymentMethod === 'DIRECT_UPI'
                     ? 'border-teal-600 bg-teal-50 text-teal-900 font-semibold shadow-xs'
@@ -882,6 +885,7 @@ export default function OrderBuilderPage() {
 
         <Button
           type="submit"
+          data-testid="submit-order-btn"
           isLoading={loading}
           disabled={!file}
           size="lg"

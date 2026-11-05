@@ -5,6 +5,12 @@ export default defineConfig({
   test: {
     environment: 'node',
     globals: true,
+    fileParallelism: false,
+    poolOptions: {
+      forks: {
+        singleFork: true,
+      },
+    },
     include: ['tests/integration/db-*.test.ts'],
   },
   resolve: {

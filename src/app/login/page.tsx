@@ -206,7 +206,7 @@ export default function LoginPage() {
                 <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping"></span>
                 <span>{t('demoCodeText')}</span>
               </div>
-              <p className="text-xl font-mono font-bold tracking-widest mt-1 text-teal-900">
+              <p data-testid="demo-otp-code" className="text-xl font-mono font-bold tracking-widest mt-1 text-teal-900">
                 {mockOtp}
               </p>
               <p className="text-xs text-amber-700 mt-1">
@@ -225,6 +225,7 @@ export default function LoginPage() {
                   <span className="absolute left-3 top-3 text-stone-500 font-medium">+91</span>
                   <input
                     type="tel"
+                    data-testid="phone-input"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder={t('phonePlaceholder')}
@@ -237,7 +238,7 @@ export default function LoginPage() {
                 </p>
               </div>
 
-              <Button type="submit" isLoading={loading} className="w-full text-lg">
+              <Button type="submit" data-testid="get-otp-btn" isLoading={loading} className="w-full text-lg">
                 {t('getOtp')}
               </Button>
 
@@ -386,6 +387,7 @@ export default function LoginPage() {
                 </div>
                 <input
                   type="text"
+                  data-testid="otp-input"
                   maxLength={6}
                   value={otp}
                   onChange={(e) => setOtp(e.target.value)}
@@ -396,7 +398,7 @@ export default function LoginPage() {
                 />
               </div>
 
-              <Button type="submit" isLoading={loading} className="w-full text-lg">
+              <Button type="submit" data-testid="verify-otp-btn" isLoading={loading} className="w-full text-lg">
                 {t('verifyOtp')}
               </Button>
 
