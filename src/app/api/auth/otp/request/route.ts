@@ -18,9 +18,15 @@ export async function POST(req: Request) {
       );
     }
 
-    const result = await requestOtp(parsed.data.phone);
+    const forwarded = req.headers.get('x-forwarded-for');
+    const ipAddress = forwarded ? forwarded.split(',')[0].trim() : req.headers.get('x-real-ip') || undefined;
+
+    const result = await requestOtp(parsed.data.phone, undefined, ipAddress);
     if (!result.success) {
-      return NextResponse.json({ success: false, message: result.message }, { status: 429 });
+      return NextResponse.json(
+        { success: false, message: result.message },
+        { status: result.statusCode || 429 }
+      );
     }
 
     return NextResponse.json(result);

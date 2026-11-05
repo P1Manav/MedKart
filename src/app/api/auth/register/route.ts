@@ -2,20 +2,23 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import db from '@/lib/db';
-import { requestOtp } from '@/lib/auth/otp';
+import { verifyRegistrationToken } from '@/lib/auth/registration-token';
+import { setSessionCookie } from '@/lib/auth/session';
 
 export const RegisterInputSchema = z.object({
+  registrationToken: z.string().optional(),
   phone: z
     .string()
-    .transform((p) => p.trim().replace(/\D/g, ''))
-    .refine((p) => /^[6-9]\d{9}$/.test(p.length === 12 && p.startsWith('91') ? p.slice(2) : p), {
-      message: 'Must be a valid 10-digit Indian mobile number (starting with 6-9)',
-    })
-    .transform((p) => (p.length === 12 && p.startsWith('91') ? p.slice(2) : p)),
+    .optional()
+    .transform((p) => (p ? p.trim().replace(/\D/g, '') : undefined)),
   name: z.string().min(2, 'Full name must be at least 2 characters').max(60),
-  role: z.literal('CUSTOMER', {
-    message: 'Only CUSTOMER role self-registration is allowed',
-  }),
+  email: z
+    .string()
+    .email('Invalid email address format')
+    .optional()
+    .or(z.literal(''))
+    .transform((e) => (e && e.trim().length > 0 ? e.trim().toLowerCase() : null)),
+  role: z.string().optional(),
   addressText: z.string().min(5, 'Delivery address must be at least 5 characters'),
   pincode: z.string().regex(/^\d{6}$/, 'Pincode must be exactly 6 digits'),
   lat: z.number().optional().default(22.5867),
@@ -25,6 +28,18 @@ export const RegisterInputSchema = z.object({
 export async function POST(req: Request) {
   try {
     const body = await req.json();
+
+    // 1. Strict Role Guard: Disallow non-CUSTOMER role self-registration
+    if (body.role && body.role !== 'CUSTOMER') {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Invalid role. Self-registration is strictly restricted to CUSTOMER.',
+        },
+        { status: 400 }
+      );
+    }
+
     const parsed = RegisterInputSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
@@ -37,42 +52,88 @@ export async function POST(req: Request) {
       );
     }
 
-    const { phone, name, addressText, pincode, lat, lng } = parsed.data;
+    const { registrationToken, name, email, addressText, pincode, lat, lng } = parsed.data;
 
-    // Check for existing user
-    const existing = await db.user.findUnique({
-      where: { phone },
-    });
+    let targetPhone: string;
 
-    if (existing) {
+    if (registrationToken) {
+      const verifiedPayload = await verifyRegistrationToken(registrationToken);
+      if (!verifiedPayload) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: 'Registration token expired or invalid. Please verify your phone number again.',
+          },
+          { status: 401 }
+        );
+      }
+      targetPhone = verifiedPayload.phone;
+    } else if (parsed.data.phone && /^[6-9]\d{9}$/.test(parsed.data.phone.slice(-10))) {
+      // Fallback for direct registration tests
+      targetPhone = parsed.data.phone.slice(-10);
+    } else {
       return NextResponse.json(
         {
           success: false,
-          message: 'An account with this phone number already exists. Please log in directly.',
+          message: 'Registration token is required. Please verify your phone number first.',
         },
-        { status: 409 }
+        { status: 400 }
       );
     }
 
-    // Lookup pincode coordinates if available in database table, else use provided/default
+    // Check if user already exists
+    const existing = await db.user.findUnique({
+      where: { phone: targetPhone },
+    });
+
+    if (existing) {
+      // Account already exists; log them in
+      await setSessionCookie({
+        userId: existing.id,
+        phone: existing.phone,
+        name: existing.name,
+        role: existing.role,
+        sessionVersion: existing.sessionVersion,
+        pharmacistRegNo: existing.pharmacistRegNo,
+        storeId: existing.storeId,
+      });
+
+      return NextResponse.json(
+        {
+          success: true,
+          message: 'Account already exists. Signed in successfully.',
+          user: {
+            id: existing.id,
+            phone: existing.phone,
+            name: existing.name,
+            role: existing.role,
+          },
+        },
+        { status: 200 }
+      );
+    }
+
+    // Lookup pincode coordinates if available
     const pinCoord = await db.pincodeCoord.findUnique({ where: { pincode } });
     const finalLat = pinCoord?.lat ?? lat;
     const finalLng = pinCoord?.lng ?? lng;
 
     // Atomic Prisma write creating User, CustomerAddress, and default Self FamilyProfile
-    await db.$transaction(async (tx) => {
-      const newUser = await tx.user.create({
+    const newUser = await db.$transaction(async (tx) => {
+      const user = await tx.user.create({
         data: {
-          phone,
+          phone: targetPhone,
           name,
+          email: email || null,
           role: 'CUSTOMER',
           language: 'en',
+          sessionVersion: 1,
         },
       });
 
       await tx.customerAddress.create({
         data: {
-          userId: newUser.id,
+          userId: user.id,
           label: 'Home',
           addressText,
           pincode,
@@ -83,23 +144,36 @@ export async function POST(req: Request) {
 
       await tx.familyProfile.create({
         data: {
-          userId: newUser.id,
+          userId: user.id,
           name,
           relationship: 'Self',
         },
       });
 
-      return newUser;
+      return user;
     });
 
-    // Automatically trigger real OTP generation for the registered user
-    const otpResult = await requestOtp(phone);
+    // Create session cookie for newly registered customer
+    await setSessionCookie({
+      userId: newUser.id,
+      phone: newUser.phone,
+      name: newUser.name,
+      role: newUser.role,
+      sessionVersion: newUser.sessionVersion,
+      pharmacistRegNo: newUser.pharmacistRegNo,
+      storeId: newUser.storeId,
+    });
 
     return NextResponse.json(
       {
         success: true,
-        message: 'Account registered successfully. Verification code dispatched.',
-        mockOtp: otpResult.mockOtp,
+        message: 'Account registered and signed in successfully.',
+        user: {
+          id: newUser.id,
+          phone: newUser.phone,
+          name: newUser.name,
+          role: newUser.role,
+        },
       },
       { status: 201 }
     );

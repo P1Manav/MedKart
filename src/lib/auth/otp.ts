@@ -1,11 +1,14 @@
 // src/lib/auth/otp.ts
-import { createHash, randomInt, timingSafeEqual } from 'crypto';
+import { createHmac, randomBytes, randomInt, timingSafeEqual } from 'crypto';
 import db from '../db';
+import { defaultOtpChain } from './otp-providers/chain';
 
 export const OTP_EXPIRY_MINUTES = 5;
 export const MAX_OTP_ATTEMPTS = 5;
-export const MAX_OTP_REQUESTS_15M = 5;
+export const MAX_OTP_REQUESTS_15M = 3;
+export const MAX_OTP_REQUESTS_IP_15M = 5;
 export const MAX_OTP_REQUESTS_1H = 10;
+export const OTP_COOLDOWN_SECONDS = 30;
 
 export interface OtpLimitsConfig {
   maxRequests15m: number;
@@ -21,8 +24,22 @@ export const DEFAULT_OTP_LIMITS: OtpLimitsConfig = {
   expiryMinutes: OTP_EXPIRY_MINUTES,
 };
 
-export function hashOtp(otp: string): string {
-  return createHash('sha256').update(otp).digest('hex');
+export function getOtpPepper(): string {
+  const pepper = process.env.OTP_PEPPER;
+  if (!pepper || pepper.trim().length < 16) {
+    if (process.env.NODE_ENV === 'production' && !process.env.CI) {
+      throw new Error(
+        'FATAL: OTP_PEPPER environment variable is missing or shorter than 16 characters. Refusing to operate in production.'
+      );
+    }
+    return pepper || 'dev-otp-pepper-must-be-configured-in-production-at-least-32-chars';
+  }
+  return pepper;
+}
+
+export function hashOtp(otp: string, salt: string = ''): string {
+  const pepper = getOtpPepper();
+  return createHmac('sha256', pepper).update(`${salt}:${otp}`).digest('hex');
 }
 
 export function generateNumericOtp(): string {
@@ -34,84 +51,70 @@ export function generateNumericOtp(): string {
 export interface RequestOtpResult {
   success: boolean;
   message: string;
-  mockOtp?: string; // Included ONLY if DEMO_MODE === 'true'
+  mockOtp?: string; // Included ONLY if DEMO_MODE === 'true' AND allowlisted demo phone
+  statusCode?: number;
 }
 
 export interface VerifyOtpResult {
   success: boolean;
   message: string;
+  needsRegistration?: boolean;
+  verifiedPhone?: string;
   user?: {
     id: string;
     phone: string;
     name: string;
     role: string;
+    sessionVersion: number;
     pharmacistRegNo: string | null;
     storeId: string | null;
   };
 }
 
-/**
- * Dispatches real SMS via external provider when SMS_PROVIDER_API_KEY is configured.
- * Runs with 5s timeout and fails gracefully so reviewer testing is never blocked.
- */
-export async function sendSmsViaProvider(
-  phone: string,
-  otp: string
-): Promise<{ sent: boolean; error?: string }> {
-  const apiKey = process.env.SMS_PROVIDER_API_KEY;
-  if (!apiKey || !apiKey.trim()) {
-    return { sent: false, error: 'SMS_PROVIDER_API_KEY not configured' };
-  }
-
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 5000);
-
-    const res = await fetch('https://api.msg91.com/api/v5/otp', {
-      method: 'POST',
-      headers: {
-        authkey: apiKey,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        mobile: phone.startsWith('91') ? phone : `91${phone}`,
-        otp,
-        template_id: process.env.SMS_PROVIDER_TEMPLATE_ID || 'default_template',
-      }),
-      signal: controller.signal,
-    }).finally(() => clearTimeout(timer));
-
-    if (!res.ok) {
-      const errText = await res.text().catch(() => '');
-      return { sent: false, error: `Provider HTTP ${res.status}: ${errText}` };
-    }
-
-    return { sent: true };
-  } catch (err: unknown) {
-    return { sent: false, error: err instanceof Error ? err.message : String(err) };
-  }
-}
-
 export async function requestOtp(
   phone: string,
-  limits: OtpLimitsConfig = DEFAULT_OTP_LIMITS
+  limits: OtpLimitsConfig = DEFAULT_OTP_LIMITS,
+  ipAddress?: string
 ): Promise<RequestOtpResult> {
   const normalizedPhone = phone.trim().replace(/\D/g, '');
   if (normalizedPhone.length < 10) {
-    return { success: false, message: 'Invalid phone number format.' };
+    return { success: false, message: 'Invalid phone number format.', statusCode: 400 };
   }
 
-  // Check SMS delivery configuration (either demo mock banner or real SMS provider key)
-  const isMock = process.env.OTP_MOCK === 'true';
-  const hasRealSms = Boolean(process.env.SMS_PROVIDER_API_KEY && process.env.SMS_PROVIDER_API_KEY.trim().length > 0);
-  if (!isMock && !hasRealSms) {
+  // 1. Cooldown check: 30-second cooldown between requests to the same phone
+  const cooldownThreshold = new Date(Date.now() - OTP_COOLDOWN_SECONDS * 1000);
+  const recentCooldown = await db.otpRecord.findFirst({
+    where: {
+      phone: normalizedPhone,
+      createdAt: { gte: cooldownThreshold },
+    },
+  });
+  if (recentCooldown) {
     return {
       success: false,
-      message: 'SMS delivery is not configured in this deployment (Mock mode disabled).',
+      message: `Please wait ${OTP_COOLDOWN_SECONDS} seconds before requesting another verification code.`,
+      statusCode: 429,
     };
   }
 
-  // Rate limiting check: max requests in last 15 minutes (injected limits config)
+  // 2. Lockout check: block for 1 hour on 5 failed verify attempts
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+  const lockedRecord = await db.otpRecord.findFirst({
+    where: {
+      phone: normalizedPhone,
+      attempts: { gte: limits.maxAttempts },
+      createdAt: { gte: oneHourAgo },
+    },
+  });
+  if (lockedRecord && lockedRecord.attempts >= limits.maxAttempts) {
+    return {
+      success: false,
+      message: 'This phone number has been temporarily locked due to repeated failed attempts. Please try again after 1 hour.',
+      statusCode: 429,
+    };
+  }
+
+  // 3. Rate limiting check: max requests in last 15 minutes per phone
   const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
   const recentRequestsCount = await db.otpRecord.count({
     where: {
@@ -124,11 +127,28 @@ export async function requestOtp(
     return {
       success: false,
       message: 'Too many OTP requests. Please wait a few minutes before trying again.',
+      statusCode: 429,
     };
   }
 
-  // Hourly rate limit check (ASSUMPTIONS A7)
-  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+  // 4. IP rate limit check (5 requests per 15 min per IP)
+  if (ipAddress && ipAddress !== '127.0.0.1' && ipAddress !== '::1') {
+    const ipCount = await db.otpRecord.count({
+      where: {
+        ipAddress,
+        createdAt: { gte: fifteenMinutesAgo },
+      },
+    });
+    if (ipCount >= MAX_OTP_REQUESTS_IP_15M) {
+      return {
+        success: false,
+        message: 'Too many verification requests from this IP address. Please wait a few minutes.',
+        statusCode: 429,
+      };
+    }
+  }
+
+  // 5. Hourly rate limit check
   const hourlyCount = await db.otpRecord.count({
     where: {
       phone: normalizedPhone,
@@ -140,11 +160,13 @@ export async function requestOtp(
     return {
       success: false,
       message: 'Too many requests for this phone number today. Please try again later.',
+      statusCode: 429,
     };
   }
 
   const plainOtp = generateNumericOtp();
-  const hashedOtp = hashOtp(plainOtp);
+  const salt = randomBytes(16).toString('hex');
+  const hashedOtp = hashOtp(plainOtp, salt);
   const expiresAt = new Date(Date.now() + limits.expiryMinutes * 60 * 1000);
 
   // Invalidate any previously active OTPs for this phone
@@ -153,42 +175,40 @@ export async function requestOtp(
     data: { used: true },
   });
 
-  // Create new OTP record
+  // Create new OTP record with salt and ipAddress
   await db.otpRecord.create({
     data: {
       phone: normalizedPhone,
       otpHash: hashedOtp,
+      salt,
+      ipAddress: ipAddress || null,
       expiresAt,
       attempts: 0,
       used: false,
     },
   });
 
-  // If real SMS provider is configured, dispatch real SMS in background for every phone number
-  if (process.env.SMS_PROVIDER_API_KEY) {
-    sendSmsViaProvider(normalizedPhone, plainOtp)
-      .then((res) => {
-        if (!res.sent) {
-          console.warn(
-            `[OTP SMS Provider] Real SMS send failed for +91${normalizedPhone}: ${res.error}. Relying on honest on-screen fallback banner.`
-          );
-        } else {
-          console.info(`[OTP SMS Provider] Real SMS successfully delivered to +91${normalizedPhone}.`);
-        }
-      })
-      .catch((err) => {
-        console.warn(`[OTP SMS Provider] Unexpected network dispatch error: ${err}`);
-      });
-  }
+  // Dispatch via provider chain (MSG91 / Twilio / Fast2SMS / Email / Mock)
+  const dispatch = await defaultOtpChain.dispatch({
+    phone: normalizedPhone,
+    otp: plainOtp,
+    ipAddress,
+  });
 
-  const isDemo = process.env.DEMO_MODE === 'true';
+  if (!dispatch.success && !dispatch.mockOtpAllowed) {
+    return {
+      success: false,
+      message: dispatch.error || 'SMS service not configured on this instance. Use a demo account or configure MSG91_AUTH_KEY / TWILIO_ACCOUNT_SID.',
+      statusCode: 503,
+    };
+  }
 
   return {
     success: true,
-    message: isDemo
-      ? 'OTP generated. Real SMS attempted; on-screen code available as safe fallback.'
-      : 'OTP sent successfully to your phone.',
-    mockOtp: isDemo ? plainOtp : undefined,
+    message: dispatch.mockOtpAllowed
+      ? 'Demo verification code generated. Real SMS attempted; on-screen code available for demo account.'
+      : 'Verification code sent successfully to your phone.',
+    mockOtp: dispatch.mockOtpAllowed ? plainOtp : undefined,
   };
 }
 
@@ -198,9 +218,27 @@ export async function verifyOtp(
   limits: OtpLimitsConfig = DEFAULT_OTP_LIMITS
 ): Promise<VerifyOtpResult> {
   const normalizedPhone = phone.trim().replace(/\D/g, '');
-  const hashed = hashOtp(submittedOtp.trim());
+  if (normalizedPhone.length < 10) {
+    return { success: false, message: 'Invalid phone number format.' };
+  }
 
-  // Find latest active OTP record
+  // 1. Lockout check (1 hour block on 5 failed attempts)
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+  const lockedRecord = await db.otpRecord.findFirst({
+    where: {
+      phone: normalizedPhone,
+      attempts: { gte: limits.maxAttempts },
+      createdAt: { gte: oneHourAgo },
+    },
+  });
+  if (lockedRecord && lockedRecord.attempts >= limits.maxAttempts) {
+    return {
+      success: false,
+      message: 'This account has been temporarily locked due to repeated failed attempts. Please try again after 1 hour.',
+    };
+  }
+
+  // 2. Find latest active OTP record
   const record = await db.otpRecord.findFirst({
     where: {
       phone: normalizedPhone,
@@ -213,7 +251,7 @@ export async function verifyOtp(
     return { success: false, message: 'No active OTP request found. Please request a new OTP.' };
   }
 
-  // Check attempt limit
+  // 3. Check attempt limit
   if (record.attempts >= limits.maxAttempts) {
     await db.otpRecord.updateMany({
       where: { id: record.id },
@@ -225,7 +263,7 @@ export async function verifyOtp(
     };
   }
 
-  // Check expiration
+  // 4. Check expiration
   if (new Date() > record.expiresAt) {
     await db.otpRecord.updateMany({
       where: { id: record.id },
@@ -237,9 +275,10 @@ export async function verifyOtp(
     };
   }
 
-  // Timing-safe hash comparison
+  // 5. Timing-safe salted HMAC comparison
+  const expectedHash = hashOtp(submittedOtp.trim(), record.salt);
   const bufferA = Buffer.from(record.otpHash, 'hex');
-  const bufferB = Buffer.from(hashed, 'hex');
+  const bufferB = Buffer.from(expectedHash, 'hex');
   const isMatch = bufferA.length === bufferB.length && timingSafeEqual(bufferA, bufferB);
 
   if (!isMatch) {
@@ -257,7 +296,7 @@ export async function verifyOtp(
       });
       return {
         success: false,
-        message: 'Maximum OTP verification attempts exceeded. Please request a new OTP.',
+        message: 'Maximum OTP verification attempts exceeded. Account locked for 1 hour. Please request a new OTP later.',
       };
     }
 
@@ -281,20 +320,20 @@ export async function verifyOtp(
     };
   }
 
-  // Find or create user
-  let user = await db.user.findUnique({
+  // Look up user in database
+  const user = await db.user.findUnique({
     where: { phone: normalizedPhone },
   });
 
   if (!user) {
-    // Default to customer role if registering for the first time
-    user = await db.user.create({
-      data: {
-        phone: normalizedPhone,
-        name: `Customer (${normalizedPhone.slice(-4)})`,
-        role: 'CUSTOMER',
-      },
-    });
+    // User enumeration defense: do not automatically create user.
+    // Signal that registration is needed with this verified phone.
+    return {
+      success: true,
+      needsRegistration: true,
+      verifiedPhone: normalizedPhone,
+      message: 'Phone verified successfully. Please complete your registration.',
+    };
   }
 
   return {
@@ -305,6 +344,7 @@ export async function verifyOtp(
       phone: user.phone,
       name: user.name,
       role: user.role,
+      sessionVersion: user.sessionVersion,
       pharmacistRegNo: user.pharmacistRegNo,
       storeId: user.storeId,
     },

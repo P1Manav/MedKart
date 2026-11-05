@@ -1,13 +1,14 @@
 // tests/unit/otp.test.ts
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { generateNumericOtp, requestOtp, verifyOtp, hashOtp } from '@/lib/auth/otp';
+import { generateNumericOtp, requestOtp, verifyOtp, hashOtp, getOtpPepper } from '@/lib/auth/otp';
 import db from '@/lib/db';
 
-describe('OTP & Authentication Hardening (P0-5)', () => {
+describe('Production-Grade OTP & Authentication Hardening (Master Prompt v6)', () => {
   const originalEnv = { ...process.env };
 
   beforeEach(() => {
     process.env = { ...originalEnv };
+    process.env.OTP_PEPPER = 'medkart-test-otp-pepper-at-least-32-chars-long';
   });
 
   afterEach(() => {
@@ -24,74 +25,134 @@ describe('OTP & Authentication Hardening (P0-5)', () => {
       expect(parseInt(code, 10)).toBeLessThanOrEqual(999999);
       codes.add(code);
     }
-    // Ensures sufficient entropy
     expect(codes.size).toBeGreaterThan(1800);
   });
 
-  it('requestOtp excludes mockOtp when DEMO_MODE is not true, even if OTP_MOCK=true', async () => {
-    process.env.DEMO_MODE = 'false';
-    process.env.OTP_MOCK = 'true';
+  it('hashOtp uses HMAC-SHA256 with per-record salt and pepper', () => {
+    const salt1 = 'salt_abc_123';
+    const salt2 = 'salt_xyz_456';
+    const code = '123456';
 
-    vi.spyOn(db.otpRecord, 'count').mockResolvedValue(0);
-    vi.spyOn(db.otpRecord, 'updateMany').mockResolvedValue({ count: 1 });
-    vi.spyOn(db.otpRecord, 'create').mockResolvedValue({
-      id: 'otp_1',
-      phone: '9830012345',
-      otpHash: 'dummy',
-      attempts: 0,
-      expiresAt: new Date(),
-      used: false,
-      createdAt: new Date(),
-    });
+    const hash1 = hashOtp(code, salt1);
+    const hash2 = hashOtp(code, salt2);
 
-    const result = await requestOtp('9830012345');
-    expect(result.mockOtp).toBeUndefined();
+    expect(hash1).toMatch(/^[a-f0-9]{64}$/);
+    expect(hash2).toMatch(/^[a-f0-9]{64}$/);
+    expect(hash1).not.toBe(hash2); // Salt prevents rainbow tables
   });
 
-  it('requestOtp returns honest failure message when OTP_MOCK is false and no SMS key provided', async () => {
-    process.env.DEMO_MODE = 'false';
-    process.env.OTP_MOCK = 'false';
-    delete process.env.SMS_PROVIDER_API_KEY;
+  it('getOtpPepper fails closed in production when OTP_PEPPER is missing', () => {
+    delete process.env.OTP_PEPPER;
+    (process.env as Record<string, string | undefined>).NODE_ENV = 'production';
+    delete process.env.CI;
 
-    vi.spyOn(db.otpRecord, 'count').mockResolvedValue(0);
-
-    const result = await requestOtp('9830012345');
-    expect(result.success).toBe(false);
-    expect(result.message).toContain('SMS delivery is not configured');
+    expect(() => getOtpPepper()).toThrow(/OTP_PEPPER environment variable is missing/);
   });
 
-  it('requestOtp attempts real SMS dispatch when SMS_PROVIDER_API_KEY is configured', async () => {
+  it('requestOtp: allowlisted demo accounts receive mockOtp when DEMO_MODE=true', async () => {
     process.env.DEMO_MODE = 'true';
-    process.env.OTP_MOCK = 'true';
-    process.env.SMS_PROVIDER_API_KEY = 'test_sms_key_123';
 
+    vi.spyOn(db.otpRecord, 'findFirst').mockResolvedValue(null);
     vi.spyOn(db.otpRecord, 'count').mockResolvedValue(0);
     vi.spyOn(db.otpRecord, 'updateMany').mockResolvedValue({ count: 1 });
     vi.spyOn(db.otpRecord, 'create').mockResolvedValue({
       id: 'otp_1',
-      phone: '9830012345',
+      phone: '9830011111',
       otpHash: 'dummy',
+      salt: 'dummy',
+      ipAddress: null,
       attempts: 0,
       expiresAt: new Date(),
       used: false,
       createdAt: new Date(),
     });
 
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ type: 'success' }),
-    });
-    vi.stubGlobal('fetch', mockFetch);
-
-    const result = await requestOtp('9830012345');
+    const result = await requestOtp('9830011111'); // Debasish Ghosh demo phone
     expect(result.success).toBe(true);
     expect(result.mockOtp).toBeDefined();
+    expect(result.mockOtp).toMatch(/^\d{6}$/);
+  });
+
+  it('requestOtp: non-demo numbers NEVER receive mockOtp even if DEMO_MODE=true', async () => {
+    process.env.DEMO_MODE = 'true';
+    process.env.SMS_PROVIDER_API_KEY = 'test_key';
+
+    vi.spyOn(db.otpRecord, 'findFirst').mockResolvedValue(null);
+    vi.spyOn(db.otpRecord, 'count').mockResolvedValue(0);
+    vi.spyOn(db.otpRecord, 'updateMany').mockResolvedValue({ count: 1 });
+    vi.spyOn(db.otpRecord, 'create').mockResolvedValue({
+      id: 'otp_2',
+      phone: '9876543210',
+      otpHash: 'dummy',
+      salt: 'dummy',
+      ipAddress: null,
+      attempts: 0,
+      expiresAt: new Date(),
+      used: false,
+      createdAt: new Date(),
+    });
+
+    const mockFetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+    vi.stubGlobal('fetch', mockFetch);
+
+    const result = await requestOtp('9876543210'); // Real non-demo phone
+    expect(result.success).toBe(true);
+    expect(result.mockOtp).toBeUndefined(); // NEVER leaked
+  });
+
+  it('requestOtp: non-demo numbers fail with 503 when no SMS provider is configured', async () => {
+    process.env.DEMO_MODE = 'true';
+    delete process.env.SMS_PROVIDER;
+    delete process.env.MSG91_AUTH_KEY;
+    delete process.env.SMS_PROVIDER_API_KEY;
+    delete process.env.TWILIO_ACCOUNT_SID;
+    delete process.env.FAST2SMS_API_KEY;
+
+    vi.spyOn(db.otpRecord, 'findFirst').mockResolvedValue(null);
+    vi.spyOn(db.otpRecord, 'count').mockResolvedValue(0);
+    vi.spyOn(db.otpRecord, 'updateMany').mockResolvedValue({ count: 1 });
+    vi.spyOn(db.otpRecord, 'create').mockResolvedValue({
+      id: 'otp_3',
+      phone: '9876543210',
+      otpHash: 'dummy',
+      salt: 'dummy',
+      ipAddress: null,
+      attempts: 0,
+      expiresAt: new Date(),
+      used: false,
+      createdAt: new Date(),
+    });
+
+    const result = await requestOtp('9876543210');
+    expect(result.success).toBe(false);
+    expect(result.statusCode).toBe(503);
+    expect(result.message).toContain('SMS service not configured on this instance');
+  });
+
+  it('requestOtp: enforces 30-second cooldown between requests to the same phone', async () => {
+    vi.spyOn(db.otpRecord, 'findFirst').mockResolvedValue({
+      id: 'recent_1',
+      phone: '9830011111',
+      otpHash: 'dummy',
+      salt: 'dummy',
+      ipAddress: null,
+      attempts: 0,
+      expiresAt: new Date(),
+      used: false,
+      createdAt: new Date(Date.now() - 10 * 1000), // 10s ago (< 30s)
+    });
+
+    const res = await requestOtp('9830011111');
+    expect(res.success).toBe(false);
+    expect(res.statusCode).toBe(429);
+    expect(res.message).toContain('30 seconds');
   });
 
   it('verifyOtp enforces atomic attempt limits and locks out on 5th failure', async () => {
     const phone = '9830098765';
     const validOtp = '123456';
-    const otpHash = hashOtp(validOtp);
+    const salt = 'salt_random_777';
+    const otpHash = hashOtp(validOtp, salt);
 
     let attempts = 0;
     let isUsed = false;
@@ -99,8 +160,12 @@ describe('OTP & Authentication Hardening (P0-5)', () => {
     vi.spyOn(db.user, 'findUnique').mockResolvedValue({
       id: 'u1',
       phone,
-      name: 'Test',
+      name: 'Test Customer',
       role: 'CUSTOMER',
+      email: null,
+      emailVerified: false,
+      sessionVersion: 1,
+      theme: 'system',
       pharmacistRegNo: null,
       storeId: null,
       language: 'en',
@@ -108,16 +173,22 @@ describe('OTP & Authentication Hardening (P0-5)', () => {
       updatedAt: new Date(),
     });
 
-    vi.spyOn(db.otpRecord, 'findFirst').mockImplementation((() =>
-      Promise.resolve({
+    vi.spyOn(db.otpRecord, 'findFirst').mockImplementation(((args?: { where?: { attempts?: unknown } }) => {
+      if (args?.where?.attempts) {
+        return Promise.resolve(attempts >= 5 ? { id: 'locked_rec', attempts } : null);
+      }
+      return Promise.resolve({
         id: 'otp_rec_1',
         phone,
         otpHash,
+        salt,
+        ipAddress: null,
         attempts,
         expiresAt: new Date(Date.now() + 10 * 60 * 1000),
         used: isUsed,
         createdAt: new Date(),
-      })) as unknown as typeof db.otpRecord.findFirst);
+      });
+    }) as unknown as typeof db.otpRecord.findFirst);
 
     vi.spyOn(db.otpRecord, 'updateMany').mockImplementation(((args: { data?: { used?: boolean; attempts?: { increment?: number } } }) => {
       const data = args?.data;
@@ -139,24 +210,38 @@ describe('OTP & Authentication Hardening (P0-5)', () => {
     // 6th attempt should be blocked due to maximum attempts exceeded
     const finalRes = await verifyOtp(phone, validOtp);
     expect(finalRes.success).toBe(false);
-    expect(finalRes.message).toContain('Maximum OTP verification attempts exceeded');
+    expect(finalRes.message).toMatch(/Maximum OTP verification attempts exceeded|temporarily locked/);
   });
 
-  it('enforces injected OtpLimitsConfig without branching on CI or NODE_ENV', async () => {
-    process.env.DEMO_MODE = 'true';
-    process.env.OTP_MOCK = 'true';
+  it('verifyOtp signals needsRegistration: true without user auto-creation for unseeded phones', async () => {
+    const phone = '9876543210';
+    const validOtp = '654321';
+    const salt = 'salt_unreg_999';
+    const otpHash = hashOtp(validOtp, salt);
 
-    vi.spyOn(db.otpRecord, 'count').mockResolvedValue(2);
+    vi.spyOn(db.user, 'findUnique').mockResolvedValue(null); // Unregistered user
+    vi.spyOn(db.otpRecord, 'findFirst').mockImplementation(((args?: { where?: { attempts?: unknown } }) => {
+      if (args?.where?.attempts) {
+        return Promise.resolve(null);
+      }
+      return Promise.resolve({
+        id: 'otp_rec_unreg',
+        phone,
+        otpHash,
+        salt,
+        ipAddress: null,
+        attempts: 0,
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+        used: false,
+        createdAt: new Date(),
+      });
+    }) as unknown as typeof db.otpRecord.findFirst);
+    vi.spyOn(db.otpRecord, 'updateMany').mockResolvedValue({ count: 1 });
 
-    const customLimits = {
-      maxRequests15m: 2,
-      maxRequests1h: 5,
-      maxAttempts: 3,
-      expiryMinutes: 1,
-    };
-
-    const res = await requestOtp('9830012345', customLimits);
-    expect(res.success).toBe(false);
-    expect(res.message).toContain('Too many OTP requests');
+    const result = await verifyOtp(phone, validOtp);
+    expect(result.success).toBe(true);
+    expect(result.needsRegistration).toBe(true);
+    expect(result.verifiedPhone).toBe(phone);
+    expect(result.user).toBeUndefined(); // User not auto-created
   });
 });

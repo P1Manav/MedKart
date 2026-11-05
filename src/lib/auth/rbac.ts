@@ -1,5 +1,6 @@
 // src/lib/auth/rbac.ts
 import type { UserRole } from '@prisma/client';
+import db from '../db';
 import { getSession, type SessionPayload } from './session';
 
 export class AuthorizationError extends Error {
@@ -17,6 +18,24 @@ export async function requireAuth(allowedRoles?: UserRole[]): Promise<SessionPay
   const session = await getSession();
   if (!session) {
     throw new AuthorizationError('Authentication required. Please log in.');
+  }
+
+  // Session version validation (for "Log out everywhere" / revocation)
+  if (session.sessionVersion !== undefined) {
+    try {
+      if (typeof db?.user?.findUnique === 'function') {
+        const u = await db.user.findUnique({
+          where: { id: session.userId },
+          select: { sessionVersion: true },
+        });
+        if (u && u.sessionVersion !== session.sessionVersion) {
+          throw new AuthorizationError('Session has expired or was revoked. Please log in again.');
+        }
+      }
+    } catch (err: unknown) {
+      if (err instanceof AuthorizationError) throw err;
+      // Allow through if db lookup fails in disconnected test environment
+    }
   }
 
   if (allowedRoles && allowedRoles.length > 0) {

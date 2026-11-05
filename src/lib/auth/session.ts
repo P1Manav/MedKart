@@ -11,6 +11,7 @@ export interface SessionPayload {
   phone: string;
   role: UserRole;
   name: string;
+  sessionVersion?: number;
   pharmacistRegNo?: string | null;
   storeId?: string | null;
 }
@@ -56,7 +57,7 @@ export async function getSession(): Promise<SessionPayload | null> {
 export async function setSessionCookie(payload: SessionPayload): Promise<void> {
   const token = await createSessionToken(payload);
   const cookieStore = await cookies();
-  const isSecure = process.env.NODE_ENV === 'production' && !process.env.DEMO_MODE && !process.env.CI;
+  const isSecure = process.env.NODE_ENV === 'production';
   cookieStore.set(SESSION_COOKIE_NAME, token, {
     httpOnly: true,
     secure: isSecure,

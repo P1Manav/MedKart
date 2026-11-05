@@ -21,7 +21,9 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
 
   // Self-registration fields
+  const [registrationToken, setRegistrationToken] = useState<string | null>(null);
   const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [addressText, setAddressText] = useState('');
   const [pincode, setPincode] = useState('700064');
 
@@ -45,34 +47,8 @@ export default function LoginPage() {
       setPhone(cleanPhone);
     }
 
-    try {
-      // 1. Check if user already exists
-      const checkRes = await fetch('/api/auth/check-phone', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: cleanPhone }),
-      });
-      const checkData = await checkRes.json();
-
-      if (!checkRes.ok || !checkData.success) {
-        setError(checkData.message || 'Failed to verify phone number');
-        setLoading(false);
-        return;
-      }
-
-      if (checkData.exists) {
-        // User exists: Directly request real OTP
-        await handleRequestOtp(cleanPhone);
-      } else {
-        // Unseeded new user: Prompt short self-registration step
-        setPhone(cleanPhone);
-        setStep('REGISTER');
-        setLoading(false);
-      }
-    } catch {
-      setError('Network communication failed. Please check your connection.');
-      setLoading(false);
-    }
+    // Directly request OTP without leaking account existence (Master Prompt v6)
+    await handleRequestOtp(cleanPhone);
   };
 
   const handleRequestOtp = async (phoneToUse: string) => {
@@ -112,12 +88,14 @@ export default function LoginPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          registrationToken,
           phone,
           name,
-          role: 'CUSTOMER', // Hard constrained to CUSTOMER
+          email: email.trim() || undefined,
+          role: 'CUSTOMER',
           addressText,
           pincode,
-          lat: 22.5867, // Salt Lake default coords
+          lat: 22.5867,
           lng: 88.4178,
         }),
       });
@@ -129,12 +107,8 @@ export default function LoginPage() {
         return;
       }
 
-      // Transition to OTP verification step
-      setStep('OTP');
-      if (data.mockOtp) {
-        setMockOtp(data.mockOtp);
-        setOtp(data.mockOtp);
-      }
+      router.push('/customer/home');
+      router.refresh();
     } catch {
       setError('Registration failed due to network error.');
     } finally {
@@ -157,6 +131,14 @@ export default function LoginPage() {
 
       if (!res.ok || !data.success) {
         setError(data.message || 'Invalid verification code');
+        setLoading(false);
+        return;
+      }
+
+      // If new unseeded customer: prompt short self-registration with registrationToken
+      if (data.needsRegistration && data.registrationToken) {
+        setRegistrationToken(data.registrationToken);
+        setStep('REGISTER');
         setLoading(false);
         return;
       }
@@ -329,6 +311,19 @@ export default function LoginPage() {
 
               <div>
                 <label className="block text-xs font-semibold text-stone-700 mb-1">
+                  Email Address (Optional)
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="e.g. manav@example.com"
+                  className="w-full px-3 py-2 border border-stone-300 rounded-md text-sm focus:ring-2 focus:ring-teal-600 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-stone-700 mb-1">
                   Delivery Address *
                 </label>
                 <textarea
@@ -357,7 +352,7 @@ export default function LoginPage() {
               </div>
 
               <Button type="submit" isLoading={loading} className="w-full text-base">
-                Create Account & Send Code &rarr;
+                Complete Registration & Sign In &rarr;
               </Button>
 
               <button

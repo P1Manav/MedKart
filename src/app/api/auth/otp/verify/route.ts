@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { verifyOtp } from '@/lib/auth/otp';
 import { setSessionCookie } from '@/lib/auth/session';
+import { createRegistrationToken } from '@/lib/auth/registration-token';
 import type { UserRole } from '@prisma/client';
 
 const VerifySchema = z.object({
@@ -22,8 +23,23 @@ export async function POST(req: Request) {
     }
 
     const result = await verifyOtp(parsed.data.phone, parsed.data.otp);
-    if (!result.success || !result.user) {
+    if (!result.success) {
       return NextResponse.json({ success: false, message: result.message }, { status: 401 });
+    }
+
+    // If phone verified but account doesn't exist yet, issue short-lived registration token
+    if (result.needsRegistration && result.verifiedPhone) {
+      const registrationToken = await createRegistrationToken(result.verifiedPhone);
+      return NextResponse.json({
+        success: true,
+        needsRegistration: true,
+        registrationToken,
+        message: 'Phone verified. Please complete your customer registration.',
+      });
+    }
+
+    if (!result.user) {
+      return NextResponse.json({ success: false, message: 'Verification error' }, { status: 500 });
     }
 
     // Set signed HTTP-only session cookie
@@ -32,6 +48,7 @@ export async function POST(req: Request) {
       phone: result.user.phone,
       name: result.user.name,
       role: result.user.role as UserRole,
+      sessionVersion: result.user.sessionVersion,
       pharmacistRegNo: result.user.pharmacistRegNo,
       storeId: result.user.storeId,
     });

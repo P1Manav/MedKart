@@ -36,6 +36,7 @@ enum ScheduleType {
 enum OrderStatus {
   DRAFT
   SUBMITTED
+  PAYMENT_PENDING_VERIFICATION
   ON_HOLD
   REJECTED
   APPROVED
@@ -43,6 +44,7 @@ enum OrderStatus {
   HANDED_OVER
   DELIVERED
   CANCELLED
+  REFUND_DUE
 }
 
 enum LineStatus {
@@ -93,6 +95,10 @@ model User {
   phone            String   @unique
   name             String
   role             UserRole
+  email            String?  @unique
+  emailVerified    Boolean  @default(false) @map("email_verified")
+  sessionVersion   Int      @default(1) @map("session_version")
+  theme            String   @default("system")
   pharmacistRegNo  String?  @map("pharmacist_reg_no")
   storeId          String?  @map("store_id")
   language         Language @default(en)
@@ -361,13 +367,32 @@ model OtpRecord {
   id        String   @id @default(cuid())
   phone     String
   otpHash   String   @map("otp_hash")
+  salt      String   @default("")
+  ipAddress String?  @map("ip_address")
   attempts  Int      @default(0)
   expiresAt DateTime @map("expires_at")
   used      Boolean  @default(false)
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([phone, createdAt])
+  @@index([ipAddress, createdAt])
   @@map("otp_records")
+}
+
+model OtpDelivery {
+  id            String   @id @default(cuid())
+  phoneHash     String   @map("phone_hash")
+  maskedPhone   String   @map("masked_phone")
+  channel       String   // SMS | EMAIL
+  provider      String   // msg91 | twilio_verify | fast2sms | resend | brevo | smtp | mock
+  status        String   // PENDING | SENT | DELIVERED | FAILED
+  errorCode     String?  @map("error_code")
+  costInCredits Float?   @map("cost_in_credits")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([phoneHash])
+  @@index([createdAt])
+  @@map("otp_deliveries")
 }
 
 model Notification {

@@ -1,64 +1,70 @@
 // tests/unit/registration.test.ts
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { POST as registerHandler, RegisterInputSchema } from '@/app/api/auth/register/route';
+import { createRegistrationToken } from '@/lib/auth/registration-token';
 import db from '@/lib/db';
-import * as otpModule from '@/lib/auth/otp';
+import * as sessionModule from '@/lib/auth/session';
 
-describe('Self-Service Customer Registration (Master Prompt v5)', () => {
+describe('Self-Service Customer Registration (Master Prompt v6)', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
 
-  it('Schema Validation: Rejects invalid phone numbers and non-CUSTOMER roles', () => {
-    // Bad phone
-    const badPhone = RegisterInputSchema.safeParse({
-      phone: '12345',
-      name: 'John Doe',
-      role: 'CUSTOMER',
-      addressText: '123 Main St, Kolkata',
-      pincode: '700001',
-    });
-    expect(badPhone.success).toBe(false);
-
-    // Non-CUSTOMER role attempt
+  it('Schema Validation: Accepts valid registration payload and rejects non-CUSTOMER roles', () => {
+    // Non-CUSTOMER role attempt in body
     const badRole = RegisterInputSchema.safeParse({
-      phone: '9830099991',
+      registrationToken: 'dummy_token_123',
       name: 'Hacker',
       role: 'PHARMACIST',
       addressText: '123 Main St, Kolkata',
       pincode: '700001',
     });
-    expect(badRole.success).toBe(false);
+    // In our route, body.role !== 'CUSTOMER' is caught with 400
+    expect(badRole.data?.role).toBe('PHARMACIST');
 
     // Valid customer payload
     const valid = RegisterInputSchema.safeParse({
-      phone: '9876543210',
+      registrationToken: 'dummy_token_123',
       name: 'Real Reviewer',
       role: 'CUSTOMER',
+      email: 'reviewer@example.com',
       addressText: 'Sector 5, Salt Lake, Kolkata',
       pincode: '700091',
     });
     expect(valid.success).toBe(true);
     if (valid.success) {
-      expect(valid.data.phone).toBe('9876543210');
-      expect(valid.data.role).toBe('CUSTOMER');
+      expect(valid.data.name).toBe('Real Reviewer');
+      expect(valid.data.email).toBe('reviewer@example.com');
     }
   });
 
-  it('POST /api/auth/register: Rejects duplicate phone with 409 Conflict', async () => {
-    vi.spyOn(db.user, 'findUnique').mockResolvedValue({
-      id: 'usr_existing',
-      phone: '9876543210',
-      name: 'Existing Customer',
-      role: 'CUSTOMER',
-    } as unknown as Awaited<ReturnType<typeof db.user.findUnique>>);
-
+  it('POST /api/auth/register: Rejects non-CUSTOMER role attempt with 400 Bad Request', async () => {
     const req = new Request('http://localhost:3000/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        phone: '9876543210',
-        name: 'Duplicate Guy',
+        registrationToken: 'some_token',
+        name: 'Attacker',
+        role: 'PHARMACIST',
+        addressText: 'Salt Lake',
+        pincode: '700064',
+      }),
+    });
+
+    const res = await registerHandler(req);
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.success).toBe(false);
+    expect(body.message).toContain('strictly restricted to CUSTOMER');
+  });
+
+  it('POST /api/auth/register: Rejects invalid or expired registration token with 401 Unauthorized', async () => {
+    const req = new Request('http://localhost:3000/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        registrationToken: 'invalid.jwt.token',
+        name: 'Test Customer',
         role: 'CUSTOMER',
         addressText: 'Salt Lake Sector 1',
         pincode: '700064',
@@ -66,13 +72,16 @@ describe('Self-Service Customer Registration (Master Prompt v5)', () => {
     });
 
     const res = await registerHandler(req);
-    expect(res.status).toBe(409);
+    expect(res.status).toBe(401);
     const body = await res.json();
     expect(body.success).toBe(false);
-    expect(body.message).toContain('already exists');
+    expect(body.message).toContain('Registration token expired or invalid');
   });
 
-  it('POST /api/auth/register: Successfully creates User, Address, FamilyProfile and triggers OTP', async () => {
+  it('POST /api/auth/register: Successfully creates User, CustomerAddress, FamilyProfile and sets session', async () => {
+    process.env.SESSION_SECRET = 'ci-test-session-secret-must-be-at-least-32-chars-long';
+    const validToken = await createRegistrationToken('9876543210');
+
     vi.spyOn(db.user, 'findUnique').mockResolvedValue(null);
     vi.spyOn(db.pincodeCoord, 'findUnique').mockResolvedValue({
       pincode: '700064',
@@ -84,8 +93,13 @@ describe('Self-Service Customer Registration (Master Prompt v5)', () => {
       id: 'usr_new_123',
       phone: '9876543210',
       name: 'Dr. Reviewer',
-      role: 'CUSTOMER',
-      language: 'en',
+      role: 'CUSTOMER' as const,
+      sessionVersion: 1,
+      pharmacistRegNo: null,
+      storeId: null,
+      language: 'en' as const,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
 
     vi.spyOn(db, '$transaction').mockImplementation(async (callback) => {
@@ -97,18 +111,15 @@ describe('Self-Service Customer Registration (Master Prompt v5)', () => {
       return (callback as unknown as (tx: typeof txMock) => unknown)(txMock);
     });
 
-    vi.spyOn(otpModule, 'requestOtp').mockResolvedValue({
-      success: true,
-      message: 'OTP sent',
-      mockOtp: '456789',
-    });
+    const setSessionSpy = vi.spyOn(sessionModule, 'setSessionCookie').mockResolvedValue();
 
     const req = new Request('http://localhost:3000/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        phone: '9876543210',
+        registrationToken: validToken,
         name: 'Dr. Reviewer',
+        email: 'reviewer@example.com',
         role: 'CUSTOMER',
         addressText: 'Block AC, Salt Lake, Kolkata',
         pincode: '700064',
@@ -119,6 +130,8 @@ describe('Self-Service Customer Registration (Master Prompt v5)', () => {
     expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.success).toBe(true);
-    expect(body.mockOtp).toBe('456789');
+    expect(body.user.phone).toBe('9876543210');
+    expect(body.user.name).toBe('Dr. Reviewer');
+    expect(setSessionSpy).toHaveBeenCalled();
   });
 });
