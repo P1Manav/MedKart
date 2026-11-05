@@ -70,6 +70,7 @@ export default function OrderBuilderPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showUpiModal, setShowUpiModal] = useState(false);
+  const [gatewayOrder, setGatewayOrder] = useState<{ orderId?: string; keyId?: string; name?: string } | null>(null);
 
   // Fetch session details on mount
   useEffect(() => {
@@ -300,6 +301,22 @@ export default function OrderBuilderPage() {
     }
 
     if (paymentMethod === 'MOCK_UPI') {
+      try {
+        const orderAmount = cartTotal > 0 ? cartTotal : 185.0;
+        const res = await fetch('/api/payments/create-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount: orderAmount }),
+        });
+        const data = await res.json();
+        if (data.isGatewayConfigured && data.orderId) {
+          setGatewayOrder({ orderId: data.orderId, keyId: data.keyId, name: 'Razorpay Sandbox' });
+        } else {
+          setGatewayOrder({ name: 'UPI Sandbox (NPCI Test Spec)' });
+        }
+      } catch {
+        setGatewayOrder({ name: 'UPI Sandbox (NPCI Test Spec)' });
+      }
       setShowUpiModal(true);
       return;
     }
@@ -836,6 +853,8 @@ export default function OrderBuilderPage() {
       <MockUpiModal
         isOpen={showUpiModal}
         amount={cartTotal > 0 ? cartTotal : 185.0}
+        gatewayName={gatewayOrder?.name}
+        orderId={gatewayOrder?.orderId}
         onSuccess={handleUpiSuccess}
         onFailure={handleUpiFailure}
         onClose={() => setShowUpiModal(false)}

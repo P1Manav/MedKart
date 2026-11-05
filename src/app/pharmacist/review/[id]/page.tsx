@@ -554,7 +554,7 @@ export default function PharmacistReviewPage({
                         </div>
                         <div className="flex items-center gap-2 text-xs">
                           <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 font-semibold text-[10px]">
-                            AI DRAFT
+                            AI DRAFT (Automated handwriting recognition)
                           </span>
                           {line.aiConfidence && (
                             <span className="text-stone-500">

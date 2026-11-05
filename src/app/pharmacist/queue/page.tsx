@@ -221,7 +221,7 @@ export default function PharmacistQueuePage() {
                             </Badge>
                           ) : (
                             <Badge variant="success" className="text-xs">
-                              AI Clear Draft
+                              AI Draft (OCR Clear)
                             </Badge>
                           )}
                         </td>

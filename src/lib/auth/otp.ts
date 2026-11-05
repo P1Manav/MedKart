@@ -36,15 +36,58 @@ export interface VerifyOtpResult {
   };
 }
 
+/**
+ * Dispatches real SMS via external provider when SMS_PROVIDER_API_KEY is configured.
+ * Runs with 5s timeout and fails gracefully so reviewer testing is never blocked.
+ */
+export async function sendSmsViaProvider(
+  phone: string,
+  otp: string
+): Promise<{ sent: boolean; error?: string }> {
+  const apiKey = process.env.SMS_PROVIDER_API_KEY;
+  if (!apiKey || !apiKey.trim()) {
+    return { sent: false, error: 'SMS_PROVIDER_API_KEY not configured' };
+  }
+
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+
+    const res = await fetch('https://api.msg91.com/api/v5/otp', {
+      method: 'POST',
+      headers: {
+        authkey: apiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        mobile: phone.startsWith('91') ? phone : `91${phone}`,
+        otp,
+        template_id: process.env.SMS_PROVIDER_TEMPLATE_ID || 'default_template',
+      }),
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timer));
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      return { sent: false, error: `Provider HTTP ${res.status}: ${errText}` };
+    }
+
+    return { sent: true };
+  } catch (err: unknown) {
+    return { sent: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 export async function requestOtp(phone: string): Promise<RequestOtpResult> {
   const normalizedPhone = phone.trim().replace(/\D/g, '');
   if (normalizedPhone.length < 10) {
     return { success: false, message: 'Invalid phone number format.' };
   }
 
-  // Check mocked SMS provider configuration
+  // Check SMS delivery configuration (either demo mock banner or real SMS provider key)
   const isMock = process.env.OTP_MOCK === 'true';
-  if (!isMock) {
+  const hasRealSms = Boolean(process.env.SMS_PROVIDER_API_KEY && process.env.SMS_PROVIDER_API_KEY.trim().length > 0);
+  if (!isMock && !hasRealSms) {
     return {
       success: false,
       message: 'SMS delivery is not configured in this deployment (Mock mode disabled).',
@@ -107,6 +150,19 @@ export async function requestOtp(phone: string): Promise<RequestOtpResult> {
       used: false,
     },
   });
+
+  // If real SMS provider is configured, dispatch real SMS in background
+  if (process.env.SMS_PROVIDER_API_KEY) {
+    sendSmsViaProvider(normalizedPhone, plainOtp)
+      .then((res) => {
+        if (!res.sent) {
+          console.warn(
+            `[OTP SMS Provider] Real SMS send failed: ${res.error}. Relying on on-screen demo banner.`
+          );
+        }
+      })
+      .catch(() => null);
+  }
 
   const isDemo = process.env.DEMO_MODE === 'true';
 

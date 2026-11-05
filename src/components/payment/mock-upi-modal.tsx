@@ -9,6 +9,7 @@ interface MockUpiModalProps {
   isOpen: boolean;
   amount: number;
   orderId?: string;
+  gatewayName?: string;
   onSuccess: (vpa: string) => void;
   onFailure: (reason: string) => void;
   onClose: () => void;
@@ -18,6 +19,7 @@ export const MockUpiModal: React.FC<MockUpiModalProps> = ({
   isOpen,
   amount,
   orderId,
+  gatewayName = 'UPI Sandbox (NPCI Test Spec)',
   onSuccess,
   onFailure,
   onClose,
@@ -82,7 +84,7 @@ export const MockUpiModal: React.FC<MockUpiModalProps> = ({
         {/* Test Mode Banner */}
         <div className="bg-amber-500 text-amber-950 text-xs font-bold py-1.5 px-4 text-center tracking-wide uppercase flex items-center justify-center gap-2 border-b border-amber-600">
           <span className="w-2 h-2 rounded-full bg-amber-900 animate-ping"></span>
-          Simulated UPI Sandbox Gateway (NPCI Test Spec)
+          TEST MODE — {gatewayName}, no real money
         </div>
 
         <CardHeader className="bg-stone-50 border-b border-stone-200 pb-4">

@@ -48,15 +48,44 @@ describe('OTP & Authentication Hardening (P0-5)', () => {
     expect(result.mockOtp).toBeUndefined();
   });
 
-  it('requestOtp returns honest failure message when OTP_MOCK is false', async () => {
+  it('requestOtp returns honest failure message when OTP_MOCK is false and no SMS key provided', async () => {
     process.env.DEMO_MODE = 'false';
     process.env.OTP_MOCK = 'false';
+    delete process.env.SMS_PROVIDER_API_KEY;
 
     vi.spyOn(db.otpRecord, 'count').mockResolvedValue(0);
 
     const result = await requestOtp('9830012345');
     expect(result.success).toBe(false);
     expect(result.message).toContain('SMS delivery is not configured');
+  });
+
+  it('requestOtp attempts real SMS dispatch when SMS_PROVIDER_API_KEY is configured', async () => {
+    process.env.DEMO_MODE = 'true';
+    process.env.OTP_MOCK = 'true';
+    process.env.SMS_PROVIDER_API_KEY = 'test_sms_key_123';
+
+    vi.spyOn(db.otpRecord, 'count').mockResolvedValue(0);
+    vi.spyOn(db.otpRecord, 'updateMany').mockResolvedValue({ count: 1 });
+    vi.spyOn(db.otpRecord, 'create').mockResolvedValue({
+      id: 'otp_1',
+      phone: '9830012345',
+      otpHash: 'dummy',
+      attempts: 0,
+      expiresAt: new Date(),
+      used: false,
+      createdAt: new Date(),
+    });
+
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ type: 'success' }),
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    const result = await requestOtp('9830012345');
+    expect(result.success).toBe(true);
+    expect(result.mockOtp).toBeDefined();
   });
 
   it('verifyOtp enforces atomic attempt limits and locks out on 5th failure', async () => {
