@@ -11,8 +11,12 @@ const EnvSchema = z.object({
   DEMO_MODE: z.enum(['true', 'false']).default('false'),
   OTP_MOCK: z.enum(['true', 'false']).default('false'),
   NEXT_PUBLIC_DEMO_MODE: z.enum(['true', 'false']).optional(),
-  GEMINI_API_KEY: z.string().optional(),
-  GEMINI_MODEL: z.string().default('gemini-2.5-flash'),
+  HF_API_TOKEN: z.string().optional(),
+  HF_OCR_MODEL: z.string().default('microsoft/trocr-base-handwritten'),
+  PAYMENT_GATEWAY_KEY_ID: z.string().optional(),
+  PAYMENT_GATEWAY_KEY_SECRET: z.string().optional(),
+  PAYMENT_GATEWAY_WEBHOOK_SECRET: z.string().optional(),
+  SMS_PROVIDER_API_KEY: z.string().optional(),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
