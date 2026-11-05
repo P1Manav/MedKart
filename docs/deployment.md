@@ -56,10 +56,10 @@ npm run seed
 
 ### Step 4: Run Tests & Verification Gates
 ```bash
-# Run unit and integration tests (174 tests across 29 suites)
+# Run unit and integration tests (211 tests across 32 suites)
 npm test
 
-# Run real PostgreSQL trigger integration tests
+# Run real PostgreSQL trigger integration tests (8 tests against live DB)
 npm run test:db
 
 # Run strict TypeScript typecheck
@@ -81,8 +81,9 @@ Every component of MedKart runs end-to-end on verified free tiers:
 | **Hugging Face Inference API** | Tier 1 Non-generative OCR model (`microsoft/trocr-base-handwritten`) | **Limits**: Free tier access token, rate-limited to a few hundred requests/hour. Endpoint migrated to `router.huggingface.co`. Cold-starts handled via 25s timeout and automatic fallback to Tier 2 Tesseract. |
 | **Tesseract.js WASM Engine** | Tier 2 In-process local OCR | **Limits**: Pure WebAssembly (WASM), zero network calls, zero rate limits, runs completely in-process with real per-word confidence scores. |
 | **Neon PostgreSQL** | Serverless relational database | **Limits**: 0.5 GiB storage, auto-suspend after 5 min idle, 1 free branch, pooling via PgBouncer. |
-| **Razorpay / Cashfree Sandbox** | UPI payments & checkout simulation | **Limits**: Test mode credentials, zero real money. Real webhook HMAC-SHA256 signature verification via `crypto.timingSafeEqual`. |
-| **Demo SMS / Optional Provider** | OTP phone authentication | **Limits**: Honest on-screen demo SMS banner by default (ensuring reviewers are never locked out), with optional real SMS delivery via free-tier provider when `SMS_PROVIDER_API_KEY` is set. |
+| **Razorpay / Cashfree Sandbox** | UPI payments & checkout simulation (Path A) | **Limits**: Test mode credentials, zero real money. Real webhook HMAC-SHA256 signature verification via `crypto.timingSafeEqual`. |
+| **Direct UPI Transfer (Path B)** | Peer-to-peer / merchant UPI QR payment | **Limits**: Dynamically driven by `UPI_PAYEE_VPA`. Path B is hidden if unconfigured. Capped by `UPI_MAX_AMOUNT_INR` (default ₹100). Payments are never auto-marked paid; staff manually verifies UTR before dispatch. |
+| **SMS / OTP Provider Chain** | Resilient phone verification | **Limits**: Configurable fallback chain (MSG91 -> Twilio Verify -> Fast2SMS -> Email -> Mock). Honest on-screen demo SMS banner by default for allowlisted demo accounts only; real SMS dispatched when provider credentials are configured. |
 
 ### Environment Variables on Vercel
 
@@ -91,14 +92,27 @@ Every component of MedKart runs end-to-end on verified free tiers:
 | `DATABASE_URL` | **Yes** | Neon PostgreSQL connection string (pooled) |
 | `SESSION_SECRET` | **Yes** | 32+ character secret for HS256 JWT cookie signing |
 | `PRESCRIPTION_ENC_KEY` | **Yes** | 64-character hex string for AES-256-GCM encryption |
-| `CRON_SECRET` | **Yes** | Secret bearer token for daily refill cron |
+| `CRON_SECRET` | **Yes** | Secret bearer token for daily refill cron (`/api/cron/reminders`) |
+| `OTP_PEPPER` | **Yes** | 16+ character secret used for salted HMAC-SHA256 OTP hashing (fails closed in prod) |
 | `HF_API_TOKEN` | No | Hugging Face free-tier token for hosted TrOCR model |
 | `HF_OCR_MODEL` | No | OCR model name (default: `microsoft/trocr-base-handwritten`) |
-| `PAYMENT_GATEWAY_KEY_ID` | No | Razorpay sandbox test key ID |
+| `PAYMENT_GATEWAY_KEY_ID` | No | Razorpay sandbox test key ID (Path A) |
 | `PAYMENT_GATEWAY_KEY_SECRET` | No | Razorpay sandbox test key secret |
 | `PAYMENT_GATEWAY_WEBHOOK_SECRET` | No | Webhook HMAC verification secret |
-| `SMS_PROVIDER_API_KEY` | No | Optional free-tier SMS provider API key |
-| `OTP_MOCK` | No | `"true"` for demo mode (on-screen banner) |
+| `UPI_PAYEE_VPA` | No | Direct UPI payee VPA (Path B). When omitted, Path B is completely hidden. |
+| `UPI_PAYEE_NAME` | No | Direct UPI payee business name (default: "MedKart Pharmacy") |
+| `UPI_MAX_AMOUNT_INR` | No | Maximum permitted amount for direct UPI demo (default: 100) |
+| `MSG91_AUTH_KEY` | No | MSG91 SMS gateway auth key |
+| `MSG91_TEMPLATE_ID` | No | MSG91 DLT approved template ID |
+| `MSG91_SENDER_ID` | No | MSG91 approved 6-character sender ID |
+| `TWILIO_ACCOUNT_SID` | No | Twilio Account SID |
+| `TWILIO_AUTH_TOKEN` | No | Twilio Auth Token |
+| `TWILIO_VERIFY_SERVICE_SID` | No | Twilio Verify Service SID (VA...) |
+| `FAST2SMS_API_KEY` | No | Fast2SMS API Key |
+| `RESEND_API_KEY` | No | Resend API key for Email OTP fallback |
+| `EMAIL_FROM` | No | Sender email address for OTP delivery |
+| `PUBLIC_CATALOGUE_OTC_ONLY` | No | When `"true"`, restricts unauthenticated `/api/products` to OTC only |
+| `OTP_MOCK` | No | `"true"` for demo mode (on-screen banner for demo numbers) |
 | `DEMO_MODE` | No | `"true"` to enable 1-click reviewer ribbon |
 | `NEXT_PUBLIC_APP_URL` | No | Canonical URL of deployed Vercel application |
 

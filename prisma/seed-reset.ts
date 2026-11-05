@@ -46,6 +46,7 @@ async function reset() {
   await prisma.product.deleteMany();
   await prisma.familyProfile.deleteMany();
   await prisma.notification.deleteMany();
+  await prisma.otpDelivery.deleteMany();
   await prisma.otpRecord.deleteMany();
   await prisma.user.deleteMany();
   await prisma.store.deleteMany();

@@ -27,12 +27,21 @@ export default function LoginPage() {
   const [addressText, setAddressText] = useState('');
   const [pincode, setPincode] = useState('700064');
 
-  const handlePhoneSubmit = async (phoneToUse?: string, e?: React.FormEvent) => {
-    if (e) e.preventDefault();
+  const handlePhoneSubmit = async (phoneToUse?: string, e?: React.FormEvent<HTMLFormElement>) => {
+    if (e) {
+      e.preventDefault();
+      if (!phoneToUse && e.currentTarget) {
+        const inputEl = e.currentTarget.elements.namedItem('phone') as HTMLInputElement | null;
+        if (inputEl?.value) {
+          phoneToUse = inputEl.value;
+        }
+      }
+    }
     setError(null);
     setLoading(true);
 
-    const targetPhone = (phoneToUse || phone).trim().replace(/\D/g, '');
+    const raw = phoneToUse !== undefined ? phoneToUse : phone;
+    const targetPhone = (raw || '').trim().replace(/\D/g, '');
     const cleanPhone = targetPhone.length === 12 && targetPhone.startsWith('91')
       ? targetPhone.slice(2)
       : targetPhone;
@@ -207,6 +216,7 @@ export default function LoginPage() {
                   <span className="absolute left-3 top-3 text-stone-500 font-medium">+91</span>
                   <input
                     type="tel"
+                    name="phone"
                     data-testid="phone-input"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}

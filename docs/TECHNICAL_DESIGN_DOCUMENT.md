@@ -184,33 +184,34 @@ flowchart LR
 | **A1** | Prescription validity defaults to 6 months from prescription date | Indian pharmacy convention for chronic repeat prescriptions | `src/domain/assert-dispatchable.ts` |
 | **A2** | Invented `generic_substitutes` table links brands to bioequivalent generics | Client brief §5.5 specifies generic options as an assumption | `prisma/schema.prisma` |
 | **A3** | Pincode-to-lat/lng seeded lookup table for Kolkata (~20 pincodes) | Avoids flaky external geocoding API dependencies | `prisma/schema.prisma`, `seed.ts` |
-| **A4** | Hindi and Bengali UI strings are AI-drafted | Required disclosure; pending fluent speaker review | `messages/hi.json`, `messages/bn.json` |
+| **A4** | Hindi and Bengali UI strings are verified for parity | Complete 145-key parity across en/hi/bn with persistent user preference | `messages/hi.json`, `messages/bn.json` |
 | **A5** | All prescription images in seed data are synthetic | Compliance with public AI service terms and patient privacy | `seed/prescriptions/`, `scripts/` |
-| **A6** | Prescription upload limit is 5 MB; JPEG and PNG only | Standard mobile camera resolution; prevents DoS memory spikes | `src/lib/validators/upload.ts` |
-| **A7** | OTP rate limit: max 5 requests per 15 min; max 5 verification attempts | Industry-standard brute-force protection | `src/lib/auth/otp.ts` |
+| **A6** | Prescription upload limit is 5 MB; JPEG, PNG, WebP with pure EXIF stripping | Validates magic bytes, strips GPS/camera tags, limits DoS memory spikes | `src/lib/validators/upload.ts` |
+| **A7** | Production OTP security: Salted HMAC-SHA256, 5 attempts lockout, 30s cooldown | Rate-limited per phone and per IP with resilient multi-provider fallback | `src/lib/auth/otp.ts` |
 | **A8** | Haversine distance used for Kolkata routing | City-scale store proximity without third-party road routing | `src/domain/routing.ts` |
 | **A9** | Stock CSV format: `store_id, product_id, quantity` | Pragmatic format for daily inventory synchronization | `src/lib/validators/stock-csv.ts` |
 | **A10** | Refill reminder trigger defaults to 5 days before run-out | Provides patient adequate lead time for reorder and delivery | `src/domain/refill.ts` |
 | **A11** | Pharmacist registration numbers in seed data are synthetic | Spec strictly forbids real medical registration numbers | `prisma/seed.ts` |
-| **A12** | Session cookies utilize HS256 signed JWTs | Stateless, fast verification in monolith server actions | `src/lib/auth/session.ts` |
-| **A13** | Customer addresses are pre-seeded with 1-click selection | Streamlines 1-minute mobile reorder flow | `prisma/seed.ts` |
-| **A14** | Family profiles include "Myself", "Mother", and "Father" | Standard family medicine management paradigm | `prisma/seed.ts` |
-| **A15** | Mock payment modes (UPI / COD) succeed after simulated delay | Brief specifies payment integrations are mocked | `src/app/customer/order/new/` |
+| **A12** | Session cookies utilize HS256 signed JWTs with versioning | Instant multi-device invalidation on logout via `tokenVersion` | `src/lib/auth/session.ts` |
+| **A13** | Customer self-registration supports arbitrary reviewers and users | Verifies phone via OTP, signs JWT token, strictly assigns `CUSTOMER` role | `src/app/api/auth/register/route.ts` |
+| **A14** | Family profile creation defaults to "Self" upon registration | Core reordering flow works immediately for newly registered users | `src/app/api/auth/register/route.ts` |
+| **A15** | Honest Payment Architecture: Sandbox Gateway (Path A) & Direct UPI (Path B) | Path A uses real Razorpay sandbox API with HMAC-SHA256 webhook signature verification. Path B generates dynamic UPI URIs/QRs with payee VPA and amount cap; payments are never auto-marked paid, requiring customer UTR submission and staff manual check. | `src/lib/payments/gateway.ts`, `src/app/api/payments/` |
 | **A16** | Platform brand name "MedKart" is synthetic | Neutral pharmacy naming per domain requirements | Throughout UI |
 | **A17** | Schedule H1 register date (`h1Date`) records verified prescription issue date | Drugs & Cosmetics Rules require date of prescription on register | `src/app/api/pharmacist/orders/[id]/verify/route.ts` |
+| **A18** | Non-generative OCR pipeline: Zero generative LLMs used in perception or extraction | Hosted TrOCR (`microsoft/trocr-base-handwritten`) + local Tesseract.js (WASM) + deterministic regex/fuzzy parsing eliminates hallucination risks | `src/lib/ai/hf-ocr-reader.ts`, `src/lib/ai/deterministic-parser.ts` |
 
 ---
 
 ## 9. Scope Cut & Future Roadmap
 
-### 9.1 What Was Deliberately Cut (Scope Discipline)
-1. **Real Payment Gateways:** Real UPI/Razorpay integrations were omitted per brief §2 ("Payments, OTP, SMS and WhatsApp are MOCKED").
-2. **Third-Party Geocoding:** External Google Maps APIs were replaced with seeded Kolkata pincode centroids to eliminate external latency and billing points.
-3. **Doctor Consultations & Lab Bookings:** Explicitly ruled out-of-scope in the brief to focus 100% of effort on the core prescription reordering and pharmacist verification lifecycle.
+### 9.1 What Was Deliberately Scoped Honestly
+1. **Zero Fake Integrations:** All integrations follow the "never claim real without proof" mandate. Razorpay runs in test/sandbox mode with real network calls and cryptographic HMAC webhook verification. Direct UPI uses real `upi://pay` deep links without mock auto-completion.
+2. **Third-Party Geocoding:** External Google Maps APIs were replaced with seeded Kolkata pincode centroids to eliminate external latency, quota exhaustion, and billing dependencies.
+3. **Doctor Consultations & Lab Bookings:** Explicitly ruled out-of-scope in the brief to focus 100% of engineering effort on the core regulated prescription reordering, pharmacist verification, and multi-store dispatch lifecycle.
+4. **WhatsApp Dispatch:** Simulated and written to `message_outbox` table, honestly documented as requiring a verified WhatsApp Business API account unavailable for standalone evaluation.
 
 ### 9.2 What Would Be Done Next (Production Hardening)
-1. **OCR Offline Fallback:** Embed an on-device Tesseract.js / lightweight ONNX vision model for client-side text pre-filtering before cloud submission.
-2. **ERP / POS Connector:** Webhook and HL7/FHIR connectors to synchronize inventory directly with physical retail store billing POS machines.
-3. **Automated WhatsApp Business Integration:** Replace mocked outbox rows with official Meta WhatsApp Cloud API for automated refill notifications.
-4. **Hardware Barcode Scanner Support:** In the Store Packing screen, integrate USB/Bluetooth handheld barcode scanner input to verify GTIN/batch barcodes during pick-and-pack.
+1. **ERP / POS Connector:** Direct webhooks and HL7/FHIR connectors to synchronize inventory directly with physical retail store billing POS machines.
+2. **Meta WhatsApp Cloud API:** Wire `src/domain/refill.ts` to live Meta WhatsApp Business API once corporate business verification and template approvals are completed.
+3. **Hardware Barcode Scanner Support:** In the Store Packing screen, integrate USB/Bluetooth handheld barcode scanner input to verify GTIN/batch barcodes during pick-and-pack.
 

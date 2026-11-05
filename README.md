@@ -3,7 +3,7 @@
 A regulated healthcare commerce web application built for a pharmacy chain in Kolkata and Howrah (10 seeded demo stores across key Kolkata and Howrah clusters, representing the 46-store network with central warehouse operations).
 
 [![CI](https://github.com/P1Manav/MedKart/actions/workflows/ci.yml/badge.svg)](https://github.com/P1Manav/MedKart/actions/workflows/ci.yml)
-[![Tests Passing](https://img.shields.io/badge/tests-166%20passing-brightgreen)](https://github.com/P1Manav/MedKart)
+[![Tests Passing](https://img.shields.io/badge/tests-219%20passing-brightgreen)](https://github.com/P1Manav/MedKart)
 [![TypeScript Strict](https://img.shields.io/badge/TypeScript-strict-blue)](https://github.com/P1Manav/MedKart)
 
 ---
@@ -64,7 +64,7 @@ npm run seed
 
 ### 4. Run Test Suite
 ```bash
-# Runs 158 unit & API integration tests across 26 test suites
+# Runs 211 unit & API integration tests across 32 test suites
 npm test
 
 # Run 8 real PostgreSQL trigger integration tests (against Neon or local Postgres)
@@ -75,6 +75,9 @@ npm run typecheck
 
 # Run ESLint
 npm run lint
+
+# Run Playwright E2E tests
+npx playwright test
 ```
 
 ### 5. Start Development Server

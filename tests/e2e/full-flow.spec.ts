@@ -6,7 +6,9 @@ import { test, expect, type Page } from '@playwright/test';
  */
 async function loginAs(page: Page, phone: string) {
   await page.goto('/login');
-  await page.fill('[data-testid="phone-input"]', phone);
+  const phoneInput = page.locator('[data-testid="phone-input"]');
+  await expect(phoneInput).toBeVisible({ timeout: 10000 });
+  await phoneInput.fill(phone);
   await page.click('[data-testid="get-otp-btn"]');
 
   // The login screen displays demo code and auto-fills OTP input
@@ -139,11 +141,11 @@ test.describe('MedKart Full Pharmacy Lifecycle Flow', () => {
 
     await pharmacistContext.close();
 
-    // 4. Store fulfillment: Store Staff / Ops logs in on fresh context and packs the approved order
+    // 4. Store fulfillment: Salt Lake Store Staff logs in on fresh context and packs the approved order
     const storeContext = await browser.newContext();
     const storePage = await storeContext.newPage();
 
-    await loginAs(storePage, '9830099999'); // Ops
+    await loginAs(storePage, '9830066661'); // Salt Lake Store Staff Bikash Mondal
     await storePage.goto('/store/orders');
     await expect(storePage.locator('h1')).toBeVisible();
 
