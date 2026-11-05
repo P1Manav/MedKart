@@ -1,8 +1,16 @@
 // src/app/store/orders/page.tsx
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import useSWR from 'swr';
+import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+
+const fetcher = async (url: string) => {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Failed to fetch store orders');
+  return res.json();
+};
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -41,8 +49,15 @@ interface StoreOrder {
 export default function StoreOrdersPage() {
   const t = useTranslations('store');
   const tc = useTranslations('common');
-  const [orders, setOrders] = useState<StoreOrder[]>([]);
-  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const { data: ordersData, error: _swrError, isLoading: swrLoading, mutate } = useSWR(
+    '/api/orders?limit=100',
+    fetcher,
+    { refreshInterval: 5000 }
+  );
+
+  const orders: StoreOrder[] = ordersData?.orders || [];
+  const loading = swrLoading && !ordersData;
   const [error, setError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
@@ -55,24 +70,6 @@ export default function StoreOrdersPage() {
   const [confirmingUpiOrder, setConfirmingUpiOrder] = useState<StoreOrder | null>(null);
   const [upiUtrInput, setUpiUtrInput] = useState('');
   const [confirmingUpi, setConfirmingUpi] = useState(false);
-
-  async function loadOrders() {
-    try {
-      const res = await fetch('/api/orders?limit=100');
-      const data = await res.json();
-      if (data.orders) {
-        setOrders(data.orders);
-      }
-    } catch {
-      setError('Failed to fetch store orders.');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    loadOrders();
-  }, []);
 
   const handlePackSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,7 +95,8 @@ export default function StoreOrdersPage() {
       setActionSuccess(`Order ${packingOrder.displayId} successfully packed! Invoice: ${invoiceNumber.trim()}`);
       setPackingOrder(null);
       setInvoiceNumber('');
-      await loadOrders();
+      await mutate();
+      router.refresh();
     } catch {
       setError('Network communication failed.');
     } finally {
@@ -128,7 +126,8 @@ export default function StoreOrdersPage() {
         setActionSuccess(data.message);
         setConfirmingUpiOrder(null);
         setUpiUtrInput('');
-        await loadOrders();
+        await mutate();
+        router.refresh();
       }
     } catch {
       setError('Network communication failed.');

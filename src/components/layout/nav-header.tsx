@@ -1,137 +1,60 @@
 // src/components/layout/nav-header.tsx
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-
-export interface UserSession {
-  userId: string;
-  phone: string;
-  name: string;
-  role: 'CUSTOMER' | 'PHARMACIST' | 'STORE_STAFF' | 'OPS';
-  pharmacistRegNo?: string | null;
-  storeId?: string | null;
-}
+import { useSession } from '@/components/providers/session-provider';
 
 export const NavHeader: React.FC = () => {
-  const router = useRouter();
   const currentLocale = useLocale();
   const tNav = useTranslations('nav');
   const tCommon = useTranslations('common');
-  const [user, setUser] = useState<UserSession | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [locale, setLocale] = useState(currentLocale);
-  const [demoMode, setDemoMode] = useState(false);
-
-  useEffect(() => {
-    setLocale(currentLocale);
-  }, [currentLocale]);
-
-  const fetchSession = async () => {
-    try {
-      const res = await fetch('/api/auth/me');
-      const data = await res.json();
-      if (data.demoMode) {
-        setDemoMode(true);
-      }
-      if (data.authenticated) {
-        setUser(data.user);
-      } else {
-        setUser(null);
-      }
-    } catch {
-      setUser(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchSession();
-  }, []);
-
-  const handleLogout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    setUser(null);
-    router.push('/login');
-    router.refresh();
-  };
-
-  const handleQuickLogin = async (phone: string, defaultOtp: string = '123456') => {
-    try {
-      // 1. Request OTP
-      const reqRes = await fetch('/api/auth/otp/request', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone }),
-      });
-      const reqData = await reqRes.json();
-      const otpToUse = reqData.mockOtp || defaultOtp;
-
-      // 2. Verify OTP
-      const verRes = await fetch('/api/auth/otp/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, otp: otpToUse }),
-      });
-      const verData = await verRes.json();
-
-      if (verData.success) {
-        await fetchSession();
-        if (verData.user.role === 'PHARMACIST') {
-          router.push('/pharmacist/queue');
-        } else if (verData.user.role === 'STORE_STAFF') {
-          router.push('/store/orders');
-        } else if (verData.user.role === 'OPS') {
-          router.push('/ops/dashboard');
-        } else {
-          router.push('/customer/home');
-        }
-        router.refresh();
-      }
-    } catch (err) {
-      console.error('Quick login error:', err);
-    }
-  };
-
-  const switchLanguage = (newLocale: string) => {
-    setLocale(newLocale);
-    document.cookie = `NEXT_LOCALE=${newLocale}; path=/; max-age=31536000`;
-    router.refresh();
-  };
+  const {
+    user,
+    loading,
+    demoMode,
+    theme,
+    logout,
+    quickLogin,
+    updateTheme,
+    updateLanguage,
+  } = useSession();
 
   return (
-    <header className="bg-white border-b border-stone-200 sticky top-0 z-50 shadow-xs">
-      {/* Top Utility Ribbon (Demo Switcher when DEMO_MODE=true, and Language Switcher) */}
+    <header className="bg-white dark:bg-stone-900 border-b border-stone-200 dark:border-stone-800 sticky top-0 z-50 shadow-xs transition-colors duration-200">
+      {/* Top Utility Ribbon (Demo Switcher when DEMO_MODE=true, Language Switcher, and Theme Toggle) */}
       <div className="bg-teal-900 text-teal-100 text-xs py-1.5 px-4 flex flex-wrap items-center justify-between gap-2 border-b border-teal-800">
         {demoMode ? (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="font-semibold text-teal-300">DEMO ROLES:</span>
             <button
-              onClick={() => handleQuickLogin('9830011111')}
-              className="hover:underline text-white bg-teal-800 px-2 py-0.5 rounded cursor-pointer"
+              type="button"
+              onClick={() => quickLogin('9830011111')}
+              className="hover:underline text-white bg-teal-800 px-2 py-0.5 rounded cursor-pointer transition hover:bg-teal-700"
             >
               Customer (Debasish)
             </button>
             <button
-              onClick={() => handleQuickLogin('9830044444')}
-              className="hover:underline text-white bg-teal-800 px-2 py-0.5 rounded cursor-pointer"
+              type="button"
+              onClick={() => quickLogin('9830044444')}
+              className="hover:underline text-white bg-teal-800 px-2 py-0.5 rounded cursor-pointer transition hover:bg-teal-700"
             >
               Pharmacist (Sunita)
             </button>
             <button
-              onClick={() => handleQuickLogin('9830066661')}
-              className="hover:underline text-white bg-teal-800 px-2 py-0.5 rounded cursor-pointer"
+              type="button"
+              onClick={() => quickLogin('9830066661')}
+              className="hover:underline text-white bg-teal-800 px-2 py-0.5 rounded cursor-pointer transition hover:bg-teal-700"
             >
               Store Staff (Salt Lake)
             </button>
             <button
-              onClick={() => handleQuickLogin('9830099999')}
-              className="hover:underline text-white bg-teal-800 px-2 py-0.5 rounded cursor-pointer"
+              type="button"
+              onClick={() => quickLogin('9830099999')}
+              className="hover:underline text-white bg-teal-800 px-2 py-0.5 rounded cursor-pointer transition hover:bg-teal-700"
             >
               Ops Dashboard
             </button>
@@ -142,28 +65,65 @@ export const NavHeader: React.FC = () => {
           </div>
         )}
 
-        <div className="flex items-center gap-2">
-          <span className="text-teal-300">Language:</span>
-          <button
-            onClick={() => switchLanguage('en')}
-            className={`px-1.5 py-0.5 rounded ${locale === 'en' ? 'bg-teal-700 font-bold text-white' : 'hover:underline'}`}
-          >
-            English
-          </button>
-          <span>|</span>
-          <button
-            onClick={() => switchLanguage('hi')}
-            className={`px-1.5 py-0.5 rounded ${locale === 'hi' ? 'bg-teal-700 font-bold text-white' : 'hover:underline'}`}
-          >
-            हिंदी
-          </button>
-          <span>|</span>
-          <button
-            onClick={() => switchLanguage('bn')}
-            className={`px-1.5 py-0.5 rounded ${locale === 'bn' ? 'bg-teal-700 font-bold text-white' : 'hover:underline'}`}
-          >
-            বাংলা
-          </button>
+        <div className="flex items-center gap-3">
+          {/* Theme Selector */}
+          <div className="flex items-center gap-1 bg-teal-950/60 rounded px-1.5 py-0.5 border border-teal-800/80">
+            <span className="text-teal-300 mr-1">{tCommon('theme')}:</span>
+            <button
+              type="button"
+              onClick={() => updateTheme('light')}
+              title="Light Mode"
+              className={`px-1 rounded cursor-pointer ${theme === 'light' ? 'bg-teal-700 text-white font-bold' : 'text-teal-200 hover:text-white'}`}
+            >
+              ☀️ {tCommon('light')}
+            </button>
+            <span>|</span>
+            <button
+              type="button"
+              onClick={() => updateTheme('dark')}
+              title="Dark Mode"
+              className={`px-1 rounded cursor-pointer ${theme === 'dark' ? 'bg-teal-700 text-white font-bold' : 'text-teal-200 hover:text-white'}`}
+            >
+              🌙 {tCommon('dark')}
+            </button>
+            <span>|</span>
+            <button
+              type="button"
+              onClick={() => updateTheme('system')}
+              title="System Preference"
+              className={`px-1 rounded cursor-pointer ${theme === 'system' ? 'bg-teal-700 text-white font-bold' : 'text-teal-200 hover:text-white'}`}
+            >
+              💻 {tCommon('system')}
+            </button>
+          </div>
+
+          {/* Language Selector */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-teal-300">{tCommon('language')}:</span>
+            <button
+              type="button"
+              onClick={() => updateLanguage('en')}
+              className={`px-1.5 py-0.5 rounded cursor-pointer ${currentLocale === 'en' ? 'bg-teal-700 font-bold text-white' : 'hover:underline text-teal-200'}`}
+            >
+              English
+            </button>
+            <span>|</span>
+            <button
+              type="button"
+              onClick={() => updateLanguage('hi')}
+              className={`px-1.5 py-0.5 rounded cursor-pointer ${currentLocale === 'hi' ? 'bg-teal-700 font-bold text-white' : 'hover:underline text-teal-200'}`}
+            >
+              हिंदी
+            </button>
+            <span>|</span>
+            <button
+              type="button"
+              onClick={() => updateLanguage('bn')}
+              className={`px-1.5 py-0.5 rounded cursor-pointer ${currentLocale === 'bn' ? 'bg-teal-700 font-bold text-white' : 'hover:underline text-teal-200'}`}
+            >
+              বাংলা
+            </button>
+          </div>
         </div>
       </div>
 
@@ -171,14 +131,14 @@ export const NavHeader: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         <div className="flex items-center gap-6">
           <Link href="/" className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-md bg-[#0f766e] text-white flex items-center justify-center font-bold text-xl">
+            <div className="w-9 h-9 rounded-md bg-[#0f766e] text-white flex items-center justify-center font-bold text-xl shadow-xs">
               M
             </div>
             <div>
-              <span className="text-xl font-bold tracking-tight text-stone-900 block leading-tight">
+              <span className="text-xl font-bold tracking-tight text-stone-900 dark:text-stone-100 block leading-tight">
                 MedKart
               </span>
-              <span className="text-xs text-stone-500 block">Kolkata Pharmacy Network</span>
+              <span className="text-xs text-stone-500 dark:text-stone-400 block">Kolkata Pharmacy Network</span>
             </div>
           </Link>
 
@@ -186,31 +146,34 @@ export const NavHeader: React.FC = () => {
             <nav className="hidden md:flex items-center gap-4 text-sm font-medium">
               {user.role === 'CUSTOMER' && (
                 <>
-                  <Link href="/customer/home" className="text-stone-700 hover:text-teal-700">
+                  <Link href="/customer/home" className="text-stone-700 dark:text-stone-300 hover:text-teal-700 dark:hover:text-teal-400">
                     {tNav('reorderMedicines')}
                   </Link>
-                  <Link href="/customer/order/new" className="text-stone-700 hover:text-teal-700">
+                  <Link href="/customer/order/new" className="text-stone-700 dark:text-stone-300 hover:text-teal-700 dark:hover:text-teal-400">
                     {tNav('newOrder')}
+                  </Link>
+                  <Link href="/customer/profile" className="text-stone-700 dark:text-stone-300 hover:text-teal-700 dark:hover:text-teal-400">
+                    {tNav('profile')}
                   </Link>
                 </>
               )}
               {user.role === 'PHARMACIST' && (
-                <Link href="/pharmacist/queue" className="text-teal-800 font-semibold flex items-center gap-1.5">
+                <Link href="/pharmacist/queue" className="text-teal-800 dark:text-teal-300 font-semibold flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-teal-600 animate-pulse"></span>
                   {tNav('verificationQueue')}
                 </Link>
               )}
               {user.role === 'STORE_STAFF' && (
-                <Link href="/store/orders" className="text-stone-700 hover:text-teal-700">
+                <Link href="/store/orders" className="text-stone-700 dark:text-stone-300 hover:text-teal-700 dark:hover:text-teal-400">
                   {tNav('storePacking')}
                 </Link>
               )}
               {user.role === 'OPS' && (
                 <>
-                  <Link href="/ops/dashboard" className="text-stone-700 hover:text-teal-700">
+                  <Link href="/ops/dashboard" className="text-stone-700 dark:text-stone-300 hover:text-teal-700 dark:hover:text-teal-400">
                     {tNav('opsDashboard')}
                   </Link>
-                  <Link href="/pharmacist/queue" className="text-stone-700 hover:text-teal-700">
+                  <Link href="/pharmacist/queue" className="text-stone-700 dark:text-stone-300 hover:text-teal-700 dark:hover:text-teal-400">
                     {tNav('verificationQueue')}
                   </Link>
                 </>
@@ -221,12 +184,18 @@ export const NavHeader: React.FC = () => {
 
         <div className="flex items-center gap-3">
           {loading ? (
-            <div className="w-24 h-8 bg-stone-100 animate-pulse rounded" />
+            <div className="w-24 h-8 bg-stone-100 dark:bg-stone-800 animate-pulse rounded" />
           ) : user ? (
             <div className="flex items-center gap-3">
               <div className="text-right hidden sm:block">
-                <span className="text-sm font-semibold text-stone-900 block">{user.name}</span>
-                <span className="text-xs text-stone-500 block">
+                {user.role === 'CUSTOMER' ? (
+                  <Link href="/customer/profile" className="text-sm font-semibold text-stone-900 dark:text-stone-100 hover:underline block">
+                    {user.name}
+                  </Link>
+                ) : (
+                  <span className="text-sm font-semibold text-stone-900 dark:text-stone-100 block">{user.name}</span>
+                )}
+                <span className="text-xs text-stone-500 dark:text-stone-400 block">
                   {user.role === 'PHARMACIST' && user.pharmacistRegNo
                     ? `Reg: ${user.pharmacistRegNo}`
                     : user.role}
@@ -243,7 +212,7 @@ export const NavHeader: React.FC = () => {
               >
                 {user.role}
               </Badge>
-              <Button variant="ghost" size="sm" onClick={handleLogout}>
+              <Button variant="ghost" size="sm" onClick={() => logout()}>
                 {tCommon('logout')}
               </Button>
             </div>
@@ -257,4 +226,3 @@ export const NavHeader: React.FC = () => {
     </header>
   );
 };
-

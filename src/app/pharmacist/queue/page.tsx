@@ -1,9 +1,16 @@
 // src/app/pharmacist/queue/page.tsx
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
+import useSWR from 'swr';
 import { useTranslations } from 'next-intl';
+
+const fetcher = async (url: string) => {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Failed to load queue');
+  return res.json();
+};
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -30,30 +37,18 @@ interface QueueOrder {
 export default function PharmacistQueuePage() {
   const t = useTranslations('pharmacist');
   const tc = useTranslations('common');
-  const [orders, setOrders] = useState<QueueOrder[]>([]);
-  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'ALL' | 'WAITING' | 'ON_HOLD' | 'APPROVED'>('WAITING');
 
-  useEffect(() => {
-    async function loadQueue() {
-      try {
-        const res = await fetch('/api/orders');
-        const data = await res.json();
-        if (data.orders) {
-          // Sort orders by waiting time (oldest SUBMITTED orders first)
-          const sorted = [...data.orders].sort(
-            (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-          );
-          setOrders(sorted);
-        }
-      } catch (err) {
-        console.error('Failed to load queue:', err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadQueue();
-  }, []);
+  const { data: queueData, isLoading: queueLoading } = useSWR('/api/orders', fetcher, {
+    refreshInterval: 10000,
+  });
+
+  const orders: QueueOrder[] = queueData?.orders
+    ? [...queueData.orders].sort(
+        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      )
+    : [];
+  const loading = queueLoading && !queueData;
 
   const calculateWaitTimeMinutes = (createdAtStr: string) => {
     const diffMs = Date.now() - new Date(createdAtStr).getTime();

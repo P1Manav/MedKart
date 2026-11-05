@@ -8,7 +8,7 @@ export const Card: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
 }) => {
   return (
     <div
-      className={`bg-white rounded-lg border border-stone-200 shadow-sm p-6 ${className}`}
+      className={`bg-white dark:bg-stone-900 rounded-lg border border-stone-200 dark:border-stone-800 shadow-sm p-6 text-stone-900 dark:text-stone-100 ${className}`}
       {...props}
     >
       {children}
@@ -30,7 +30,7 @@ export const CardTitle: React.FC<React.HTMLAttributes<HTMLHeadingElement>> = ({
   ...props
 }) => {
   return (
-    <h3 className={`text-xl font-semibold text-stone-900 ${className}`} {...props}>
+    <h3 className={`text-xl font-semibold text-stone-900 dark:text-stone-100 ${className}`} {...props}>
       {children}
     </h3>
   );
@@ -42,7 +42,7 @@ export const CardDescription: React.FC<React.HTMLAttributes<HTMLParagraphElement
   ...props
 }) => {
   return (
-    <p className={`text-sm text-stone-600 mt-1 ${className}`} {...props}>
+    <p className={`text-sm text-stone-600 dark:text-stone-400 mt-1 ${className}`} {...props}>
       {children}
     </p>
   );
@@ -62,9 +62,8 @@ export const CardFooter: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
   ...props
 }) => {
   return (
-    <div className={`mt-6 pt-4 border-t border-stone-100 flex items-center justify-between ${className}`} {...props}>
+    <div className={`mt-6 pt-4 border-t border-stone-100 dark:border-stone-800 flex items-center justify-between ${className}`} {...props}>
       {children}
     </div>
   );
 };
-

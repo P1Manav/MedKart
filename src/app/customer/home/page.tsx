@@ -3,7 +3,9 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { useSession } from '@/components/providers/session-provider';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -48,6 +50,8 @@ interface RefillItem {
 
 export default function CustomerHomePage() {
   const t = useTranslations('customer');
+  const router = useRouter();
+  const { refresh } = useSession();
   const [userName, setUserName] = useState<string>('');
   const [familyProfiles, setFamilyProfiles] = useState<FamilyProfile[]>([]);
   const [orders, setOrders] = useState<OrderItem[]>([]);
@@ -120,6 +124,8 @@ export default function CustomerHomePage() {
       if (res.ok) {
         setUserName(editNameVal.trim());
         setIsEditingName(false);
+        await refresh();
+        router.refresh();
       }
     } catch {
       // ignore
@@ -145,6 +151,8 @@ export default function CustomerHomePage() {
         setSelectedProfileId(data.profile.id);
         setNewMemberName('');
         setShowAddFamily(false);
+        await refresh();
+        router.refresh();
       }
     } catch {
       // ignore

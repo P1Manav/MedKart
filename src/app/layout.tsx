@@ -6,6 +6,7 @@ import { getMessages } from 'next-intl/server';
 import { notoSans, notoSansDevanagari, notoSansBengali } from '@/lib/fonts';
 import './globals.css';
 import { NavHeader } from '@/components/layout/nav-header';
+import { SessionProvider } from '@/components/providers/session-provider';
 
 export const metadata: Metadata = {
   title: 'MedKart Pharmacy — Safe Monthly Reorders with Pharmacist Verification',
@@ -26,22 +27,31 @@ export default async function RootLayout({
     <html
       lang={locale}
       className={`${notoSans.variable} ${notoSansDevanagari.variable} ${notoSansBengali.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col bg-stone-50 text-stone-900 font-sans">
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var m=document.cookie.match(/(?:^| )medkart_theme=([^;]+)/);var t=m?m[1]:'system';if(t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark');}else{document.documentElement.classList.remove('dark');}}catch(e){}})();`,
+          }}
+        />
+      </head>
+      <body className="min-h-full flex flex-col bg-stone-50 text-stone-900 dark:bg-stone-950 dark:text-stone-100 font-sans transition-colors duration-200">
         <NextIntlClientProvider locale={locale} messages={messages}>
-          <NavHeader />
-          <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
-            {children}
-          </main>
-          <footer className="bg-white border-t border-stone-200 py-6 text-center text-xs text-stone-500">
-            <div className="max-w-7xl mx-auto px-4">
-              <p className="font-semibold text-stone-700">MedKart Pharmacy Network (Licensed Pharmacy Stores, Central Warehouse, Kolkata & Howrah)</p>
-              <p className="mt-1">Compliant with Drugs and Cosmetics Act & DPDP Act 2023. Prescriptions are encrypted and audited. All orders checked by a registered pharmacist.</p>
-            </div>
-          </footer>
+          <SessionProvider>
+            <NavHeader />
+            <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+              {children}
+            </main>
+            <footer className="bg-white dark:bg-stone-900 border-t border-stone-200 dark:border-stone-800 py-6 text-center text-xs text-stone-500 dark:text-stone-400">
+              <div className="max-w-7xl mx-auto px-4">
+                <p className="font-semibold text-stone-700 dark:text-stone-300">MedKart Pharmacy Network (Licensed Pharmacy Stores, Central Warehouse, Kolkata & Howrah)</p>
+                <p className="mt-1">Compliant with Drugs and Cosmetics Act & DPDP Act 2023. Prescriptions are encrypted and audited. All orders checked by a registered pharmacist.</p>
+              </div>
+            </footer>
+          </SessionProvider>
         </NextIntlClientProvider>
       </body>
     </html>
   );
 }
-

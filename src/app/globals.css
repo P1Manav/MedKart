@@ -55,6 +55,16 @@
   --radius-xl: 1rem;
 }
 
+/* ─── Dark Mode Overrides ───────────────────── */
+.dark {
+  --color-surface: #0c0a09;
+  --color-surface-raised: #1c1917;
+  --color-text-primary: #f5f5f4;
+  --color-text-secondary: #d6d3d1;
+  --color-text-muted: #78716c;
+  --color-border: #292524;
+}
+
 /* ─── Base Styles ───────────────────────────── */
 
 body {
@@ -65,6 +75,11 @@ body {
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.dark body {
+  background-color: #0c0a09;
+  color: #f5f5f4;
 }
 
 /* ─── Focus Ring ────────────────────────────── */

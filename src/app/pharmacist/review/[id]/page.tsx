@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect, use } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -70,6 +71,7 @@ export default function PharmacistReviewPage({
 }) {
   const t = useTranslations('pharmacist');
   const tc = useTranslations('common');
+  const router = useRouter();
   const { id } = use(params);
   const [order, setOrder] = useState<ReviewOrder | null>(null);
   const [loading, setLoading] = useState(true);
@@ -173,6 +175,7 @@ export default function PharmacistReviewPage({
       setRejectingLineId(null);
       setShowReuploadModal(false);
       await loadOrder();
+      router.refresh();
     } catch {
       setError('Communication with server failed.');
     }
@@ -298,6 +301,7 @@ export default function PharmacistReviewPage({
         setActionMessage(data.message);
         setUpiUtrInput('');
         await loadOrder();
+        router.refresh();
       }
     } catch {
       setError('Network communication failed.');

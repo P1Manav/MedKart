@@ -1,9 +1,17 @@
 // src/app/customer/order/[id]/page.tsx
 'use client';
 
-import React, { useState, useEffect, use } from 'react';
+import React, { useState, use } from 'react';
 import Link from 'next/link';
+import useSWR from 'swr';
+import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+
+const fetcher = async (url: string) => {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Failed to load order');
+  return res.json();
+};
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -52,35 +60,22 @@ export default function OrderTrackingPage({
 }) {
   const t = useTranslations('customer');
   const tc = useTranslations('common');
+  const router = useRouter();
   const { id } = use(params);
-  const [order, setOrder] = useState<OrderDetail | null>(null);
-  const [loading, setLoading] = useState(true);
+
+  const { data: orderData, error: _swrError, isLoading: swrLoading, mutate } = useSWR(
+    `/api/orders/${id}`,
+    fetcher,
+    { refreshInterval: 4000 }
+  );
+
+  const order: OrderDetail | null = orderData?.order || null;
+  const loading = swrLoading && !orderData;
   const [error, setError] = useState<string | null>(null);
 
   // Re-upload form state when ON_HOLD
   const [reuploadFile, setReuploadFile] = useState<File | null>(null);
   const [reuploading, setReuploading] = useState(false);
-
-  async function loadOrder() {
-    try {
-      const res = await fetch(`/api/orders/${id}`);
-      const data = await res.json();
-      if (res.ok && data.order) {
-        setOrder(data.order);
-      } else {
-        setError(data.error || 'Order not found or you do not have permission to view it.');
-      }
-    } catch {
-      setError('Failed to fetch order details.');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    loadOrder();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
 
   const handleReuploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,7 +98,8 @@ export default function OrderTrackingPage({
         return;
       }
 
-      await loadOrder();
+      await mutate();
+      router.refresh();
       setReuploadFile(null);
     } catch {
       setError('Network connection error. Failed to re-upload prescription.');

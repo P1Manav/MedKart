@@ -24,7 +24,11 @@
     "packed": "Packed",
     "handedOver": "Handed Over",
     "delivered": "Delivered",
-    "demoSmsNotice": "Demo SMS / Mock Mode Active"
+    "demoSmsNotice": "Demo SMS / Mock Mode Active",
+    "theme": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
   },
   "auth": {
     "loginTitle": "Log In to MedKart",
@@ -103,7 +107,8 @@
     "verificationQueue": "Verification Queue",
     "storePacking": "Store Packing & Handover",
     "opsDashboard": "Ops Dashboard",
-    "loginWithPhone": "Login with Phone"
+    "loginWithPhone": "Login with Phone",
+    "profile": "My Profile"
   },
   "store": {
     "title": "Store Orders & Prescription Packing",
@@ -123,6 +128,38 @@
     "scheduleRules": "Configurable Statutory Schedule Rules",
     "stockImport": "Daily Store Stock CSV Import",
     "outboxTitle": "Dispatched Regulatory Messages & Refill Reminders"
+  },
+  "profile": {
+    "title": "Customer Profile & Settings",
+    "subtitle": "Manage your personal information, delivery addresses, family members, and security",
+    "personalInfo": "Personal Information",
+    "fullName": "Full Name",
+    "phoneNumber": "Registered Phone Number",
+    "phoneImmutable": "Phone number is linked to your login and cannot be edited",
+    "email": "Email Address",
+    "emailHelp": "Used for order invoices and status alerts",
+    "language": "Preferred Language",
+    "theme": "Display Theme",
+    "saveChanges": "Save Changes",
+    "saving": "Saving...",
+    "deliveryAddress": "Default Delivery Address",
+    "addressPlaceholder": "Flat/Plot, Street, Area (Kolkata)",
+    "pincode": "PIN Code",
+    "pincodePlaceholder": "e.g. 700064",
+    "saveAddress": "Save Address",
+    "familyProfiles": "Family Members",
+    "familySubtitle": "Manage medication tracking and reorders for your dependents",
+    "addMember": "Add Family Member",
+    "memberName": "Member Name",
+    "relationship": "Relationship",
+    "delete": "Delete",
+    "security": "Security & Sessions",
+    "securityDesc": "Control active sessions and authorization across devices",
+    "logoutAll": "Sign Out of All Devices",
+    "logoutAllConfirm": "Are you sure? This will invalidate all active sessions across all your browsers and devices.",
+    "successMessage": "Profile updated successfully!",
+    "addressSuccess": "Address updated successfully!",
+    "memberAdded": "Family member added successfully!",
+    "memberDeleted": "Family member removed."
   }
 }
-
