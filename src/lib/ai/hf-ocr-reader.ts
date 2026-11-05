@@ -107,7 +107,7 @@ export class HfOcrReader implements PrescriptionReader {
           Authorization: `Bearer ${this.apiToken}`,
           'Content-Type': mimeType || 'image/png',
         },
-        body: imageBytes,
+        body: new Uint8Array(imageBytes),
         signal: controller.signal,
       });
 
@@ -174,33 +174,37 @@ export class HfOcrReader implements PrescriptionReader {
       let totalConfidenceSum = 0;
       let totalWordCount = 0;
 
-      if (Array.isArray(data.lines) && data.lines.length > 0) {
-        for (const line of data.lines) {
-          const lineText = line.text.trim();
-          if (!lineText) continue;
+      if (Array.isArray(data.blocks) && data.blocks.length > 0) {
+        for (const block of data.blocks) {
+          for (const para of block.paragraphs || []) {
+            for (const line of para.lines || []) {
+              const lineText = line.text.trim();
+              if (!lineText) continue;
 
-          const words: OcrWord[] = (line.words || []).map((w) => {
-            const normalizedConf = Math.max(0.0, Math.min(1.0, (w.confidence || 0) / 100));
-            totalConfidenceSum += normalizedConf;
-            totalWordCount += 1;
-            return {
-              text: w.text,
-              confidence: normalizedConf,
-            };
-          });
+              const words: OcrWord[] = (line.words || []).map((w) => {
+                const normalizedConf = Math.max(0.0, Math.min(1.0, (w.confidence || 0) / 100));
+                totalConfidenceSum += normalizedConf;
+                totalWordCount += 1;
+                return {
+                  text: w.text,
+                  confidence: normalizedConf,
+                };
+              });
 
-          const lineConf =
-            words.length > 0
-              ? words.reduce((acc, w) => acc + w.confidence, 0) / words.length
-              : Math.max(0.0, Math.min(1.0, (line.confidence || 0) / 100));
+              const lineConf =
+                words.length > 0
+                  ? words.reduce((acc, w) => acc + w.confidence, 0) / words.length
+                  : Math.max(0.0, Math.min(1.0, (line.confidence || 0) / 100));
 
-          ocrLines.push({
-            text: lineText,
-            words,
-            confidence: lineConf,
-          });
+              ocrLines.push({
+                text: lineText,
+                words,
+                confidence: lineConf,
+              });
+            }
+          }
         }
-      } else if (data.text.trim()) {
+      } else if (data.text && data.text.trim()) {
         const textLines = data.text.split('\n').filter((l) => l.trim().length > 0);
         const overallConf = Math.max(0.0, Math.min(1.0, (data.confidence || 0) / 100));
         for (const t of textLines) {

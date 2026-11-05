@@ -38,7 +38,7 @@ flowchart TD
         AUTH["jose HS256 Signed Session Cookies (httpOnly)"]
         RBAC["Deny-by-Default Role Guards (Customer, Pharmacist, Store Staff, Ops)"]
         DOMAIN["Pure Domain Services (order-state, assertDispatchable, routing, refill)"]
-        AI["AI Pipeline (Gemini API + MockReader Fallback)"]
+        AI["3-Tier Non-Generative OCR Pipeline (HF TrOCR -> Tesseract WASM -> Manual)"]
         CRYPTO["AES-256-GCM Encryption & Append-Only Access Log"]
     end
 
@@ -63,7 +63,7 @@ flowchart TD
 | **PostgreSQL + Prisma ORM** | ACID transactions are essential for multi-store inventory reservation and order state transitions. Committed migrations guarantee reproducible deployment on Neon. |
 | **PostgreSQL Trigger (`trg_assert_dispatchable_order`)** | Defense in depth: Guarantees that even if an application bug or malicious raw SQL attempted to update an order to `PACKED`, the database engine itself aborts the transaction if pharmacist approval or prescription is missing. |
 | **AES-256-GCM Encryption** | NIST-standard authenticated symmetric encryption. A unique random 96-bit IV per file prevents rainbow-table attacks, while 128-bit authentication tags immediately detect ciphertext tampering. |
-| **Gemini API (Structured Outputs)** | Free-tier multimodal model receiving instructions to transcribe only what is legible without hallucinating missing text. Validated via Zod schemas. |
+| **3-Tier Non-Generative OCR Pipeline** | Tier 1 hosted small OCR model (microsoft/trocr-base-handwritten via HF router) with in-process Tier 2 Tesseract.js (WASM) fallback. Uses perception and deterministic regex/fuzzy parsing instead of creative generative LLMs, eliminating hallucination risks under clinical uncertainty. |
 | **Fuse.js Matcher** | In-process fuzzy search comparing brand names and strengths without requiring heavy external Elasticsearch clusters. |
 
 ---
@@ -134,11 +134,7 @@ flowchart LR
     RESIZE --> ENC["AES-256-GCM Encrypt"]
     ENC --> DB_SAVE["Store in DB (bytea)"]
 
-    RESIZE --> GEMINI["Gemini API (Structured JSON)"]
-    GEMINI --> ZOD["Zod Schema Validation"]
-    ZOD -->|Valid JSON| FUZZY["Fuzzy Catalogue Matcher"]
-    ZOD -->|Schema Failure| MANUAL["Queue: MANUAL_ENTRY_NEEDED"]
-    GEMINI -->|Timeout / Quota / Blur| MANUAL
+    RESIZE --> OCR["Non-Generative OCR (Tier 1 HF TrOCR / Tier 2 Tesseract WASM)"]`r`n    OCR --> PARSER["Deterministic Regex Segmentation & Token Extraction"]`r`n    PARSER --> FUZZY["Fuzzy Catalogue Matcher & Confidence Formula"]`r`n    OCR -->|Low Conf / Unreadable / Timeout| MANUAL["Queue: MANUAL_ENTRY_NEEDED"]
 
     FUZZY --> CHECK{"Strength or Form Mismatch?"}
     CHECK -->|Yes| AMBER["Force Line to needs_review"]
@@ -217,3 +213,4 @@ flowchart LR
 2. **ERP / POS Connector:** Webhook and HL7/FHIR connectors to synchronize inventory directly with physical retail store billing POS machines.
 3. **Automated WhatsApp Business Integration:** Replace mocked outbox rows with official Meta WhatsApp Cloud API for automated refill notifications.
 4. **Hardware Barcode Scanner Support:** In the Store Packing screen, integrate USB/Bluetooth handheld barcode scanner input to verify GTIN/batch barcodes during pick-and-pack.
+

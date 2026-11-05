@@ -51,17 +51,17 @@ This remediation plan addresses the findings from the independent code review on
 ---
 
 ### P0-3. MockReader Production Safeguard & AI Confidence Separation
-- **Problem:** Production code falls back to `MockReader('valid')` if `GEMINI_API_KEY` is not set, fabricating medicines. AI confidence is overwritten with fuzzy match score.
+- **Problem:** Production code falls back to `MockReader('valid')` if `HF_API_TOKEN` is not set, fabricating medicines. AI confidence is overwritten with fuzzy match score.
 - **Files to touch:**
   - `src/lib/ai/index.ts` / `src/lib/ai/reader-factory.ts` (new reader factory)
-  - `src/lib/ai/gemini-reader.ts` (add 20s `AbortSignal.timeout`, retry logic, set legibility to `UNREADABLE`)
+  - `src/lib/ai/hf-ocr-reader.ts` (3-tier OCR: Tier 1 HF TrOCR -> Tier 2 in-process Tesseract.js WASM -> Tier 3 manual queue with 0 fabricated lines)
   - `src/app/api/orders/route.ts` (use reader factory; store model confidence in `aiConfidence`, matcher score in `aiAlternatives`)
 - **Test to write FIRST:**
   - `tests/unit/reader-factory.test.ts`:
-    1. Assert `getPrescriptionReader()` returns `GeminiReader` in `NODE_ENV='production'`, even when `GEMINI_API_KEY` is unset.
+    1. Assert `getPrescriptionReader()` returns `HfOcrReader` in `NODE_ENV='production'`, even when `HF_API_TOKEN` is unset.
     2. Assert missing key in non-test mode produces `manualEntryNeeded: true`, `aiImageLegibility: 'UNREADABLE'`, 0 lines.
     3. Assert `MockReader` is only returnable when `NODE_ENV === 'test'` or (`AI_READER === 'mock'` AND `NODE_ENV !== 'production'`).
-- **New Assumption:** A18: Gemini API calls time out after 20 seconds and retry once on 429/5xx before falling back safely to manual pharmacist review.
+- **New Assumption:** A18: Non-generative OCR pipeline: replaces generative LLM with small OCR model (HF TrOCR) and in-process Tesseract.js WASM fallback with deterministic parsing.
 
 ---
 
@@ -235,4 +235,5 @@ Before modifying code, the following actions require explicit user confirmation:
 3. **Test Deletion/Replacement:** Permission to delete the string-grep and JS simulation in `tests/integration/db-trigger.test.ts` and replace it with real raw SQL against PostgreSQL.
 4. **Git Untracking:** Permission to remove `docs/Technical_Design_Document.docx` and `submission/isocode_pharmacy_submission.zip` from git tracking (`git rm --cached`).
 5. **Secrets Rotation Warning:** Notice that previous fallback secrets in git are burned and fresh secrets must be supplied in Vercel / production environments.
+
 

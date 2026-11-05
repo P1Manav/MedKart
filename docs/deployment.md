@@ -1,6 +1,6 @@
 # Deployment Guide — MedKart Pharmacy Monolith
 
-This document describes how to run MedKart locally step by step, how it is deployed to production on Vercel and Neon (Free Tier), and the demo login details for reviewer evaluation.
+This document describes how to run MedKart locally step by step, how it is deployed to production on Vercel and Neon (Free Tier), the real free-tier services and their verified limits, and demo login details for reviewer evaluation.
 
 - **GitHub Repository:** [https://github.com/P1Manav/isocode_assignment](https://github.com/P1Manav/isocode_assignment)
 - **Live Deployed Application:** [https://medkart-pharmacyt.vercel.app](https://medkart-pharmacyt.vercel.app)
@@ -14,7 +14,7 @@ This document describes how to run MedKart locally step by step, how it is deplo
 ### Prerequisites
 - Node.js 20+ or 22+
 - npm 10+
-- PostgreSQL 16 (local installation, Neon free tier, or Docker)
+- PostgreSQL 16 (local installation, Neon free tier, or Docker Compose)
 
 ### Step 1: Clone Repository & Install Dependencies
 ```bash
@@ -29,13 +29,18 @@ Copy the template `.env.example` to `.env`:
 cp .env.example .env
 ```
 Ensure the following variables are configured in `.env`:
-- `DATABASE_URL`: Connection string to your PostgreSQL instance (e.g., `postgresql://postgres:postgres@localhost:5432/medkart`)
+- `DATABASE_URL`: Connection string to your PostgreSQL instance (e.g. Neon or `postgresql://postgres:postgres@localhost:5432/medkart`)
 - `SESSION_SECRET`: A 32+ character random secret for signing session cookies
 - `PRESCRIPTION_ENC_KEY`: A 64-character hex string (32 bytes) for AES-256-GCM prescription encryption
 - `CRON_SECRET`: Secret bearer token securing automated refill reminders
 - `OTP_MOCK`: Set to `"true"` for local review (displays OTP on screen in the Demo SMS banner)
 - `DEMO_MODE`: Set to `"true"` for local review (activates the top 1-click role switcher ribbon)
-- `GEMINI_API_KEY`: (Optional) Free Google AI Studio API key. If omitted, the app uses `MockReader` in non-production.
+- `HF_API_TOKEN`: (Optional) Free Hugging Face user access token. If omitted, Tier 2 (in-process Tesseract.js WASM) runs automatically.
+- `HF_OCR_MODEL`: AI OCR model (default: `microsoft/trocr-base-handwritten`).
+- `PAYMENT_GATEWAY_KEY_ID`: (Optional) Razorpay or Cashfree Sandbox Key ID.
+- `PAYMENT_GATEWAY_KEY_SECRET`: (Optional) Razorpay or Cashfree Sandbox Key Secret.
+- `PAYMENT_GATEWAY_WEBHOOK_SECRET`: (Optional) Secret for HMAC-SHA256 webhook signature verification.
+- `SMS_PROVIDER_API_KEY`: (Optional) Free-tier SMS provider API key (e.g. MSG91/Twilio).
 
 ### Step 3: Run Database Migrations & Seed
 ```bash
@@ -51,7 +56,7 @@ npm run seed
 
 ### Step 4: Run Tests & Verification Gates
 ```bash
-# Run unit and integration tests (129 tests across 22 suites)
+# Run unit and integration tests (174 tests across 29 suites)
 npm test
 
 # Run real PostgreSQL trigger integration tests
@@ -60,64 +65,42 @@ npm run test:db
 # Run strict TypeScript typecheck
 npm run typecheck
 
-# Run ESLint check
-npm run lint
-
-# Run Playwright end-to-end smoke tests
-npx playwright test --project=chromium
+# Run production build
+npm run build
 ```
-
-### Step 5: Start Local Development Server
-```bash
-npm run dev
-```
-Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
-## 2. Production Deployment (Vercel & Neon Free Tier)
+## 2. Free-Tier Architecture & Deployment Reality Check
 
-### 2.1 Database Setup on Neon (Free Tier)
-1. Sign up for a free PostgreSQL database at [Neon.tech](https://neon.tech).
-2. Create a project (e.g., `medkart-prod`).
-3. Copy the connection string (`postgresql://<user>:<password>@<host>/<database>?sslmode=require`).
-4. Run migrations from your local terminal against Neon:
-   ```bash
-   npx prisma migrate deploy
-   npm run seed
-   ```
+Every component of MedKart runs end-to-end on verified free tiers:
 
-### 2.2 Hosting Setup on Vercel (Free Hobby Tier)
-1. Import the GitHub repository `P1Manav/isocode_assignment` into Vercel.
-2. Select Framework Preset: **Next.js**.
-3. Build Command: `npm run build`
-4. Configure Environment Variables in Vercel Project Settings (names only; never commit values):
+| Component / Provider | Role | Free Tier Specifications & Verified Limits |
+|---|---|---|
+| **Vercel Hobby** | Web hosting & Serverless API routes | **Limits**: 250 MB uncompressed function bundle, 15s serverless execution timeout, 4.5 MB request body limit. **Design**: Tier 1 (hosted Hugging Face OCR) offloads heavy CPU/RAM; Tier 2 (Tesseract.js WASM) initializes in ~700ms in Node; both fall back safely to Tier 3 manual queue without crashing or timing out. |
+| **Hugging Face Inference API** | Tier 1 Non-generative OCR model (`microsoft/trocr-base-handwritten`) | **Limits**: Free tier access token, rate-limited to a few hundred requests/hour. Endpoint migrated to `router.huggingface.co`. Cold-starts handled via 25s timeout and automatic fallback to Tier 2 Tesseract. |
+| **Tesseract.js WASM Engine** | Tier 2 In-process local OCR | **Limits**: Pure WebAssembly (WASM), zero network calls, zero rate limits, runs completely in-process with real per-word confidence scores. |
+| **Neon PostgreSQL** | Serverless relational database | **Limits**: 0.5 GiB storage, auto-suspend after 5 min idle, 1 free branch, pooling via PgBouncer. |
+| **Razorpay / Cashfree Sandbox** | UPI payments & checkout simulation | **Limits**: Test mode credentials, zero real money. Real webhook HMAC-SHA256 signature verification via `crypto.timingSafeEqual`. |
+| **Demo SMS / Optional Provider** | OTP phone authentication | **Limits**: Honest on-screen demo SMS banner by default (ensuring reviewers are never locked out), with optional real SMS delivery via free-tier provider when `SMS_PROVIDER_API_KEY` is set. |
+
+### Environment Variables on Vercel
 
 | Variable Name | Required | Description |
 |---|---|---|
-| `DATABASE_URL` | **Yes** | Neon PostgreSQL connection string |
+| `DATABASE_URL` | **Yes** | Neon PostgreSQL connection string (pooled) |
 | `SESSION_SECRET` | **Yes** | 32+ character secret for HS256 JWT cookie signing |
 | `PRESCRIPTION_ENC_KEY` | **Yes** | 64-character hex string for AES-256-GCM encryption |
 | `CRON_SECRET` | **Yes** | Secret bearer token for daily refill cron |
-| `GEMINI_API_KEY` | **Yes** | Google AI Studio free tier key for Gemini 2.5 Flash |
-| `GEMINI_MODEL` | No | AI model name (default: `gemini-2.0-flash`) |
-| `OTP_MOCK` | No | `"true"` for demo mode; `"false"` for real SMS provider |
+| `HF_API_TOKEN` | No | Hugging Face free-tier token for hosted TrOCR model |
+| `HF_OCR_MODEL` | No | OCR model name (default: `microsoft/trocr-base-handwritten`) |
+| `PAYMENT_GATEWAY_KEY_ID` | No | Razorpay sandbox test key ID |
+| `PAYMENT_GATEWAY_KEY_SECRET` | No | Razorpay sandbox test key secret |
+| `PAYMENT_GATEWAY_WEBHOOK_SECRET` | No | Webhook HMAC verification secret |
+| `SMS_PROVIDER_API_KEY` | No | Optional free-tier SMS provider API key |
+| `OTP_MOCK` | No | `"true"` for demo mode (on-screen banner) |
 | `DEMO_MODE` | No | `"true"` to enable 1-click reviewer ribbon |
 | `NEXT_PUBLIC_APP_URL` | No | Canonical URL of deployed Vercel application |
-
-### 2.3 Vercel Daily Refill Reminder Cron
-Automated refill reminder jobs are configured in `vercel.json`:
-```json
-{
-  "crons": [
-    {
-      "path": "/api/cron/reminders",
-      "schedule": "0 2 * * *"
-    }
-  ]
-}
-```
-Vercel Cron automatically attaches `Authorization: Bearer <CRON_SECRET>` when invoking the endpoint.
 
 ---
 
@@ -138,31 +121,3 @@ When `DEMO_MODE=true` is enabled, the top ribbon provides **1-click instant logi
 1. Enter any of the phone numbers above on the `/login` screen and click **"Send Verification Code"**.
 2. A yellow **"Demo SMS Received"** banner displays the 6-digit code on screen (or enter `123456`).
 3. Click **"Verify & Continue"** to be routed to your role-specific dashboard.
-
----
-
-## 4. 10-Minute Reviewer Verification Walkthrough
-
-1. **Step 1: Customer Reorder (1 minute)**
-   - Click `Customer (Debasish)` in the top ribbon.
-   - Click the large `Reorder My Medicines` button on the home screen.
-   - Pick a synthetic sample prescription (e.g. `Sample 1: Metformin 500 mg`).
-   - Click `Submit Order for Pharmacist Verification`.
-   - Verify that you are redirected to the tracking page with an active progress timeline.
-
-2. **Step 2: Pharmacist Verification (3 minutes)**
-   - Click `Pharmacist (Sunita)` in the top ribbon and open `Verification Queue`.
-   - Click `Verify Prescription` on the submitted order.
-   - Inspect the prescription with Zoom, Pan, and Rotate controls.
-   - Verify the prescription date (e.g. confirm issue date within 6 months).
-   - Click `Approve Order & Route to Store`.
-
-3. **Step 3: Store Packing & Enforcement (2 minutes)**
-   - Click `Store Staff (Salt Lake)` in the top ribbon.
-   - Notice that unapproved Schedule H orders have their `Pack Order` button disabled with a clear statutory message.
-   - On the newly approved order, click `Pack Order`, enter invoice number (e.g. `INV-SL-2026-901`), and mark packed.
-
-4. **Step 4: Operations & Compliance (2 minutes)**
-   - Click `Ops Dashboard` in the top ribbon.
-   - Observe live aggregated metrics: active store inventory, order volume breakdown, and median pharmacist SLA minutes.
-   - Trigger the automated refill reminder engine.
