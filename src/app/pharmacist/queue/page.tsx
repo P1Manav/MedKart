@@ -15,6 +15,8 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ErrorState } from '@/components/ui/error-state';
+import { EmptyState } from '@/components/ui/empty-state';
 
 interface QueueOrder {
   id: string;
@@ -39,7 +41,7 @@ export default function PharmacistQueuePage() {
   const tc = useTranslations('common');
   const [filter, setFilter] = useState<'ALL' | 'WAITING' | 'ON_HOLD' | 'APPROVED'>('WAITING');
 
-  const { data: queueData, isLoading: queueLoading } = useSWR('/api/orders', fetcher, {
+  const { data: queueData, error: queueError, isLoading: queueLoading, mutate } = useSWR('/api/orders', fetcher, {
     refreshInterval: 10000,
   });
 
@@ -125,16 +127,23 @@ export default function PharmacistQueuePage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {loading ? (
+          {queueError ? (
+            <ErrorState
+              title="Failed to load verification queue"
+              message={queueError instanceof Error ? queueError.message : 'Could not retrieve pending prescription orders. Please try again.'}
+              onRetry={() => mutate()}
+            />
+          ) : loading ? (
             <div className="space-y-3">
               <Skeleton className="h-16 w-full" />
               <Skeleton className="h-16 w-full" />
               <Skeleton className="h-16 w-full" />
             </div>
           ) : filteredOrders.length === 0 ? (
-            <div className="py-12 text-center text-stone-500">
-              No orders found matching the filter &quot;{filter}&quot;. All customer prescriptions are cleared!
-            </div>
+            <EmptyState
+              title="No orders in queue"
+              description={`No orders found matching the filter "${filter}". All customer prescriptions are cleared!`}
+            />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">

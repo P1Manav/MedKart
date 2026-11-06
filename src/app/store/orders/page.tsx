@@ -15,6 +15,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ErrorState } from '@/components/ui/error-state';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface StoreOrder {
@@ -50,7 +51,7 @@ export default function StoreOrdersPage() {
   const t = useTranslations('store');
   const tc = useTranslations('common');
   const router = useRouter();
-  const { data: ordersData, error: _swrError, isLoading: swrLoading, mutate } = useSWR(
+  const { data: ordersData, error: swrError, isLoading: swrLoading, mutate } = useSWR(
     '/api/orders?limit=100',
     fetcher,
     { refreshInterval: 5000 }
@@ -202,13 +203,22 @@ export default function StoreOrdersPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {loading ? (
+          {swrError ? (
+            <ErrorState
+              title="Failed to fetch store orders"
+              message={swrError instanceof Error ? swrError.message : 'Could not load store orders. Please retry.'}
+              onRetry={() => mutate()}
+            />
+          ) : loading ? (
             <div className="space-y-3">
               <Skeleton className="h-16 w-full" />
               <Skeleton className="h-16 w-full" />
             </div>
           ) : orders.length === 0 ? (
-            <div className="py-8 text-center text-stone-500">No store orders found.</div>
+            <EmptyState
+              title="No store orders found"
+              description="No orders currently assigned to your store queue."
+            />
           ) : (
             <div className="divide-y divide-stone-100">
               {orders.map((ord) => {

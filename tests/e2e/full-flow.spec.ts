@@ -167,5 +167,21 @@ test.describe('MedKart Full Pharmacy Lifecycle Flow', () => {
 
     await storeContext.close();
   });
+
+  test('404 not-found page renders correctly for nonexistent routes with return to home', async ({ page }) => {
+    // Visit a non-existent URL
+    const response = await page.goto('/non-existent-medkart-page-test-404');
+    expect(response?.status()).toBe(404);
+
+    // Verify 404 headline and calm teal design system elements
+    await expect(page.locator('h1')).toContainText('Page Not Found');
+    await expect(page.getByText('404 Error')).toBeVisible();
+
+    // Verify Return to Home link exists and navigates properly
+    const returnHomeLink = page.getByRole('link', { name: /Return to Home/i });
+    await expect(returnHomeLink).toBeVisible();
+    await returnHomeLink.click();
+    await page.waitForURL((url) => url.pathname === '/' || url.pathname === '/customer/home');
+  });
 });
 

@@ -161,5 +161,18 @@
     "addressSuccess": "Address updated successfully!",
     "memberAdded": "Family member added successfully!",
     "memberDeleted": "Family member removed."
+  },
+  "error": {
+    "title": "Something Went Wrong",
+    "description": "An unexpected error occurred while loading this page. Our team has been alerted.",
+    "retry": "Try Again",
+    "home": "Return to Home",
+    "support": "If this problem persists, please contact MedKart Support."
+  },
+  "notFound": {
+    "title": "404 - Page Not Found",
+    "description": "The page or prescription order you are looking for does not exist or has been moved.",
+    "backHome": "Back to Home",
+    "viewMedicines": "Browse Medicines"
   }
 }
