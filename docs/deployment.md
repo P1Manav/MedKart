@@ -106,7 +106,8 @@ Every component of MedKart runs end-to-end on verified free tiers:
 | `SMS_PROVIDER_TEMPLATE_ID` | No | Generic SMS provider template ID fallback |
 | `TWILIO_ACCOUNT_SID` | No | Twilio Account SID |
 | `TWILIO_AUTH_TOKEN` | No | Twilio Auth Token |
-| `TWILIO_VERIFY_SERVICE_SID` | No | Twilio Verify Service SID (VA...) |
+| `TWILIO_VERIFY_SERVICE_SID` | No | Twilio Verify Service SID (VA...) or Messaging Service SID (MG...) |
+| `TWILIO_PHONE_NUMBER` | No | Twilio sender phone number in E.164 format (+1...) |
 | `FAST2SMS_API_KEY` | No | Fast2SMS API Key |
 | `EMAIL_PROVIDER` | No | Email provider (`resend`, `brevo`, or `smtp`) |
 | `RESEND_API_KEY` | No | Resend API key for Email OTP fallback |

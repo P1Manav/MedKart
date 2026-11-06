@@ -44,6 +44,7 @@ export class OtpProviderChain {
     this.smsProviders = new Map<string, OtpProvider>([
       ['msg91', new Msg91Provider()],
       ['twilio_verify', new TwilioVerifyProvider()],
+      ['twilio', new TwilioVerifyProvider()],
       ['fast2sms', new Fast2SmsProvider()],
     ]);
   }

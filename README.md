@@ -67,7 +67,8 @@ Default `.env.example` settings work out of the box with `DEMO_MODE="true"` and 
 | `SMS_PROVIDER_TEMPLATE_ID` | No | OTP/SMS | Generic SMS provider template ID fallback |
 | `TWILIO_ACCOUNT_SID` | No | OTP/SMS | Twilio Account SID |
 | `TWILIO_AUTH_TOKEN` | No | OTP/SMS | Twilio Auth Token |
-| `TWILIO_VERIFY_SERVICE_SID` | No | OTP/SMS | Twilio Verify Service SID |
+| `TWILIO_VERIFY_SERVICE_SID` | No | OTP/SMS | Twilio Verify Service SID or Messaging Service SID |
+| `TWILIO_PHONE_NUMBER` | No | OTP/SMS | Twilio sender phone number in E.164 format (+1...) |
 | `FAST2SMS_API_KEY` | No | OTP/SMS | Fast2SMS API Key |
 | `EMAIL_PROVIDER` | No | Email | Email provider (`resend`, `brevo`, or `smtp`) |
 | `RESEND_API_KEY` | No | Email | Resend API key for email OTP fallback |
