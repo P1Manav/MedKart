@@ -13,13 +13,15 @@ concurrency:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       DATABASE_URL: "postgresql://postgres:postgrespassword@localhost:5432/medkart_test"
+      SHADOW_DATABASE_URL: "postgresql://postgres:postgrespassword@localhost:5432/medkart_shadow"
       SESSION_SECRET: "ci-test-session-secret-must-be-at-least-32-chars-long"
       PRESCRIPTION_ENC_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
       CRON_SECRET: "ci-test-cron-secret-12345"
-      OTP_MOCK: "true"
+      OTP_PEPPER: "ci-test-otp-pepper-must-be-at-least-32-chars-long-here!"
+      SMS_PROVIDER: "mock"
       DEMO_MODE: "true"
 
     services:
@@ -40,6 +42,14 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks Secret Scanner
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -48,49 +58,71 @@ jobs:
           cache: 'npm'
 
       - name: Install Dependencies
+        id: install-deps
         run: npm ci
 
-      - name: Generate Prisma Client
-        run: npx prisma generate
+      - name: Fast Repo Digest Scan
+        id: repo-digest
+        run: npm run digest:fast
+
+      - name: Upload Repo Digest Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: repo-digest
+          path: REPO_DIGEST.md
+          retention-days: 7
+
+      - name: Production Dependency Audit
+        id: dep-audit
+        run: |
+          npm audit --omit=dev --audit-level=high > audit-report.txt 2>&1 || true
+          cat audit-report.txt
+        continue-on-error: true
+
+      - name: Upload Audit Report Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-report
+          path: audit-report.txt
+          retention-days: 7
+
+      - name: Validate Prisma Schema
+        id: prisma-validate
+        run: npx prisma validate
+
+      - name: Create Shadow Database & Verify Schema Drift
+        id: prisma-drift
+        run: |
+          PGPASSWORD=postgrespassword psql -h localhost -U postgres -c "CREATE DATABASE medkart_shadow;" || true
+          npx prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --exit-code --shadow-database-url "$SHADOW_DATABASE_URL"
 
       - name: Run Prisma Migrations on Real DB
+        id: prisma-migrate
         run: npx prisma migrate deploy
-        env:
-          DATABASE_URL: "postgresql://postgres:postgrespassword@localhost:5432/medkart_test"
 
       - name: Seed Database with Sample Orders & Catalogue
+        id: seed-db
         run: npm run seed
-        env:
-          DATABASE_URL: "postgresql://postgres:postgrespassword@localhost:5432/medkart_test"
-          SESSION_SECRET: "ci-test-session-secret-must-be-at-least-32-chars-long"
-          PRESCRIPTION_ENC_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-          CRON_SECRET: "ci-test-cron-secret-12345"
-          OTP_MOCK: "true"
-          DEMO_MODE: "true"
 
       - name: Strict TypeScript Check
+        id: typecheck
         run: npm run typecheck
 
       - name: ESLint Check
+        id: lint
         run: npm run lint
 
       - name: Run Unit Tests
+        id: unit-tests
         run: npm test
 
       - name: Run Real PostgreSQL Trigger Integration Tests
+        id: db-tests
         run: npm run test:db
-        env:
-          DATABASE_URL: "postgresql://postgres:postgrespassword@localhost:5432/medkart_test"
 
       - name: Next.js Production Build
+        id: build
         run: npm run build
-        env:
-          DATABASE_URL: "postgresql://postgres:postgrespassword@localhost:5432/medkart_test"
-          SESSION_SECRET: "ci-test-session-secret-must-be-at-least-32-chars-long"
-          PRESCRIPTION_ENC_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-          CRON_SECRET: "ci-test-cron-secret-12345"
-          OTP_MOCK: "true"
-          DEMO_MODE: "true"
 
       - name: Cache Playwright Browsers
         uses: actions/cache@v4
@@ -108,24 +140,12 @@ jobs:
         run: npx playwright install-deps chromium
 
       - name: Non-Interactive Reset & Re-Seed Database Before Playwright
+        id: seed-reset
         run: npm run seed:reset -- --yes
-        env:
-          DATABASE_URL: "postgresql://postgres:postgrespassword@localhost:5432/medkart_test"
-          SESSION_SECRET: "ci-test-session-secret-must-be-at-least-32-chars-long"
-          PRESCRIPTION_ENC_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-          CRON_SECRET: "ci-test-cron-secret-12345"
-          OTP_MOCK: "true"
-          DEMO_MODE: "true"
 
-      - name: Run Playwright E2E Smoke Tests
+      - name: Run Playwright E2E Tests
+        id: playwright
         run: npx playwright test --project=chromium
-        env:
-          DATABASE_URL: "postgresql://postgres:postgrespassword@localhost:5432/medkart_test"
-          SESSION_SECRET: "ci-test-session-secret-must-be-at-least-32-chars-long"
-          PRESCRIPTION_ENC_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-          CRON_SECRET: "ci-test-cron-secret-12345"
-          OTP_MOCK: "true"
-          DEMO_MODE: "true"
 
       - name: Upload Playwright Report & Artifacts
         if: failure()
@@ -135,3 +155,19 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
+      - name: Record Step Failure Summary
+        if: failure()
+        run: |
+          echo "## ❌ CI Gate Failure Summary" >> $GITHUB_STEP_SUMMARY
+          echo "The build failed during execution. Failed step statuses:" >> $GITHUB_STEP_SUMMARY
+          echo "- Install: ${{ steps.install-deps.outcome }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Prisma Validate: ${{ steps.prisma-validate.outcome }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Schema Drift: ${{ steps.prisma-drift.outcome }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Prisma Migrate: ${{ steps.prisma-migrate.outcome }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Seed: ${{ steps.seed-db.outcome }}" >> $GITHUB_STEP_SUMMARY
+          echo "- TypeScript: ${{ steps.typecheck.outcome }}" >> $GITHUB_STEP_SUMMARY
+          echo "- ESLint: ${{ steps.lint.outcome }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Unit Tests: ${{ steps.unit-tests.outcome }}" >> $GITHUB_STEP_SUMMARY
+          echo "- DB Tests: ${{ steps.db-tests.outcome }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Build: ${{ steps.build.outcome }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Playwright: ${{ steps.playwright.outcome }}" >> $GITHUB_STEP_SUMMARY
