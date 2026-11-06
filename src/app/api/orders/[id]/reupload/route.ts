@@ -138,9 +138,9 @@ export async function POST(
           if (!routeResult.isFullCoverage) {
             routingIssue = 'Partial stock at nearest store; requires multi-store split or warehouse dispatch';
           }
-        } catch (err: unknown) {
+        } catch {
           recomputedStoreId = null;
-          routingIssue = err instanceof Error ? err.message : 'No stocked store found within delivery range';
+          routingIssue = 'No stocked store found within delivery range';
         }
       } else {
         recomputedStoreId = null;

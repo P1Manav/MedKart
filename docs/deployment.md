@@ -122,6 +122,7 @@ Every component of MedKart runs end-to-end on verified free tiers:
 | `UPI_PAYEE_VPA` | No | Direct UPI payee VPA (Path B). When omitted, Path B is completely hidden. |
 | `UPI_PAYEE_NAME` | No | Direct UPI payee business name (default: "MedKart Pharmacy") |
 | `UPI_MAX_AMOUNT_INR` | No | Maximum permitted amount for direct UPI demo (default: 100) |
+| `PLAYWRIGHT_TEST_BASE_URL` | No | Optional base URL override for Playwright end-to-end tests |
 
 ---
 

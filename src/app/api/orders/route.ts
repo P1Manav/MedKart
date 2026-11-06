@@ -230,16 +230,7 @@ export async function POST(req: Request) {
 
     const parsedInput = CreateOrderInputSchema.safeParse(rawInput);
     if (!parsedInput.success) {
-      const fieldErrors: Record<string, string[]> = {};
-      parsedInput.error.issues.forEach((issue) => {
-        const path = issue.path.join('.') || 'root';
-        fieldErrors[path] = fieldErrors[path] || [];
-        fieldErrors[path].push(issue.message);
-      });
-      return NextResponse.json(
-        { error: parsedInput.error.issues[0]?.message || 'Validation failed on order submission', fieldErrors },
-        { status: 400 }
-      );
+      return handleApiError(parsedInput.error, 'orders/create');
     }
 
     const {
@@ -438,9 +429,9 @@ export async function POST(req: Request) {
           if (!routeResult.isFullCoverage) {
             routingIssue = 'Partial stock at nearest store; requires multi-store split or warehouse dispatch';
           }
-        } catch (err: unknown) {
+        } catch {
           provisionalStoreId = null;
-          routingIssue = err instanceof Error ? err.message : 'No stocked store found within delivery range';
+          routingIssue = 'No stocked store found within delivery range';
         }
       } else {
         provisionalStoreId = null;
