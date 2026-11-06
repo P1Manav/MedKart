@@ -57,7 +57,23 @@ export async function getSession(): Promise<SessionPayload | null> {
 export async function setSessionCookie(payload: SessionPayload): Promise<void> {
   const token = await createSessionToken(payload);
   const cookieStore = await cookies();
-  const isSecure = process.env.NODE_ENV === 'production';
+
+  let isSecure = process.env.NODE_ENV === 'production';
+  try {
+    const { headers } = await import('next/headers');
+    const headerStore = await headers();
+    const host = headerStore.get('host') || headerStore.get('x-forwarded-host') || '';
+    const proto = headerStore.get('x-forwarded-proto') || '';
+    if (host && !host.startsWith('localhost') && !host.startsWith('127.0.0.1')) {
+      isSecure = true;
+    }
+    if (proto === 'https') {
+      isSecure = true;
+    }
+  } catch {
+    // If headers() is unavailable outside request context, rely on isSecure
+  }
+
   cookieStore.set(SESSION_COOKIE_NAME, token, {
     httpOnly: true,
     secure: isSecure,
