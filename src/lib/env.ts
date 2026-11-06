@@ -69,7 +69,8 @@ export function validateEnv(env: Record<string, string | undefined> = process.en
     if (!env.SESSION_SECRET || env.SESSION_SECRET.trim().length < 32) {
       errors.push('SESSION_SECRET must be at least 32 characters in production');
     }
-    if (!env.PRESCRIPTION_ENC_KEY || !/^[0-9a-fA-F]{64}$/.test(env.PRESCRIPTION_ENC_KEY.trim())) {
+    const cleanEncKey = (env.PRESCRIPTION_ENC_KEY || '').trim().replace(/^["']|["']$/g, '');
+    if (!cleanEncKey || !/^[0-9a-fA-F]{64}$/.test(cleanEncKey)) {
       errors.push('PRESCRIPTION_ENC_KEY must be exactly 64 hex characters (32 bytes AES-256) in production');
     }
     if (!env.CRON_SECRET || env.CRON_SECRET.trim().length < 16) {

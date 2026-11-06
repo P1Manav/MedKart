@@ -44,6 +44,7 @@
   },
   "customer": {
     "homeTitle": "Prescription Medicines Reorder",
+    "reorderMedicines": "Reorder Medicines",
     "reorderButton": "Reorder My Monthly Medicines",
     "profileFor": "Ordering for:",
     "self": "Myself",

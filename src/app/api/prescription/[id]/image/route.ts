@@ -84,6 +84,7 @@ export async function GET(
       status: 200,
       headers: {
         'Content-Type': order.prescriptionMime || 'image/png',
+        'Content-Disposition': 'inline; filename="prescription.png"',
         'Cache-Control': 'private, no-cache, no-store, must-revalidate',
         'X-Content-Type-Options': 'nosniff',
       },

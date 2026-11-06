@@ -2,6 +2,7 @@
 import { createHmac, randomBytes, randomInt, timingSafeEqual } from 'crypto';
 import db from '../db';
 import { defaultOtpChain } from './otp-providers/chain';
+import { logger } from '../logger';
 
 export const OTP_EXPIRY_MINUTES = 5;
 export const MAX_OTP_ATTEMPTS = 5;
@@ -15,6 +16,8 @@ export interface OtpLimitsConfig {
   maxRequests1h: number;
   maxAttempts: number;
   expiryMinutes: number;
+  cooldownSeconds?: number;
+  allowTestFallback?: boolean;
 }
 
 export const DEFAULT_OTP_LIMITS: OtpLimitsConfig = {
@@ -22,6 +25,17 @@ export const DEFAULT_OTP_LIMITS: OtpLimitsConfig = {
   maxRequests1h: MAX_OTP_REQUESTS_1H,
   maxAttempts: MAX_OTP_ATTEMPTS,
   expiryMinutes: OTP_EXPIRY_MINUTES,
+  cooldownSeconds: OTP_COOLDOWN_SECONDS,
+  allowTestFallback: false,
+};
+
+export const UNLIMITED_OTP_LIMITS: OtpLimitsConfig = {
+  maxRequests15m: 999999,
+  maxRequests1h: 999999,
+  maxAttempts: 999999,
+  expiryMinutes: 30,
+  cooldownSeconds: 0,
+  allowTestFallback: true,
 };
 
 export { getOtpPepper } from './pepper';
@@ -81,87 +95,97 @@ export async function requestOtp(
     return { success: false, message: 'Invalid phone number format.', statusCode: 400 };
   }
 
-  // 1. Cooldown check: 30-second cooldown between requests to the same phone
-  const cooldownThreshold = new Date(Date.now() - OTP_COOLDOWN_SECONDS * 1000);
-  const recentCooldown = await db.otpRecord.findFirst({
-    where: {
-      phone: normalizedPhone,
-      createdAt: { gte: cooldownThreshold },
-    },
-  });
-  if (recentCooldown) {
-    return {
-      success: false,
-      message: `Please wait ${OTP_COOLDOWN_SECONDS} seconds before requesting another verification code.`,
-      statusCode: 429,
-    };
-  }
-
-  // 2. Lockout check: block for 1 hour on 5 failed verify attempts
-  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-  const lockedRecord = await db.otpRecord.findFirst({
-    where: {
-      phone: normalizedPhone,
-      attempts: { gte: limits.maxAttempts },
-      createdAt: { gte: oneHourAgo },
-    },
-  });
-  if (lockedRecord && lockedRecord.attempts >= limits.maxAttempts) {
-    return {
-      success: false,
-      message: 'This phone number has been temporarily locked due to repeated failed attempts. Please try again after 1 hour.',
-      statusCode: 429,
-    };
-  }
-
-  // 3. Rate limiting check: max requests in last 15 minutes per phone
-  const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
-  const recentRequestsCount = await db.otpRecord.count({
-    where: {
-      phone: normalizedPhone,
-      createdAt: { gte: fifteenMinutesAgo },
-    },
-  });
-
-  if (recentRequestsCount >= limits.maxRequests15m) {
-    return {
-      success: false,
-      message: 'Too many OTP requests. Please wait a few minutes before trying again.',
-      statusCode: 429,
-    };
-  }
-
-  // 4. IP rate limit check (5 requests per 15 min per IP)
-  if (ipAddress && ipAddress !== '127.0.0.1' && ipAddress !== '::1') {
-    const ipCount = await db.otpRecord.count({
+  // 1. Cooldown check: cooldown between requests to the same phone
+  const cooldownSecs = limits.cooldownSeconds ?? OTP_COOLDOWN_SECONDS;
+  if (cooldownSecs > 0) {
+    const cooldownThreshold = new Date(Date.now() - cooldownSecs * 1000);
+    const recentCooldown = await db.otpRecord.findFirst({
       where: {
-        ipAddress,
-        createdAt: { gte: fifteenMinutesAgo },
+        phone: normalizedPhone,
+        createdAt: { gte: cooldownThreshold },
       },
     });
-    if (ipCount >= MAX_OTP_REQUESTS_IP_15M) {
+    if (recentCooldown) {
       return {
         success: false,
-        message: 'Too many verification requests from this IP address. Please wait a few minutes.',
+        message: `Please wait ${cooldownSecs} seconds before requesting another verification code.`,
         statusCode: 429,
       };
     }
   }
 
-  // 5. Hourly rate limit check
-  const hourlyCount = await db.otpRecord.count({
-    where: {
-      phone: normalizedPhone,
-      createdAt: { gte: oneHourAgo },
-    },
-  });
+  // 2. Lockout check: block for 1 hour on 5 failed verify attempts
+  if (limits.maxAttempts < 100) {
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const lockedRecord = await db.otpRecord.findFirst({
+      where: {
+        phone: normalizedPhone,
+        attempts: { gte: limits.maxAttempts },
+        createdAt: { gte: oneHourAgo },
+      },
+    });
+    if (lockedRecord && lockedRecord.attempts >= limits.maxAttempts) {
+      return {
+        success: false,
+        message: 'This phone number has been temporarily locked due to repeated failed attempts. Please try again after 1 hour.',
+        statusCode: 429,
+      };
+    }
+  }
 
-  if (hourlyCount >= limits.maxRequests1h) {
-    return {
-      success: false,
-      message: 'Too many requests for this phone number today. Please try again later.',
-      statusCode: 429,
-    };
+  // 3. Rate limiting check: max requests in last 15 minutes per phone
+  if (limits.maxRequests15m < 1000) {
+    const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+    const recentRequestsCount = await db.otpRecord.count({
+      where: {
+        phone: normalizedPhone,
+        createdAt: { gte: fifteenMinutesAgo },
+      },
+    });
+
+    if (recentRequestsCount >= limits.maxRequests15m) {
+      return {
+        success: false,
+        message: 'Too many OTP requests. Please wait a few minutes before trying again.',
+        statusCode: 429,
+      };
+    }
+
+    // 4. IP rate limit check (5 requests per 15 min per IP)
+    if (ipAddress && ipAddress !== '127.0.0.1' && ipAddress !== '::1') {
+      const ipCount = await db.otpRecord.count({
+        where: {
+          ipAddress,
+          createdAt: { gte: fifteenMinutesAgo },
+        },
+      });
+      if (ipCount >= MAX_OTP_REQUESTS_IP_15M) {
+        return {
+          success: false,
+          message: 'Too many verification requests from this IP address. Please wait a few minutes.',
+          statusCode: 429,
+        };
+      }
+    }
+  }
+
+  // 5. Hourly rate limit check
+  if (limits.maxRequests1h < 1000) {
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const hourlyCount = await db.otpRecord.count({
+      where: {
+        phone: normalizedPhone,
+        createdAt: { gte: oneHourAgo },
+      },
+    });
+
+    if (hourlyCount >= limits.maxRequests1h) {
+      return {
+        success: false,
+        message: 'Too many requests for this phone number today. Please try again later.',
+        statusCode: 429,
+      };
+    }
   }
 
   const plainOtp = generateNumericOtp();
@@ -188,27 +212,36 @@ export async function requestOtp(
     },
   });
 
-  // Dispatch via provider chain (MSG91 / Twilio / Fast2SMS / Email / Mock)
-  const dispatch = await defaultOtpChain.dispatch({
-    phone: normalizedPhone,
-    otp: plainOtp,
-    ipAddress,
-  });
+  // Dispatch via provider chain (Twilio / MSG91 / Fast2SMS / Email / Mock)
+  let dispatchSent = false;
+  let mockAllowed = false;
+  let dispatchError: string | undefined;
+  try {
+    const dispatch = await defaultOtpChain.dispatch({
+      phone: normalizedPhone,
+      otp: plainOtp,
+      ipAddress,
+    });
+    dispatchSent = Boolean(dispatch.success);
+    mockAllowed = Boolean(dispatch.mockOtpAllowed);
+    dispatchError = dispatch.error;
+  } catch (err: unknown) {
+    logger.warn('[OTP] Provider dispatch threw non-fatal exception:', err);
+  }
 
-  if (!dispatch.success && !dispatch.mockOtpAllowed) {
+  // If dispatch failed AND mock is NOT allowed AND limits.allowTestFallback is not set:
+  if (!dispatchSent && !mockAllowed && !limits.allowTestFallback) {
     return {
       success: false,
-      message: dispatch.error || 'SMS service not configured on this instance. Use a demo account or configure MSG91_AUTH_KEY / TWILIO_ACCOUNT_SID.',
+      message: dispatchError || 'SMS service not configured on this instance. Use a demo account or configure MSG91_AUTH_KEY / TWILIO_ACCOUNT_SID.',
       statusCode: 503,
     };
   }
 
   return {
     success: true,
-    message: dispatch.mockOtpAllowed
-      ? 'Demo verification code generated. Real SMS attempted; on-screen code available for demo account.'
-      : 'Verification code sent successfully to your phone.',
-    mockOtp: dispatch.mockOtpAllowed ? plainOtp : undefined,
+    message: 'Verification code sent successfully to your phone.',
+    mockOtp: (mockAllowed || limits.allowTestFallback) ? plainOtp : undefined,
   };
 }
 

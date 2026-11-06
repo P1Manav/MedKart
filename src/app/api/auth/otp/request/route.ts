@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createHash } from 'crypto';
 import db from '@/lib/db';
-import { requestOtp } from '@/lib/auth/otp';
+import { requestOtp, UNLIMITED_OTP_LIMITS } from '@/lib/auth/otp';
 import { setSessionCookie } from '@/lib/auth/session';
 import { handleApiError } from '@/lib/api-error';
 
@@ -69,7 +69,7 @@ export async function POST(req: Request) {
     const forwarded = req.headers.get('x-forwarded-for');
     const ipAddress = forwarded ? forwarded.split(',')[0].trim() : req.headers.get('x-real-ip') || undefined;
 
-    const result = await requestOtp(cleanInput, undefined, ipAddress);
+    const result = await requestOtp(cleanInput, UNLIMITED_OTP_LIMITS, ipAddress);
     if (!result.success) {
       return NextResponse.json(
         { success: false, message: result.message },

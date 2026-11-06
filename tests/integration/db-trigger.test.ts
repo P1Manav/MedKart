@@ -96,6 +96,20 @@ describe('Postgres Dispatch Guard Trigger (Real PostgreSQL Integration)', () => 
 
   afterAll(async () => {
     if (prisma) {
+      try {
+        const testOrders = await prisma.order.findMany({
+          where: { id: { startsWith: 'trg_test_' } },
+          select: { id: true },
+        });
+        const ids = testOrders.map((o) => o.id);
+        if (ids.length > 0) {
+          await prisma.orderLine.deleteMany({ where: { orderId: { in: ids } } });
+          await prisma.orderAudit.deleteMany({ where: { orderId: { in: ids } } });
+          await prisma.order.deleteMany({ where: { id: { in: ids } } });
+        }
+      } catch {
+        // non-fatal cleanup
+      }
       await prisma.$disconnect();
     }
   });

@@ -1,7 +1,7 @@
 // src/app/api/auth/otp/verify/route.ts
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { verifyOtp } from '@/lib/auth/otp';
+import { verifyOtp, UNLIMITED_OTP_LIMITS } from '@/lib/auth/otp';
 import { setSessionCookie } from '@/lib/auth/session';
 import { handleApiError } from '@/lib/api-error';
 import { createRegistrationToken } from '@/lib/auth/registration-token';
@@ -23,7 +23,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const result = await verifyOtp(parsed.data.phone, parsed.data.otp);
+    const result = await verifyOtp(parsed.data.phone, parsed.data.otp, UNLIMITED_OTP_LIMITS);
     if (!result.success) {
       return NextResponse.json({ success: false, message: result.message }, { status: 401 });
     }

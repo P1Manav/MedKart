@@ -4,7 +4,7 @@ import type { OrderStatus } from '@prisma/client';
 import db from '@/lib/db';
 import { requireAuth } from '@/lib/auth/rbac';
 import { encryptPrescription } from '@/lib/crypto/encrypt';
-import { getPrescriptionReader } from '@/lib/ai';
+import { getPrescriptionReader, type ReadResult } from '@/lib/ai';
 import { matchPrescriptionLine, type CatalogueProduct } from '@/lib/ai/fuzzy-matcher';
 import { routeOrderToStore, type StoreStockItem, type OrderItemRequirement } from '@/domain/routing';
 import { handleApiError } from '@/lib/api-error';
@@ -151,6 +151,7 @@ export async function GET(req: Request) {
     if (session.role === 'PHARMACIST' || session.role === 'OPS') {
       const orders = await db.order.findMany({
         where: {
+          NOT: { id: { startsWith: 'trg_test_' } },
           ...(statusFilter ? { status: statusFilter } : {}),
           ...(storeFilter ? { storeId: storeFilter } : {}),
         },
@@ -174,6 +175,7 @@ export async function GET(req: Request) {
 
       const orders = await db.order.findMany({
         where: {
+          NOT: { id: { startsWith: 'trg_test_' } },
           OR: [
             { storeId: session.storeId },
             { storeId: null },
@@ -293,7 +295,7 @@ export async function POST(req: Request) {
         const item = cartItems.find((c) => c.productId === p.id);
         return sum + p.price * (item?.quantity || 1);
       }, 0);
-      const maxAmountInr = Number(process.env.UPI_MAX_AMOUNT_INR) || 100;
+      const maxAmountInr = Number(process.env.UPI_MAX_AMOUNT_INR) || 200;
       if (serverTotal > maxAmountInr) {
         // Amount exceeds UPI_MAX_AMOUNT_INR: fallback to sandbox payment per spec
         finalPaymentMethod = 'MOCK_UPI';
@@ -301,49 +303,67 @@ export async function POST(req: Request) {
     }
 
     const file = formData.get('prescription') as File | null;
-    if (!file || !(file instanceof File) || file.size === 0) {
+    const hasCartItems = cartItems.length > 0;
+    const hasScheduledMedicines = cartProducts.some((p) => p.schedule !== 'OTC');
+    const requiresPrescription = !hasCartItems || hasScheduledMedicines;
+
+    if (requiresPrescription && (!file || !(file instanceof File) || file.size === 0)) {
       return NextResponse.json(
         {
-          error: 'Prescription image is required.',
+          error: 'Prescription image is required for scheduled medicines.',
           fieldErrors: { prescription: ['Prescription image file is required'] },
         },
         { status: 400 }
       );
     }
 
-    const fileValidation = PrescriptionFileSchema.safeParse({ size: file.size, type: file.type });
-    if (!fileValidation.success) {
-      const msg = fileValidation.error.issues[0]?.message || 'Invalid prescription image';
-      return NextResponse.json(
-        {
-          error: msg,
-          fieldErrors: { prescription: [msg] },
-        },
-        { status: 400 }
-      );
+    let enc: { encrypted: Buffer; iv: Buffer; authTag: Buffer } | null = null;
+    let aiResult: ReadResult = {
+      success: true,
+      modelName: 'NONE',
+      latencyMs: 0,
+      manualEntryNeeded: false,
+    };
+
+    if (file && file instanceof File && file.size > 0) {
+      const fileValidation = PrescriptionFileSchema.safeParse({ size: file.size, type: file.type });
+      if (!fileValidation.success) {
+        const msg = fileValidation.error.issues[0]?.message || 'Invalid prescription image';
+        return NextResponse.json(
+          {
+            error: msg,
+            fieldErrors: { prescription: [msg] },
+          },
+          { status: 400 }
+        );
+      }
+
+      // Read bytes
+      const arrayBuffer = await file.arrayBuffer();
+      let imageBuffer: Buffer = Buffer.from(arrayBuffer);
+
+      // Magic bytes verification
+      const magicResult = validateMagicBytes(imageBuffer);
+      if (!magicResult.valid) {
+        return NextResponse.json(
+          {
+            error: magicResult.error || 'Invalid file format',
+            fieldErrors: { prescription: [magicResult.error || 'Invalid file format'] },
+          },
+          { status: 400 }
+        );
+      }
+
+      // Strip EXIF / GPS metadata before saving
+      imageBuffer = stripExifGps(imageBuffer);
+
+      // Encrypt prescription image with AES-256-GCM
+      enc = encryptPrescription(imageBuffer);
+
+      // Run AI pipeline via production-safe reader factory
+      const reader = getPrescriptionReader();
+      aiResult = await reader.read(imageBuffer, file.type || 'image/png');
     }
-
-    // Read bytes
-    const arrayBuffer = await file.arrayBuffer();
-    let imageBuffer: Buffer = Buffer.from(arrayBuffer);
-
-    // Magic bytes verification
-    const magicResult = validateMagicBytes(imageBuffer);
-    if (!magicResult.valid) {
-      return NextResponse.json(
-        {
-          error: magicResult.error || 'Invalid file format',
-          fieldErrors: { prescription: [magicResult.error || 'Invalid file format'] },
-        },
-        { status: 400 }
-      );
-    }
-
-    // Strip EXIF / GPS metadata before saving
-    imageBuffer = stripExifGps(imageBuffer);
-
-    // Encrypt prescription image with AES-256-GCM
-    const enc = encryptPrescription(imageBuffer);
 
     // Fetch active catalogue products for fuzzy matching
     const catalogueRaw = await db.product.findMany({ where: { active: true } });
@@ -356,10 +376,6 @@ export async function POST(req: Request) {
       schedule: p.schedule,
       packSize: p.packSize,
     }));
-
-    // Run AI pipeline via production-safe reader factory
-    const reader = getPrescriptionReader();
-    const aiResult = await reader.read(imageBuffer, file.type || 'image/png');
 
     // Generate unique display ID (RX-NNNNN)
     const count = await db.order.count();
@@ -444,6 +460,7 @@ export async function POST(req: Request) {
 
     const cartLinesToCreate = cartItems.map((c) => {
       const prod = cartProdMap.get(c.productId);
+      const isOtc = prod?.schedule === 'OTC';
       return {
         productId: c.productId,
         rawText: `Cart Selection: ${prod?.name || ''} ${prod?.strength || ''}`.trim(),
@@ -451,10 +468,10 @@ export async function POST(req: Request) {
         aiStrength: prod?.strength || null,
         aiConfidence: 1.0,
         aiAlternatives: {} as unknown as object,
-        lineStatus: 'PENDING' as const,
+        lineStatus: isOtc ? ('APPROVED' as const) : ('PENDING' as const),
         quantity: c.quantity || 1,
         unitPrice: prod?.price || null,
-        needsReview: prod?.schedule !== 'OTC',
+        needsReview: !isOtc,
         rejectReason: null,
       };
     });
@@ -479,6 +496,10 @@ export async function POST(req: Request) {
     }));
 
     const allLinesToCreate = cartLinesToCreate.length > 0 ? cartLinesToCreate : aiLinesToCreate;
+    const allLinesPreApproved = allLinesToCreate.length > 0 && allLinesToCreate.every((l) => l.lineStatus === 'APPROVED');
+    const initialStatus: OrderStatus = finalPaymentMethod === 'DIRECT_UPI'
+      ? 'PAYMENT_PENDING_VERIFICATION'
+      : 'SUBMITTED';
 
     // Create Order and Lines in DB
     const order = await db.order.create({
@@ -488,21 +509,23 @@ export async function POST(req: Request) {
         familyProfileId,
         storeId: provisionalStoreId,
         routingIssue,
-        status: finalPaymentMethod === 'DIRECT_UPI' ? 'PAYMENT_PENDING_VERIFICATION' : 'SUBMITTED',
+        status: initialStatus,
         addressText,
         addressLat,
         addressLng,
         paymentMethod: finalPaymentMethod,
         directUpiConsent: parsedInput.data.directUpiConsent,
-        prescriptionEncrypted: new Uint8Array(enc.encrypted),
-        prescriptionIv: new Uint8Array(enc.iv),
-        prescriptionAuthTag: new Uint8Array(enc.authTag),
-        prescriptionMime: file.type || 'image/png',
-        prescriptionStatus: 'PENDING',
-        prescriptionValidUntil: validUntil,
-        aiImageLegibility: aiResult.data?.image_legibility
-          ? (aiResult.data.image_legibility.toUpperCase() as 'CLEAR' | 'PARTIAL' | 'UNREADABLE')
-          : 'UNREADABLE',
+        prescriptionEncrypted: enc ? new Uint8Array(enc.encrypted) : null,
+        prescriptionIv: enc ? new Uint8Array(enc.iv) : null,
+        prescriptionAuthTag: enc ? new Uint8Array(enc.authTag) : null,
+        prescriptionMime: file ? (file.type || 'image/png') : null,
+        prescriptionStatus: file ? 'PENDING' : null,
+        prescriptionValidUntil: file ? validUntil : null,
+        aiImageLegibility: file
+          ? (aiResult.data?.image_legibility
+              ? (aiResult.data.image_legibility.toUpperCase() as 'CLEAR' | 'PARTIAL' | 'UNREADABLE')
+              : 'UNREADABLE')
+          : 'CLEAR',
         aiPrescriberText: aiResult.data?.prescriber_text,
         aiDateText: aiResult.data?.date_text,
         aiModelName: aiResult.modelName,
@@ -516,9 +539,11 @@ export async function POST(req: Request) {
             actorId: session.userId,
             actorRole: session.role,
             fromStatus: 'DRAFT',
-            toStatus: finalPaymentMethod === 'DIRECT_UPI' ? 'PAYMENT_PENDING_VERIFICATION' : 'SUBMITTED',
+            toStatus: initialStatus,
             reason: finalPaymentMethod === 'DIRECT_UPI'
               ? 'Order placed with Direct UPI transfer awaiting staff verification of transaction reference'
+              : allLinesPreApproved
+              ? 'Order placed by customer from catalogue (Pre-approved OTC items)'
               : 'Order placed by customer with prescription upload',
           },
         },

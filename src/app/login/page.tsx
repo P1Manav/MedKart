@@ -13,7 +13,7 @@ export default function LoginPage() {
   const t = useTranslations('auth');
   const tCommon = useTranslations('common');
   const router = useRouter();
-  const { setSessionUser, quickLogin } = useSession();
+  const { setSessionUser, quickLogin, refresh } = useSession();
 
   const [phone, setPhone] = useState('');
   const [step, setStep] = useState<'PHONE' | 'REGISTER' | 'OTP'>('PHONE');
@@ -43,18 +43,22 @@ export default function LoginPage() {
     setLoading(true);
 
     const raw = phoneToUse !== undefined ? phoneToUse : phone;
-    const targetPhone = (raw || '').trim().replace(/\D/g, '');
-    const cleanPhone = targetPhone.length === 12 && targetPhone.startsWith('91')
-      ? targetPhone.slice(2)
-      : targetPhone;
+    const digitsOnly = (raw || '').trim().replace(/\D/g, '');
+    let cleanPhone = digitsOnly;
+    if (digitsOnly.length === 12 && digitsOnly.startsWith('91')) {
+      cleanPhone = digitsOnly.slice(2);
+    }
 
-    if (cleanPhone.length !== 10 && targetPhone.length !== 20) {
-      setError('Please enter a valid 10-digit Indian mobile number.');
+    // Support: 10-digit Indian numbers, 11-digit US/international numbers (e.g. Twilio test phone), and 20-char founder keys
+    const isValidPhone = cleanPhone.length === 10 || cleanPhone.length === 11 || digitsOnly.length === 20;
+
+    if (!isValidPhone) {
+      setError('Please enter a valid mobile number (10-digit Indian mobile or 11-digit US mobile).');
       setLoading(false);
       return;
     }
 
-    const payloadPhone = targetPhone.length === 20 ? targetPhone : cleanPhone;
+    const payloadPhone = digitsOnly.length === 20 ? digitsOnly : cleanPhone;
     if (phoneToUse && phoneToUse !== phone) {
       setPhone(payloadPhone);
     }
@@ -128,8 +132,9 @@ export default function LoginPage() {
       }
 
       if (data.user) {
-        setSessionUser(data.user);
+        await setSessionUser(data.user);
       }
+      await refresh();
 
       router.push('/customer/home');
       router.refresh();
@@ -169,8 +174,9 @@ export default function LoginPage() {
 
       // Instantly update header profile state
       if (data.user) {
-        setSessionUser(data.user);
+        await setSessionUser(data.user);
       }
+      await refresh();
 
       // Route based on role
       if (data.user.role === 'PHARMACIST') {
@@ -416,7 +422,7 @@ export default function LoginPage() {
                     onClick={() => setStep('PHONE')}
                     className="text-xs text-[#B69D0C] hover:underline font-semibold cursor-pointer"
                   >
-                    Change phone (+91 {phone})
+                    Change phone ({phone.startsWith('1') && phone.length === 11 ? `+${phone}` : `+91 ${phone}`})
                   </button>
                 </div>
                 <input

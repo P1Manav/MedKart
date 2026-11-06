@@ -102,6 +102,9 @@ export default function PharmacistReviewPage({
   const [upiUtrInput, setUpiUtrInput] = useState('');
   const [confirmingUpi, setConfirmingUpi] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [imageLoading, setImageLoading] = useState(false);
+  const [imageErrorMsg, setImageErrorMsg] = useState<string | null>(null);
 
   // H1 register inputs
   const [h1Inputs, setH1Inputs] = useState<
@@ -155,6 +158,48 @@ export default function PharmacistReviewPage({
     loadOrder();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  useEffect(() => {
+    if (!order?.id) return;
+    if (!order.prescriptionStatus || order.prescriptionStatus === 'NOT_REQUIRED') {
+      setImageUrl(null);
+      setImageLoading(false);
+      return;
+    }
+
+    let isMounted = true;
+    let objectUrlToRevoke: string | null = null;
+    setImageLoading(true);
+    setImageError(false);
+    setImageErrorMsg(null);
+
+    fetch(`/api/prescription/${order.id}/image`)
+      .then(async (res) => {
+        if (!isMounted) return;
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || `HTTP ${res.status}`);
+        }
+        const blob = await res.blob();
+        if (!isMounted) return;
+        const url = URL.createObjectURL(blob);
+        objectUrlToRevoke = url;
+        setImageUrl(url);
+      })
+      .catch((err) => {
+        if (!isMounted) return;
+        setImageError(true);
+        setImageErrorMsg(err.message || 'Failed to load prescription');
+      })
+      .finally(() => {
+        if (isMounted) setImageLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+      if (objectUrlToRevoke) URL.revokeObjectURL(objectUrlToRevoke);
+    };
+  }, [order?.id, order?.prescriptionStatus]);
 
   const executeAction = async (payload: object) => {
     setError(null);
@@ -591,10 +636,32 @@ export default function PharmacistReviewPage({
               </div>
             </CardHeader>
             <CardContent className="p-2 flex-1 bg-stone-900/95 rounded-b-lg overflow-auto flex items-center justify-center min-h-[500px] relative">
-              {imageError ? (
+              {!order.prescriptionStatus || order.prescriptionStatus === 'NOT_REQUIRED' ? (
+                <div className="p-6 text-center text-stone-200 space-y-3">
+                  <div className="w-12 h-12 rounded-full bg-emerald-900/60 text-emerald-400 mx-auto flex items-center justify-center font-bold text-xl border border-emerald-500/30">
+                    ✓
+                  </div>
+                  <p className="text-sm font-bold text-emerald-300">
+                    No Prescription Required
+                  </p>
+                  <p className="text-xs text-stone-400 max-w-sm">
+                    This order contains exclusively Over-the-Counter (OTC) medicines. No doctor&apos;s prescription is required for dispensing.
+                  </p>
+                </div>
+              ) : imageLoading ? (
+                <div className="p-6 text-center text-stone-200 space-y-3">
+                  <div className="w-10 h-10 border-2 border-[#B69D0C] border-t-transparent rounded-full animate-spin mx-auto"></div>
+                  <p className="text-sm font-semibold text-[#fcf8db]">
+                    Decrypting AES-256 prescription image...
+                  </p>
+                  <p className="text-xs text-stone-400">
+                    Verifying GCM auth tag and decrypting on-the-fly
+                  </p>
+                </div>
+              ) : imageError ? (
                 <div className="p-6 text-center text-stone-200 space-y-3">
                   <p className="text-sm font-semibold text-amber-300">
-                    Unable to render inline prescription image.
+                    {imageErrorMsg || 'Unable to render inline prescription image.'}
                   </p>
                   <p className="text-xs text-stone-400">
                     Click below to open the AES-256 decrypted image in full view:
@@ -608,7 +675,7 @@ export default function PharmacistReviewPage({
                     Open Decrypted Image in New Tab ↗
                   </a>
                 </div>
-              ) : (
+              ) : imageUrl ? (
                 <div
                   style={{
                     transform: `scale(${zoom}) rotate(${rotation}deg)`,
@@ -618,11 +685,14 @@ export default function PharmacistReviewPage({
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={`/api/prescription/${order.id}/image`}
+                    src={imageUrl}
                     alt="Prescription Scan"
-                    onError={() => setImageError(true)}
                     className="max-w-full max-h-[600px] object-contain shadow-2xl rounded"
                   />
+                </div>
+              ) : (
+                <div className="p-6 text-center text-stone-400 text-xs">
+                  No image available
                 </div>
               )}
             </CardContent>

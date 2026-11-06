@@ -68,9 +68,9 @@ const fetcher = async (url: string) => {
 export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const router = useRouter();
   const { data, error, mutate, isLoading } = useSWR('/api/auth/me', fetcher, {
-    revalidateOnFocus: false,
-    revalidateOnReconnect: false,
-    dedupingInterval: 60000,
+    revalidateOnFocus: true,
+    revalidateOnMount: true,
+    dedupingInterval: 2000,
     shouldRetryOnError: false,
   });
 
@@ -85,8 +85,12 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [mutate]);
 
   const setSessionUser = useCallback(
-    (newUser: UserSession) => {
-      mutate({ authenticated: true, user: newUser, demoMode: true }, false);
+    async (newUser: UserSession | Record<string, unknown>) => {
+      const normalizedUser = {
+        ...newUser,
+        userId: (newUser.userId || (newUser as { id?: string }).id || '') as string,
+      } as UserSession;
+      await mutate({ authenticated: true, user: normalizedUser, demoMode: true }, true);
     },
     [mutate]
   );
@@ -114,7 +118,11 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
         if (demoRes.ok && demoData.success && demoData.user) {
           // Instantly update in-memory session cache so header and profile render in 0ms
-          mutate({ authenticated: true, user: demoData.user, demoMode: true }, false);
+          const normalized = {
+            ...demoData.user,
+            userId: demoData.user.userId || demoData.user.id,
+          };
+          await mutate({ authenticated: true, user: normalized, demoMode: true }, true);
 
           if (demoData.user.role === 'PHARMACIST') {
             router.push('/pharmacist/queue');
@@ -145,7 +153,11 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         const verData = await verRes.json();
 
         if (verData.success && verData.user) {
-          mutate({ authenticated: true, user: verData.user, demoMode: true }, false);
+          const normalized = {
+            ...verData.user,
+            userId: verData.user.userId || verData.user.id,
+          };
+          await mutate({ authenticated: true, user: normalized, demoMode: true }, true);
           if (verData.user.role === 'PHARMACIST') {
             router.push('/pharmacist/queue');
           } else if (verData.user.role === 'STORE_STAFF') {

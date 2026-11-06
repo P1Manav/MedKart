@@ -10,7 +10,8 @@ function getEncryptionKey(): Buffer {
   if (!hexKey) {
     throw new Error('PRESCRIPTION_ENC_KEY is not configured. A 64-character hex key (32 bytes AES-256) is required.');
   }
-  const key = Buffer.from(hexKey, 'hex');
+  const cleanKey = hexKey.trim().replace(/^["']|["']$/g, '');
+  const key = Buffer.from(cleanKey, 'hex');
   if (key.length !== 32) {
     throw new Error('PRESCRIPTION_ENC_KEY must be a 64-character hex string (32 bytes for AES-256)');
   }

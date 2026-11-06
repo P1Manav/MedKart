@@ -279,8 +279,12 @@ export default function OrderBuilderPage() {
   };
 
   const executeSubmission = async (overridePayment?: 'MOCK_UPI' | 'COD' | 'DIRECT_UPI') => {
-    if (!file) {
-      setError('Please attach or take a photo of your prescription.');
+    const hasCartItems = cart.length > 0;
+    const hasScheduledMedicines = hasCartItems && cart.some((i) => i.product.schedule !== 'OTC');
+    const requiresPrescription = !hasCartItems || hasScheduledMedicines;
+
+    if (requiresPrescription && !file) {
+      setError('Prescription required: Please upload or select a sample prescription for scheduled medicines.');
       return;
     }
 
@@ -290,7 +294,9 @@ export default function OrderBuilderPage() {
     try {
       const finalPayment = overridePayment || paymentMethod;
       const formData = new FormData();
-      formData.append('prescription', file);
+      if (file) {
+        formData.append('prescription', file);
+      }
       formData.append('familyProfileId', familyProfile === 'self' ? '' : familyProfile);
       formData.append('addressText', address);
       formData.append('addressLat', '22.5875');
@@ -366,8 +372,12 @@ export default function OrderBuilderPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!file) {
-      setError('Please attach or take a photo of your prescription.');
+    const hasCartItems = cart.length > 0;
+    const hasScheduledMedicines = hasCartItems && cart.some((i) => i.product.schedule !== 'OTC');
+    const requiresPrescription = !hasCartItems || hasScheduledMedicines;
+
+    if (requiresPrescription && !file) {
+      setError('Prescription required: Please upload or select a sample prescription for scheduled medicines in your basket.');
       return;
     }
 
@@ -584,8 +594,34 @@ export default function OrderBuilderPage() {
 
                   <div className="pt-2 border-t border-stone-200 flex justify-between items-center text-sm font-bold">
                     <span>Estimated Total:</span>
-                    <span className="text-teal-900 text-base">₹{cartTotal.toFixed(2)}</span>
+                    <span className="text-[#190042] text-base">₹{cartTotal.toFixed(2)}</span>
                   </div>
+
+                  {cart.some((i) => i.product.schedule !== 'OTC') ? (
+                    <div className="p-3 bg-[#fcf8db] border border-[#B69D0C]/40 rounded-md text-xs space-y-2">
+                      <div className="flex items-center gap-1.5 font-bold text-[#7b6905]">
+                        <span>⚠️ Schedule H items in basket require a prescription.</span>
+                      </div>
+                      {file ? (
+                        <p className="text-[#190042] font-semibold">✓ Prescription Attached: {file.name}</p>
+                      ) : (
+                        <div className="flex items-center gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => handleUseSampleRx('/samples/sample_rx_metformin.png')}
+                            className="bg-[#190042] text-white px-2.5 py-1 rounded text-xs font-bold hover:bg-[#2a086b] cursor-pointer"
+                          >
+                            Attach Sample Prescription ⚡
+                          </button>
+                          <span className="text-stone-500 text-[11px]">or switch to Upload tab</span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="p-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-md text-xs font-semibold">
+                      ✓ All items in basket are Over-The-Counter (OTC). No prescription required!
+                    </div>
+                  )}
 
                   <p className="text-[11px] text-stone-500">
                     * Final billed total will be confirmed upon pharmacist verification of your prescription.
@@ -978,7 +1014,7 @@ export default function OrderBuilderPage() {
           variant="gold"
           data-testid="submit-order-btn"
           isLoading={loading}
-          disabled={!file}
+          disabled={cart.length === 0 && !file}
           size="lg"
           className="w-full text-lg font-black shadow-md border border-[#9c8609]"
         >

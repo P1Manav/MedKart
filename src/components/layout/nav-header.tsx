@@ -92,6 +92,16 @@ export const NavHeader: React.FC = () => {
               বাংলা
             </button>
           </div>
+
+          {user && (
+            <Link
+              href={user.role === 'CUSTOMER' ? '/customer/profile' : user.role === 'PHARMACIST' ? '/pharmacist/queue' : user.role === 'STORE_STAFF' ? '/store/orders' : '/ops/dashboard'}
+              className="text-xs font-semibold text-[#fcf8db] hover:text-[#B69D0C] flex items-center gap-1 bg-[#190042] px-2 py-0.5 rounded border border-[#B69D0C]/40 hover:border-[#B69D0C] transition"
+            >
+              <span>👤</span>
+              <span className="max-w-[120px] truncate">{user.name || 'Profile'}</span>
+            </Link>
+          )}
         </div>
       </div>
 
@@ -155,7 +165,7 @@ export const NavHeader: React.FC = () => {
             <div className="w-24 h-8 bg-[#2d1066] animate-pulse rounded" />
           ) : user ? (
             <div className="flex items-center gap-3">
-              <div className="text-right hidden sm:block">
+              <div className="text-right block">
                 {user.role === 'CUSTOMER' ? (
                   <Link href="/customer/profile" className="text-sm font-bold text-white hover:text-[#B69D0C] transition-colors block">
                     {user.name}

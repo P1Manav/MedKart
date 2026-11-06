@@ -10,7 +10,7 @@ export interface UpiPaymentConfig {
 export function getUpiConfig(): UpiPaymentConfig {
   const payeeVpa = process.env.UPI_PAYEE_VPA?.trim() || null;
   const payeeName = process.env.UPI_PAYEE_NAME?.trim() || 'MedKart Demo';
-  const maxAmountInr = Number(process.env.UPI_MAX_AMOUNT_INR) || 100;
+  const maxAmountInr = Number(process.env.UPI_MAX_AMOUNT_INR) || 200;
 
   return {
     enabled: Boolean(payeeVpa && payeeVpa.length > 0),

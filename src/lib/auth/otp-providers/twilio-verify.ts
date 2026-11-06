@@ -27,8 +27,17 @@ export class TwilioVerifyProvider implements OtpProvider {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 8000);
 
-      const digits = params.phone.replace(/\D/g, '').slice(-10);
-      const e164 = params.phone.startsWith('+') ? params.phone : `+91${digits}`;
+      let e164 = params.phone.trim();
+      if (!e164.startsWith('+')) {
+        const rawDigits = e164.replace(/\D/g, '');
+        if (rawDigits.length === 11 && rawDigits.startsWith('1')) {
+          e164 = `+${rawDigits}`;
+        } else if (rawDigits.length === 12 && rawDigits.startsWith('91')) {
+          e164 = `+${rawDigits}`;
+        } else {
+          e164 = `+91${rawDigits.slice(-10)}`;
+        }
+      }
 
       // Case 1: Standard Twilio Programmable Messages API (via MessagingServiceSid MG... or From phone number)
       if (phoneFrom || (serviceSid && serviceSid.startsWith('MG'))) {

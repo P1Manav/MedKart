@@ -1,7 +1,7 @@
 // src/app/customer/order/[id]/page.tsx
 'use client';
 
-import React, { useState, use } from 'react';
+import React, { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import useSWR from 'swr';
 import { useRouter } from 'next/navigation';
@@ -72,6 +72,46 @@ export default function OrderTrackingPage({
   const order: OrderDetail | null = orderData?.order || null;
   const loading = swrLoading && !orderData;
   const [error, setError] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [imageLoading, setImageLoading] = useState(false);
+  const [imageError, setImageError] = useState(false);
+
+  useEffect(() => {
+    if (!order?.id) return;
+    if (!order.prescriptionStatus || order.prescriptionStatus === 'NOT_REQUIRED') {
+      setImageUrl(null);
+      setImageLoading(false);
+      return;
+    }
+
+    let isMounted = true;
+    let objectUrlToRevoke: string | null = null;
+    setImageLoading(true);
+    setImageError(false);
+
+    fetch(`/api/prescription/${order.id}/image`)
+      .then(async (res) => {
+        if (!isMounted) return;
+        if (!res.ok) throw new Error('Image not accessible');
+        const blob = await res.blob();
+        if (!isMounted) return;
+        const url = URL.createObjectURL(blob);
+        objectUrlToRevoke = url;
+        setImageUrl(url);
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        setImageError(true);
+      })
+      .finally(() => {
+        if (isMounted) setImageLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+      if (objectUrlToRevoke) URL.revokeObjectURL(objectUrlToRevoke);
+    };
+  }, [order?.id, order?.prescriptionStatus]);
 
   // Re-upload form state when ON_HOLD
   const [reuploadFile, setReuploadFile] = useState<File | null>(null);
@@ -334,26 +374,54 @@ export default function OrderTrackingPage({
       <Card className="border-[#e3ddef] shadow-xs">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-base font-black text-[#190042]">
-            Uploaded Prescription
+            {order.prescriptionStatus && order.prescriptionStatus !== 'NOT_REQUIRED'
+              ? 'Uploaded Prescription'
+              : 'Prescription Status'}
           </CardTitle>
-          <a
-            href={`/api/prescription/${order.id}/image`}
-            target="_blank"
-            rel="noreferrer"
-            className="text-xs text-[#B69D0C] hover:underline font-bold"
-          >
-            Open Full Image ↗
-          </a>
+          {order.prescriptionStatus && order.prescriptionStatus !== 'NOT_REQUIRED' && (
+            <a
+              href={`/api/prescription/${order.id}/image`}
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs text-[#B69D0C] hover:underline font-bold"
+            >
+              Open Full Image ↗
+            </a>
+          )}
         </CardHeader>
         <CardContent>
-          <div className="bg-[#10002b] rounded-lg p-3 text-center flex items-center justify-center max-h-80 overflow-hidden border border-[#B69D0C]/30">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={`/api/prescription/${order.id}/image`}
-              alt="Prescription scan"
-              className="max-h-72 object-contain rounded"
-            />
-          </div>
+          {!order.prescriptionStatus || order.prescriptionStatus === 'NOT_REQUIRED' ? (
+            <div className="bg-[#f3effa] rounded-lg p-4 text-xs text-[#190042] flex items-center gap-2 border border-[#190042]/10">
+              <span className="text-emerald-600 font-bold text-base">✓</span>
+              <span>Over-the-Counter medicines only — no doctor&apos;s prescription required for this order.</span>
+            </div>
+          ) : imageLoading ? (
+            <div className="bg-[#10002b] rounded-lg p-6 text-center text-[#fcf8db] border border-[#B69D0C]/30 space-y-2">
+              <div className="w-8 h-8 border-2 border-[#B69D0C] border-t-transparent rounded-full animate-spin mx-auto"></div>
+              <p className="text-xs font-semibold">Decrypting prescription scan...</p>
+            </div>
+          ) : imageError ? (
+            <div className="bg-[#10002b] rounded-lg p-4 text-center text-xs text-amber-300 border border-[#B69D0C]/30 space-y-2">
+              <p>Prescription image is securely stored with AES-256 encryption.</p>
+              <a
+                href={`/api/prescription/${order.id}/image`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-block px-3 py-1.5 bg-[#190042] text-[#fcf8db] text-xs font-bold rounded border border-[#B69D0C]/40 hover:underline"
+              >
+                View Decrypted Prescription ↗
+              </a>
+            </div>
+          ) : imageUrl ? (
+            <div className="bg-[#10002b] rounded-lg p-3 text-center flex items-center justify-center max-h-80 overflow-hidden border border-[#B69D0C]/30">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={imageUrl}
+                alt="Prescription scan"
+                className="max-h-72 object-contain rounded shadow-lg"
+              />
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
