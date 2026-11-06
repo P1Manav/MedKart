@@ -281,6 +281,7 @@ export default function OrderBuilderPage() {
       formData.append('addressLat', '22.5875');
       formData.append('addressLng', '88.4190');
       formData.append('paymentMethod', finalPayment);
+      formData.append('directUpiConsent', upiConsent ? 'true' : 'false');
 
       if (cart.length > 0) {
         formData.append(
@@ -922,7 +923,7 @@ export default function OrderBuilderPage() {
                           className="mt-0.5 rounded text-teal-600 focus:ring-teal-500"
                         />
                         <span>
-                          Voluntary Demo Consent: I understand this is a demo environment and I am voluntarily transferring money to support test order verification.
+                          Voluntary Demo Consent: I understand this is a demo project, no medicines will be delivered, and this is a voluntary test payment to the developer.
                         </span>
                       </label>
                     </div>

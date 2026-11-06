@@ -6,7 +6,7 @@ import { requireAuth } from '@/lib/auth/rbac';
 
 const ConfirmManualSchema = z.object({
   orderId: z.string().min(1, 'Order ID is required'),
-  utrReference: z.string().min(4, 'Transaction Reference / UTR must be at least 4 characters').max(50),
+  utrReference: z.string().trim().regex(/^\d{12}$/, 'Transaction Reference / UTR must be exactly 12 numeric digits'),
 });
 
 export async function POST(req: Request) {
@@ -32,11 +32,30 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, message: 'Order not found' }, { status: 404 });
     }
 
+    if (order.status === 'REJECTED') {
+      return NextResponse.json(
+        { success: false, message: 'Cannot confirm payment for a rejected order.' },
+        { status: 400 }
+      );
+    }
+
     if (order.paymentMethod !== 'DIRECT_UPI') {
       return NextResponse.json(
         { success: false, message: `Order payment method is ${order.paymentMethod}, not DIRECT_UPI.` },
         { status: 400 }
       );
+    }
+
+    // Check if this UTR is already associated with another order or a rejected order
+    const existingWithUtr = await db.order.findUnique({
+      where: { utr: utrReference },
+    });
+
+    if (existingWithUtr && existingWithUtr.id !== order.id) {
+      const msg = existingWithUtr.status === 'REJECTED'
+        ? 'This 12-digit UTR was used on a rejected order and cannot be reused.'
+        : `This 12-digit UTR has already been confirmed for Order #${existingWithUtr.displayId} and cannot be reused.`;
+      return NextResponse.json({ success: false, message: msg }, { status: 400 });
     }
 
     // Check if already confirmed
@@ -62,12 +81,13 @@ export async function POST(req: Request) {
 
     // Record real audit log confirming manual payment verification and update status
     await db.$transaction(async (tx) => {
-      if (nextStatus !== order.status) {
-        await tx.order.update({
-          where: { id: order.id },
-          data: { status: nextStatus },
-        });
-      }
+      await tx.order.update({
+        where: { id: order.id },
+        data: {
+          status: nextStatus,
+          utr: utrReference,
+        },
+      });
 
       await tx.orderAudit.create({
         data: {

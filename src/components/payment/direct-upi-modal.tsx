@@ -5,6 +5,7 @@ import React, { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { buildUpiUri } from '@/lib/payments/upi-config';
 
 interface DirectUpiModalProps {
   isOpen: boolean;
@@ -31,6 +32,7 @@ export const DirectUpiModal: React.FC<DirectUpiModalProps> = ({
   const [payeeVpa, setPayeeVpa] = useState<string>(initialPayeeVpa || '');
   const [payeeName, setPayeeName] = useState<string>(initialPayeeName || 'MedKart Demo');
   const [utrInput, setUtrInput] = useState('');
+  const [utrError, setUtrError] = useState<string | null>(null);
   const [submittingUtr, setSubmittingUtr] = useState(false);
   const [utrSubmitted, setUtrSubmitted] = useState(false);
 
@@ -51,9 +53,15 @@ export const DirectUpiModal: React.FC<DirectUpiModalProps> = ({
     }
   }, [initialPayeeVpa]);
 
-  // Standard NPCI UPI URI
+  // Standard NPCI UPI URI with orderId (tr) and displayId (tn)
   const upiUri = payeeVpa
-    ? `upi://pay?pa=${encodeURIComponent(payeeVpa)}&pn=${encodeURIComponent(payeeName)}&am=${amount.toFixed(2)}&cu=INR&tn=Order%20${encodeURIComponent(displayId)}`
+    ? buildUpiUri({
+        payeeVpa,
+        payeeName,
+        amount,
+        orderId,
+        displayId,
+      })
     : '';
 
   useEffect(() => {
@@ -82,22 +90,39 @@ export const DirectUpiModal: React.FC<DirectUpiModalProps> = ({
   };
 
   const handleFinish = async () => {
-    if (utrInput.trim().length >= 4 && !utrSubmitted) {
+    setUtrError(null);
+    const cleanUtr = utrInput.trim();
+    if (cleanUtr.length > 0 && !/^\d{12}$/.test(cleanUtr)) {
+      setUtrError('UTR must be exactly 12 numeric digits.');
+      return;
+    }
+
+    if (/^\d{12}$/.test(cleanUtr) && !utrSubmitted) {
       setSubmittingUtr(true);
       try {
-        await fetch('/api/payments/submit-utr', {
+        const res = await fetch('/api/payments/submit-utr', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             orderId,
-            utrReference: utrInput.trim(),
+            utrReference: cleanUtr,
           }),
-        }).catch(() => null);
-      } finally {
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+          setUtrError(data?.error || 'Failed to record UTR.');
+          setSubmittingUtr(false);
+          return;
+        }
+      } catch {
+        setUtrError('Network error submitting UTR.');
         setSubmittingUtr(false);
-        setUtrSubmitted(true);
+        return;
       }
+      setSubmittingUtr(false);
+      setUtrSubmitted(true);
     }
+
     onClose();
     router.push(`/customer/order/${orderId}`);
   };
@@ -192,6 +217,9 @@ export const DirectUpiModal: React.FC<DirectUpiModalProps> = ({
             <span className="text-[10px] text-stone-500 block">
               Enter the 12-digit UPI reference ID from your banking app so store staff can immediately match it.
             </span>
+            {utrError && (
+              <p className="text-xs text-red-600 dark:text-red-400 font-medium">{utrError}</p>
+            )}
           </div>
 
           {/* Honest Operational Notice */}

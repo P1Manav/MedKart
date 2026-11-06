@@ -6,10 +6,28 @@ vi.mock('@/lib/auth/session', () => ({
   getSession: vi.fn().mockResolvedValue({ userId: 'u_test', role: 'CUSTOMER' }),
 }));
 
+vi.mock('@/lib/db', () => ({
+  default: {
+    order: {
+      findUnique: vi.fn(),
+      findFirst: vi.fn(),
+      update: vi.fn(),
+    },
+    orderAudit: {
+      findFirst: vi.fn().mockResolvedValue(null),
+      create: vi.fn().mockResolvedValue({ id: 'audit_created' }),
+    },
+    messageOutbox: {
+      create: vi.fn().mockResolvedValue({ id: 'outbox_created' }),
+    },
+  },
+}));
+
 import {
   isGatewayConfigured,
   verifyWebhookSignature,
 } from '@/lib/payments/gateway';
+import db from '@/lib/db';
 import { POST as webhookPost } from '@/app/api/payments/webhook/route';
 import { POST as createOrderPost } from '@/app/api/payments/create-order/route';
 
@@ -122,20 +140,82 @@ describe('Payment Gateway & Webhook Signature Verification (Section 4)', () => {
     expect(body.received).toBe(true);
   });
 
-  it('POST /api/payments/create-order returns fallback indicator when gateway keys are missing', async () => {
+  it('POST /api/payments/webhook rejects replay using idempotency key', async () => {
+    process.env.PAYMENT_GATEWAY_WEBHOOK_SECRET = mockSecret;
+
+    const payload = JSON.stringify({
+      event: 'payment.captured',
+      payload: {
+        payment: { entity: { id: 'pay_replay_123', amount: 18500 } },
+      },
+    });
+
+    const validSig = crypto
+      .createHmac('sha256', mockSecret)
+      .update(payload)
+      .digest('hex');
+
+    // Mock existing audit log having this replay key
+    vi.spyOn(db.orderAudit, 'findFirst').mockResolvedValueOnce({
+      id: 'audit_1',
+      orderId: 'ord_1',
+      reason: 'Sandbox payment captured via Razorpay webhook. Transaction ID: pay_replay_123',
+    } as unknown as Awaited<ReturnType<typeof db.orderAudit.findFirst>>);
+
+    const req = new Request('http://localhost/api/payments/webhook', {
+      method: 'POST',
+      headers: {
+        'x-razorpay-signature': validSig,
+        'x-razorpay-event-id': 'pay_replay_123',
+        'Content-Type': 'application/json',
+      },
+      body: payload,
+    });
+
+    const res = await webhookPost(req);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.replayed).toBe(true);
+    expect(body.message).toContain('already processed');
+  });
+
+  it('POST /api/payments/create-order requires validated orderId input', async () => {
+    const req = new Request('http://localhost/api/payments/create-order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+
+    const res = await createOrderPost(req);
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain('Order ID is required');
+  });
+
+  it('POST /api/payments/create-order computes amount on server from order lines', async () => {
     delete process.env.PAYMENT_GATEWAY_KEY_ID;
     delete process.env.PAYMENT_GATEWAY_KEY_SECRET;
+
+    vi.spyOn(db.order, 'findUnique').mockResolvedValueOnce({
+      id: 'ord_123',
+      displayId: 'RX-50220',
+      customerId: 'u_test',
+      lines: [
+        { quantity: 2, unitPrice: 50, product: { price: 50 } },
+        { quantity: 1, unitPrice: 35, product: { price: 35 } },
+      ],
+    } as unknown as Awaited<ReturnType<typeof db.order.findUnique>>);
 
     const req = new Request('http://localhost/api/payments/create-order', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ amount: 185.0 }),
+      body: JSON.stringify({ orderId: 'ord_123', amount: 999999 }), // client amount must be ignored!
     });
 
     const res = await createOrderPost(req);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.isGatewayConfigured).toBe(false);
-    expect(body.message).toContain('Fallback to NPCI test spec');
+    expect(body.amount).toBe(135); // 2 * 50 + 1 * 35 = 135
   });
 });

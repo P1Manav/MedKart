@@ -217,6 +217,7 @@ export async function POST(req: Request) {
       }
     }
 
+    const consentVal = formData.get('directUpiConsent');
     const rawInput = {
       addressText: formData.get('addressText') ?? undefined,
       addressLat: formData.get('addressLat') ?? undefined,
@@ -224,6 +225,7 @@ export async function POST(req: Request) {
       paymentMethod: formData.get('paymentMethod') ?? undefined,
       familyProfileId: formData.get('familyProfileId') || null,
       cartItems: rawCartItems,
+      directUpiConsent: consentVal === 'true' || consentVal === '1',
     };
 
     const parsedInput = CreateOrderInputSchema.safeParse(rawInput);
@@ -263,9 +265,10 @@ export async function POST(req: Request) {
     }
 
     // Defence-in-depth: Validate cart items against active catalogue and schedule rules
+    let cartProducts: Array<{ id: string; price: number; schedule: import('@prisma/client').ScheduleType }> = [];
     if (cartItems.length > 0) {
       const cartProductIds = cartItems.map((c) => c.productId);
-      const cartProducts = await db.product.findMany({
+      cartProducts = await db.product.findMany({
         where: { id: { in: cartProductIds }, active: true },
       });
 
@@ -287,6 +290,19 @@ export async function POST(req: Request) {
             { status: 400 }
           );
         }
+      }
+    }
+
+    let finalPaymentMethod = paymentMethod;
+    if (finalPaymentMethod === 'DIRECT_UPI') {
+      const serverTotal = cartProducts.reduce((sum, p) => {
+        const item = cartItems.find((c) => c.productId === p.id);
+        return sum + p.price * (item?.quantity || 1);
+      }, 0);
+      const maxAmountInr = Number(process.env.UPI_MAX_AMOUNT_INR) || 100;
+      if (serverTotal > maxAmountInr) {
+        // Amount exceeds UPI_MAX_AMOUNT_INR: fallback to sandbox payment per spec
+        finalPaymentMethod = 'MOCK_UPI';
       }
     }
 
@@ -478,11 +494,12 @@ export async function POST(req: Request) {
         familyProfileId,
         storeId: provisionalStoreId,
         routingIssue,
-        status: paymentMethod === 'DIRECT_UPI' ? 'PAYMENT_PENDING_VERIFICATION' : 'SUBMITTED',
+        status: finalPaymentMethod === 'DIRECT_UPI' ? 'PAYMENT_PENDING_VERIFICATION' : 'SUBMITTED',
         addressText,
         addressLat,
         addressLng,
-        paymentMethod,
+        paymentMethod: finalPaymentMethod,
+        directUpiConsent: parsedInput.data.directUpiConsent,
         prescriptionEncrypted: new Uint8Array(enc.encrypted),
         prescriptionIv: new Uint8Array(enc.iv),
         prescriptionAuthTag: new Uint8Array(enc.authTag),
@@ -505,8 +522,8 @@ export async function POST(req: Request) {
             actorId: session.userId,
             actorRole: session.role,
             fromStatus: 'DRAFT',
-            toStatus: paymentMethod === 'DIRECT_UPI' ? 'PAYMENT_PENDING_VERIFICATION' : 'SUBMITTED',
-            reason: paymentMethod === 'DIRECT_UPI'
+            toStatus: finalPaymentMethod === 'DIRECT_UPI' ? 'PAYMENT_PENDING_VERIFICATION' : 'SUBMITTED',
+            reason: finalPaymentMethod === 'DIRECT_UPI'
               ? 'Order placed with Direct UPI transfer awaiting staff verification of transaction reference'
               : 'Order placed by customer with prescription upload',
           },
@@ -529,7 +546,7 @@ export async function POST(req: Request) {
       },
     }).catch(() => null);
 
-    if (paymentMethod === 'MOCK_UPI') {
+    if (finalPaymentMethod === 'MOCK_UPI') {
       await db.messageOutbox.create({
         data: {
           userId: session.userId,
@@ -538,7 +555,7 @@ export async function POST(req: Request) {
           status: 'SENT_MOCK',
         },
       }).catch(() => null);
-    } else if (paymentMethod === 'DIRECT_UPI') {
+    } else if (finalPaymentMethod === 'DIRECT_UPI') {
       await db.messageOutbox.create({
         data: {
           userId: session.userId,

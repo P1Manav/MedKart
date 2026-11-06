@@ -45,6 +45,15 @@ export const CreateOrderInputSchema = z.object({
     .default('COD'),
   familyProfileId: z.string().min(1).nullable().optional(),
   cartItems: z.array(CartItemSchema).optional().default([]),
+  directUpiConsent: z.boolean().optional().default(false),
+}).superRefine((data, ctx) => {
+  if (data.paymentMethod === 'DIRECT_UPI' && !data.directUpiConsent) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Direct UPI voluntary demo payment consent is required',
+      path: ['directUpiConsent'],
+    });
+  }
 });
 
 export const PrescriptionFileSchema = z.object({

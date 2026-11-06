@@ -106,7 +106,11 @@ export default function StoreOrdersPage() {
 
   const handleConfirmUpiSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!confirmingUpiOrder || !upiUtrInput.trim()) return;
+    if (!confirmingUpiOrder) return;
+    if (!/^\d{12}$/.test(upiUtrInput.trim())) {
+      setError('Please enter a valid 12-digit numeric UTR reference.');
+      return;
+    }
 
     setConfirmingUpi(true);
     setError(null);

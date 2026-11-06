@@ -279,8 +279,8 @@ export default function PharmacistReviewPage({
   };
 
   const handleConfirmDirectUpi = async () => {
-    if (!upiUtrInput.trim() || upiUtrInput.trim().length < 4) {
-      setError('Please enter a valid UTR or payment reference (min 4 characters).');
+    if (!/^\d{12}$/.test(upiUtrInput.trim())) {
+      setError('Please enter a valid 12-digit numeric UTR reference.');
       return;
     }
     setConfirmingUpi(true);

@@ -1,7 +1,13 @@
 // src/app/api/payments/create-order/route.ts
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
+import db from '@/lib/db';
 import { getSession } from '@/lib/auth/session';
 import { isGatewayConfigured, createSandboxPaymentOrder } from '@/lib/payments/gateway';
+
+const CreateOrderSchema = z.object({
+  orderId: z.string({ message: 'Order ID is required' }).min(1, 'Order ID is required'),
+});
 
 export async function POST(req: Request) {
   try {
@@ -10,27 +16,61 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await req.json();
-    const amount = Number(body.amount);
-    const receipt = String(body.receipt || `rcpt_${Date.now()}`);
+    const body = await req.json().catch(() => ({}));
+    const parsed = CreateOrderSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message || 'Invalid input: orderId is required' },
+        { status: 400 }
+      );
+    }
 
-    if (isNaN(amount) || amount <= 0) {
-      return NextResponse.json({ error: 'Invalid payment amount' }, { status: 400 });
+    const { orderId } = parsed.data;
+
+    // Fetch order and lines to compute amount strictly on the server
+    const order = await db.order.findUnique({
+      where: { id: orderId },
+      include: {
+        lines: {
+          include: { product: true },
+        },
+      },
+    });
+
+    if (!order) {
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    }
+
+    // Ensure customer owns order or user has staff role
+    if (order.customerId !== session.userId && !['PHARMACIST', 'STORE_STAFF', 'OPS'].includes(session.role)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    // Compute amount strictly on the server from verified order lines
+    const serverAmount = order.lines.reduce((total, line) => {
+      const price = line.unitPrice ?? line.product?.price ?? 0;
+      return total + price * line.quantity;
+    }, 0);
+
+    if (serverAmount <= 0) {
+      return NextResponse.json({ error: 'Order amount must be greater than zero' }, { status: 400 });
     }
 
     if (!isGatewayConfigured()) {
       return NextResponse.json({
         isGatewayConfigured: false,
+        amount: serverAmount,
         message: 'Payment gateway credentials absent. Fallback to NPCI test spec sandbox modal.',
       });
     }
 
     const rpOrder = await createSandboxPaymentOrder({
-      amount,
-      receipt,
+      amount: serverAmount,
+      receipt: order.displayId,
       notes: {
         userId: session.userId,
-        orderReceipt: receipt,
+        orderId: order.id,
+        orderReceipt: order.displayId,
       },
     });
 
@@ -46,4 +86,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
-

@@ -7,6 +7,7 @@ export async function POST(req: Request) {
   try {
     const rawBody = await req.text();
     const signature = req.headers.get('x-razorpay-signature');
+    const idempotencyKey = req.headers.get('x-razorpay-event-id') || req.headers.get('idempotency-key');
     const webhookSecret = process.env.PAYMENT_GATEWAY_WEBHOOK_SECRET;
 
     if (!webhookSecret) {
@@ -16,7 +17,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // Verify HMAC-SHA256 signature with constant-time equality
+    // Verify HMAC-SHA256 signature with constant-time equality BEFORE parsing JSON
     const isValid = verifyWebhookSignature(rawBody, signature, webhookSecret);
     if (!isValid) {
       return NextResponse.json(
@@ -53,9 +54,28 @@ export async function POST(req: Request) {
     }
 
     const eventName = payload.event;
+    const paymentEntity = payload.payload?.payment?.entity;
+    const orderEntity = payload.payload?.order?.entity;
+    const txnId = paymentEntity?.id;
+    const replayKey = idempotencyKey || txnId;
+
+    // Reject replays using idempotency check against recorded audit logs
+    if (replayKey) {
+      const existingAudit = await db.orderAudit.findFirst({
+        where: {
+          reason: { contains: replayKey },
+        },
+      });
+
+      if (existingAudit) {
+        return NextResponse.json(
+          { status: 'ok', received: true, replayed: true, message: 'Webhook event already processed' },
+          { status: 200 }
+        );
+      }
+    }
+
     if (eventName === 'payment.captured' || eventName === 'order.paid') {
-      const paymentEntity = payload.payload?.payment?.entity;
-      const orderEntity = payload.payload?.order?.entity;
       const receipt = orderEntity?.receipt || paymentEntity?.notes?.orderReceipt;
 
       if (receipt) {
@@ -67,7 +87,7 @@ export async function POST(req: Request) {
         });
 
         if (order) {
-          // Log payment confirmation audit event
+          // Log payment confirmation audit event with replay key for idempotency
           await db.orderAudit.create({
             data: {
               orderId: order.id,
@@ -75,7 +95,7 @@ export async function POST(req: Request) {
               actorRole: 'SYSTEM',
               fromStatus: order.status,
               toStatus: order.status,
-              reason: `Sandbox payment captured via Razorpay webhook. Transaction ID: ${paymentEntity?.id || 'simulated_txn'}`,
+              reason: `Sandbox payment captured via Razorpay webhook. Transaction ID: ${txnId || 'simulated_txn'} | Event: ${replayKey || eventName}`,
             },
           }).catch(() => null);
 
@@ -84,7 +104,7 @@ export async function POST(req: Request) {
             data: {
               userId: order.customerId,
               channel: 'SMS',
-              content: `MedKart: Real Sandbox Payment Confirmed for Order ${order.displayId}. Transaction Ref: ${paymentEntity?.id || 'sandbox_test'}. No real money was charged.`,
+              content: `MedKart: Real Sandbox Payment Confirmed for Order ${order.displayId}. Transaction Ref: ${txnId || 'sandbox_test'}. No real money was charged.`,
               status: 'SENT_MOCK',
             },
           }).catch(() => null);
@@ -98,4 +118,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
-

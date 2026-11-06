@@ -204,6 +204,8 @@ model Order {
   addressLat              Float?             @map("address_lat")
   addressLng              Float?             @map("address_lng")
   paymentMethod           PaymentMethod?     @map("payment_method")
+  directUpiConsent        Boolean            @default(false) @map("direct_upi_consent")
+  utr                     String?            @unique @map("utr")
   prescriptionEncrypted   Bytes?             @map("prescription_encrypted")
   prescriptionIv          Bytes?             @map("prescription_iv")
   prescriptionAuthTag     Bytes?             @map("prescription_auth_tag")
