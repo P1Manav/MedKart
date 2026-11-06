@@ -7,11 +7,13 @@ import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ErrorState } from '@/components/ui/error-state';
+import { useSession } from '@/components/providers/session-provider';
 
 function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tokenFromUrl = searchParams.get('token');
+  const { setSessionUser } = useSession();
 
   const [registrationToken, setRegistrationToken] = useState(tokenFromUrl || '');
   const [name, setName] = useState('');
@@ -58,6 +60,10 @@ function RegisterForm() {
         setError(data.message || 'Registration failed.');
         setLoading(false);
         return;
+      }
+
+      if (data.user) {
+        setSessionUser(data.user);
       }
 
       router.push('/customer/home');

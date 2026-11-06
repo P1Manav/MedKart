@@ -7,11 +7,13 @@ import { useTranslations } from 'next-intl';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ErrorState } from '@/components/ui/error-state';
+import { useSession } from '@/components/providers/session-provider';
 
 export default function LoginPage() {
   const t = useTranslations('auth');
   const tCommon = useTranslations('common');
   const router = useRouter();
+  const { setSessionUser, quickLogin } = useSession();
 
   const [phone, setPhone] = useState('');
   const [step, setStep] = useState<'PHONE' | 'REGISTER' | 'OTP'>('PHONE');
@@ -77,6 +79,9 @@ export default function LoginPage() {
       }
 
       if (data.isBackdoor && data.redirectUrl) {
+        if (data.user) {
+          setSessionUser(data.user);
+        }
         window.location.href = data.redirectUrl;
         return;
       }
@@ -122,6 +127,10 @@ export default function LoginPage() {
         return;
       }
 
+      if (data.user) {
+        setSessionUser(data.user);
+      }
+
       router.push('/customer/home');
       router.refresh();
     } catch {
@@ -156,6 +165,11 @@ export default function LoginPage() {
         setStep('REGISTER');
         setLoading(false);
         return;
+      }
+
+      // Instantly update header profile state
+      if (data.user) {
+        setSessionUser(data.user);
       }
 
       // Route based on role
@@ -247,48 +261,52 @@ export default function LoginPage() {
 
               <div className="pt-4 border-t border-stone-200">
                 <span className="text-xs font-semibold uppercase tracking-wider text-stone-500 block mb-2">
-                  Sample Test Accounts (Click to Fill):
+                  Sample Test Accounts (Instant 1-Click Login):
                 </span>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <button
                     type="button"
-                    onClick={() => {
-                      setPhone('9830011111');
+                    onClick={async () => {
+                      setLoading(true);
+                      await quickLogin('9830011111');
                     }}
-                    className="p-2 border rounded hover:bg-stone-50 text-left cursor-pointer"
+                    className="p-2 border border-[#e3ddef] rounded hover:border-[#B69D0C] hover:bg-[#f3effa] text-left cursor-pointer transition shadow-xs"
                   >
-                    <span className="font-semibold block text-stone-900">Debasish Ghosh</span>
-                    <span className="text-stone-500">Customer (Mother Rx)</span>
+                    <span className="font-bold block text-[#190042]">Debasish Ghosh</span>
+                    <span className="text-stone-500 text-[11px]">Customer (Mother Rx) &rarr;</span>
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      setPhone('9830044444');
+                    onClick={async () => {
+                      setLoading(true);
+                      await quickLogin('9830044444');
                     }}
-                    className="p-2 border rounded hover:bg-stone-50 text-left cursor-pointer"
+                    className="p-2 border border-[#e3ddef] rounded hover:border-[#B69D0C] hover:bg-[#f3effa] text-left cursor-pointer transition shadow-xs"
                   >
-                    <span className="font-semibold block text-stone-900">Sunita Banerjee</span>
-                    <span className="text-teal-700">Pharmacist (Regd.)</span>
+                    <span className="font-bold block text-[#190042]">Sunita Banerjee</span>
+                    <span className="text-[#B69D0C] font-semibold text-[11px]">Pharmacist (Queue) &rarr;</span>
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      setPhone('9830066661');
+                    onClick={async () => {
+                      setLoading(true);
+                      await quickLogin('9830066661');
                     }}
-                    className="p-2 border rounded hover:bg-stone-50 text-left cursor-pointer"
+                    className="p-2 border border-[#e3ddef] rounded hover:border-[#B69D0C] hover:bg-[#f3effa] text-left cursor-pointer transition shadow-xs"
                   >
-                    <span className="font-semibold block text-stone-900">Store Staff</span>
-                    <span className="text-stone-500">Salt Lake Store</span>
+                    <span className="font-bold block text-[#190042]">Store Staff</span>
+                    <span className="text-stone-500 text-[11px]">Salt Lake Store &rarr;</span>
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      setPhone('9830099999');
+                    onClick={async () => {
+                      setLoading(true);
+                      await quickLogin('9830099999');
                     }}
-                    className="p-2 border rounded hover:bg-stone-50 text-left cursor-pointer"
+                    className="p-2 border border-[#e3ddef] rounded hover:border-[#B69D0C] hover:bg-[#f3effa] text-left cursor-pointer transition shadow-xs"
                   >
-                    <span className="font-semibold block text-stone-900">Central Ops</span>
-                    <span className="text-stone-500">Administrator</span>
+                    <span className="font-bold block text-[#190042]">Central Ops</span>
+                    <span className="text-purple-700 font-semibold text-[11px]">Administrator &rarr;</span>
                   </button>
                 </div>
               </div>

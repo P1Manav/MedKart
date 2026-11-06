@@ -137,12 +137,9 @@ export default function OpsDashboardPage() {
   useEffect(() => {
     loadMetrics();
     loadRules();
-    const interval = setInterval(loadMetrics, 4000);
-    const onFocus = () => loadMetrics();
-    window.addEventListener('focus', onFocus);
+    const interval = setInterval(loadMetrics, 15000);
     return () => {
       clearInterval(interval);
-      window.removeEventListener('focus', onFocus);
     };
   }, []);
 
@@ -244,14 +241,25 @@ export default function OpsDashboardPage() {
           </p>
         </div>
 
-        <Button
-          size="sm"
-          onClick={handleRunReminders}
-          isLoading={runningReminders}
-          className="shadow-sm"
-        >
-          {t('runReminders')} ⚡
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => loadMetrics()}
+            isLoading={metricsLoading}
+            className="shadow-xs text-xs"
+          >
+            ↻ Refresh
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleRunReminders}
+            isLoading={runningReminders}
+            className="shadow-sm"
+          >
+            {t('runReminders')} ⚡
+          </Button>
+        </div>
       </div>
 
       {remindersResult && (

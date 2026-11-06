@@ -42,8 +42,9 @@ export default function PharmacistQueuePage() {
   const [filter, setFilter] = useState<'ALL' | 'WAITING' | 'ON_HOLD' | 'APPROVED'>('WAITING');
 
   const { data: queueData, error: queueError, isLoading: queueLoading, mutate } = useSWR('/api/orders', fetcher, {
-    refreshInterval: 3000,
-    revalidateOnFocus: true,
+    refreshInterval: 8000,
+    revalidateOnFocus: false,
+    dedupingInterval: 4000,
   });
 
   const orders: QueueOrder[] = queueData?.orders
@@ -119,6 +120,14 @@ export default function PharmacistQueuePage() {
             }`}
           >
             All Orders ({orders.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => mutate()}
+            className="px-2.5 py-1.5 rounded-md font-semibold text-xs border border-[#B69D0C]/40 bg-white text-[#190042] hover:bg-[#f3effa] cursor-pointer flex items-center gap-1 shadow-xs ml-1"
+            title="Refresh Queue"
+          >
+            <span className={queueLoading ? 'animate-spin inline-block' : 'inline-block'}>↻</span> Refresh
           </button>
         </div>
       </div>

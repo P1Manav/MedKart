@@ -66,7 +66,7 @@ export default function OrderTrackingPage({
   const { data: orderData, error: _swrError, isLoading: swrLoading, mutate } = useSWR(
     `/api/orders/${id}`,
     fetcher,
-    { refreshInterval: 4000 }
+    { refreshInterval: 8000, revalidateOnFocus: false, dedupingInterval: 4000 }
   );
 
   const order: OrderDetail | null = orderData?.order || null;

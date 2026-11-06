@@ -61,6 +61,16 @@ export interface VerifyOtpResult {
   };
 }
 
+export const SEEDED_DEMO_PHONES = ['9830011111', '9830044444', '9830066661', '9830099999'];
+
+export function isDemoPhone(phone: string): boolean {
+  const clean = phone.trim().replace(/\D/g, '');
+  const allowed = process.env.DEMO_PHONES
+    ? process.env.DEMO_PHONES.split(',').map((p) => p.trim())
+    : SEEDED_DEMO_PHONES;
+  return allowed.includes(clean);
+}
+
 export async function requestOtp(
   phone: string,
   limits: OtpLimitsConfig = DEFAULT_OTP_LIMITS,

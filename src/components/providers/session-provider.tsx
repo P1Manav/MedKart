@@ -36,6 +36,7 @@ interface SessionContextType {
   demoMode: boolean;
   theme: 'light' | 'dark' | 'system';
   refresh: () => Promise<void>;
+  setSessionUser: (user: UserSession) => void;
   logout: () => Promise<void>;
   quickLogin: (phone: string, defaultOtp?: string) => Promise<boolean>;
   updateTheme: (newTheme: 'light' | 'dark' | 'system') => Promise<void>;
@@ -49,6 +50,7 @@ const SessionContext = createContext<SessionContextType>({
   demoMode: false,
   theme: 'system',
   refresh: async () => {},
+  setSessionUser: () => {},
   logout: async () => {},
   quickLogin: async () => false,
   updateTheme: async () => {},
@@ -66,8 +68,9 @@ const fetcher = async (url: string) => {
 export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const router = useRouter();
   const { data, error, mutate, isLoading } = useSWR('/api/auth/me', fetcher, {
-    revalidateOnFocus: true,
-    revalidateOnReconnect: true,
+    revalidateOnFocus: false,
+    revalidateOnReconnect: false,
+    dedupingInterval: 60000,
     shouldRetryOnError: false,
   });
 
@@ -80,6 +83,13 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const refresh = useCallback(async () => {
     await mutate();
   }, [mutate]);
+
+  const setSessionUser = useCallback(
+    (newUser: UserSession) => {
+      mutate({ authenticated: true, user: newUser, demoMode: true }, false);
+    },
+    [mutate]
+  );
 
   const logout = useCallback(async () => {
     try {
@@ -94,6 +104,31 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const quickLogin = useCallback(
     async (phone: string, defaultOtp: string = '123456'): Promise<boolean> => {
       try {
+        // Fast path: Instant 1-shot demo login without OTP delay or rate-limiting
+        const demoRes = await fetch('/api/auth/demo-login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone }),
+        });
+        const demoData = await demoRes.json();
+
+        if (demoRes.ok && demoData.success && demoData.user) {
+          // Instantly update in-memory session cache so header and profile render in 0ms
+          mutate({ authenticated: true, user: demoData.user, demoMode: true }, false);
+
+          if (demoData.user.role === 'PHARMACIST') {
+            router.push('/pharmacist/queue');
+          } else if (demoData.user.role === 'STORE_STAFF') {
+            router.push('/store/orders');
+          } else if (demoData.user.role === 'OPS') {
+            router.push('/ops/dashboard');
+          } else {
+            router.push('/customer/home');
+          }
+          return true;
+        }
+
+        // Secondary fallback to standard OTP chain
         const reqRes = await fetch('/api/auth/otp/request', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -109,8 +144,8 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         });
         const verData = await verRes.json();
 
-        if (verData.success) {
-          await mutate();
+        if (verData.success && verData.user) {
+          mutate({ authenticated: true, user: verData.user, demoMode: true }, false);
           if (verData.user.role === 'PHARMACIST') {
             router.push('/pharmacist/queue');
           } else if (verData.user.role === 'STORE_STAFF') {
@@ -120,7 +155,6 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
           } else {
             router.push('/customer/home');
           }
-          router.refresh();
           return true;
         }
         return false;
@@ -166,6 +200,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         demoMode,
         theme: 'light',
         refresh,
+        setSessionUser,
         logout,
         quickLogin,
         updateTheme,

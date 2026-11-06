@@ -54,7 +54,7 @@ export default function StoreOrdersPage() {
   const { data: ordersData, error: swrError, isLoading: swrLoading, mutate } = useSWR(
     '/api/orders?limit=100',
     fetcher,
-    { refreshInterval: 3000, revalidateOnFocus: true }
+    { refreshInterval: 8000, revalidateOnFocus: false, dedupingInterval: 4000 }
   );
 
   const orders: StoreOrder[] = ordersData?.orders || [];
@@ -197,10 +197,18 @@ export default function StoreOrdersPage() {
       {error && <ErrorState message={error} />}
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-base font-semibold text-stone-800">
             Orders Assigned to Salt Lake & Kolkata Network Stores
           </CardTitle>
+          <button
+            type="button"
+            onClick={() => mutate()}
+            className="px-2.5 py-1.5 rounded-md font-semibold text-xs border border-[#B69D0C]/40 bg-white text-[#190042] hover:bg-[#f3effa] cursor-pointer flex items-center gap-1 shadow-xs"
+            title="Refresh Store Orders"
+          >
+            <span className={swrLoading ? 'animate-spin inline-block' : 'inline-block'}>↻</span> Refresh
+          </button>
         </CardHeader>
         <CardContent>
           {swrError ? (
