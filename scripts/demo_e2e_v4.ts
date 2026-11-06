@@ -18,7 +18,7 @@ async function runLiveNarratedDemo() {
   console.log('👉 STEP 1: Customer Login with Honest On-Screen OTP (No SMS Key Set)');
   delete process.env.MSG91_AUTH_KEY;
   process.env.DEMO_MODE = 'true';
-  process.env.OTP_MOCK = 'true';
+  process.env.SMS_PROVIDER = 'mock';
 
   const testPhone = '9830011111'; // Debasish Ghosh (Caregiver)
   const otpReq = await requestOtp(testPhone);

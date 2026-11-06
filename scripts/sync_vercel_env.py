@@ -14,7 +14,6 @@ with open('.env', 'r', encoding='utf-8') as f:
             env_vars[key.strip()] = val
 
 sync_keys = [
-    'OTP_MOCK',
     'DEMO_MODE',
     'HF_OCR_MODEL',
     'HF_API_TOKEN',
