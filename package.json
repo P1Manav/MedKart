@@ -14,7 +14,9 @@
     "postinstall": "prisma generate",
     "seed": "tsx prisma/seed.ts",
     "seed:reset": "tsx prisma/seed-reset.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "digest": "node scripts/repo-digest.mjs",
+    "digest:fast": "node scripts/repo-digest.mjs --fast"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",

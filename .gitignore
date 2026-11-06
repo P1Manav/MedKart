@@ -49,6 +49,7 @@ next-env.d.ts
 submission/
 *.traineddata
 
+REPO_DIGEST.md
 .neon
 
 .vercel
