@@ -1,7 +1,7 @@
 // src/components/providers/session-provider.tsx
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useCallback } from 'react';
 import useSWR from 'swr';
 import { useRouter } from 'next/navigation';
 import { logger } from '@/lib/logger';
@@ -71,50 +71,11 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     shouldRetryOnError: false,
   });
 
-  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system');
-
-  // Read initial theme from cookie if present
-  useEffect(() => {
-    if (typeof document !== 'undefined') {
-      const match = document.cookie.match(new RegExp('(^| )medkart_theme=([^;]+)'));
-      if (match && ['light', 'dark', 'system'].includes(match[2])) {
-        setTheme(match[2] as 'light' | 'dark' | 'system');
-      }
-    }
-  }, []);
-
-  // Update theme state if user object specifies one
-  useEffect(() => {
-    if (data?.user?.theme && ['light', 'dark', 'system'].includes(data.user.theme)) {
-      setTheme(data.user.theme as 'light' | 'dark' | 'system');
-    }
-  }, [data?.user?.theme]);
-
-  // Apply dark mode class to <html>
+  // Single theme: remove any legacy dark mode class to prevent mixed contrast
   useEffect(() => {
     if (typeof window === 'undefined') return;
-
-    const applyTheme = () => {
-      const isDark =
-        theme === 'dark' ||
-        (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-
-      if (isDark) {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
-    };
-
-    applyTheme();
-
-    if (theme === 'system') {
-      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-      const listener = () => applyTheme();
-      mediaQuery.addEventListener('change', listener);
-      return () => mediaQuery.removeEventListener('change', listener);
-    }
-  }, [theme]);
+    document.documentElement.classList.remove('dark');
+  }, []);
 
   const refresh = useCallback(async () => {
     await mutate();
@@ -171,41 +132,20 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     [mutate, router]
   );
 
-  const updateTheme = useCallback(
-    async (newTheme: 'light' | 'dark' | 'system') => {
-      setTheme(newTheme);
-      document.cookie = `medkart_theme=${newTheme}; path=/; max-age=31536000; SameSite=Lax`;
-
-      if (data?.authenticated) {
-        try {
-          await fetch('/api/auth/me', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ theme: newTheme }),
-          });
-          await mutate();
-        } catch (e) {
-          logger.error('Failed to save theme preference to profile', e);
-        }
-      }
-    },
-    [data?.authenticated, mutate]
-  );
+  const updateTheme = useCallback(async () => {}, []);
 
   const updateLanguage = useCallback(
     async (locale: 'en' | 'hi' | 'bn') => {
       document.cookie = `NEXT_LOCALE=${locale}; path=/; max-age=31536000; SameSite=Lax`;
 
       if (data?.authenticated) {
-        try {
-          await fetch('/api/auth/me', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ language: locale }),
-          });
-        } catch (e) {
+        fetch('/api/auth/me', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ language: locale }),
+        }).catch((e) => {
           logger.error('Failed to save language preference to profile', e);
-        }
+        });
       }
       window.location.reload();
     },
@@ -224,7 +164,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         loading,
         authenticated,
         demoMode,
-        theme,
+        theme: 'light',
         refresh,
         logout,
         quickLogin,

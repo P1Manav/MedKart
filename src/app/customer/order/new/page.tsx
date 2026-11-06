@@ -83,6 +83,8 @@ export default function OrderBuilderPage() {
   const [showUpiModal, setShowUpiModal] = useState(false);
   const [gatewayOrder, setGatewayOrder] = useState<{ orderId?: string; keyId?: string; name?: string } | null>(null);
   const [directUpiData, setDirectUpiData] = useState<{ orderId: string; displayId: string; amount: number } | null>(null);
+  const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
+  const [pendingOrderAmount, setPendingOrderAmount] = useState<number>(0);
   const [estimatedRxTotal, setEstimatedRxTotal] = useState<number>(120);
 
   // Fetch session and payment config on mount
@@ -320,15 +322,37 @@ export default function OrderBuilderPage() {
         return;
       }
 
-      const effectiveAmount = cartTotal > 0 ? cartTotal : estimatedRxTotal;
+      const orderActualTotal = data.order?.totalAmount > 0 ? data.order.totalAmount : (cartTotal > 0 ? cartTotal : estimatedRxTotal);
 
       if (finalPayment === 'DIRECT_UPI') {
-        const orderAmount = data.order?.totalAmount > 0 ? data.order.totalAmount : effectiveAmount;
         setDirectUpiData({
           orderId: data.order.id,
           displayId: data.order.displayId,
-          amount: orderAmount,
+          amount: orderActualTotal,
         });
+        setLoading(false);
+        return;
+      }
+
+      if (finalPayment === 'MOCK_UPI') {
+        setPendingOrderId(data.order.id);
+        setPendingOrderAmount(orderActualTotal);
+        try {
+          const payRes = await fetch('/api/payments/create-order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderId: data.order.id }),
+          });
+          const payData = await payRes.json();
+          if (payData.isGatewayConfigured && payData.orderId) {
+            setGatewayOrder({ orderId: payData.orderId, keyId: payData.keyId, name: 'Razorpay Sandbox' });
+          } else {
+            setGatewayOrder({ name: 'UPI Sandbox (NPCI Test Spec)' });
+          }
+        } catch {
+          setGatewayOrder({ name: 'UPI Sandbox (NPCI Test Spec)' });
+        }
+        setShowUpiModal(true);
         setLoading(false);
         return;
       }
@@ -364,37 +388,23 @@ export default function OrderBuilderPage() {
       }
     }
 
-    if (paymentMethod === 'MOCK_UPI') {
-      try {
-        const res = await fetch('/api/payments/create-order', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ amount: effectiveAmount }),
-        });
-        const data = await res.json();
-        if (data.isGatewayConfigured && data.orderId) {
-          setGatewayOrder({ orderId: data.orderId, keyId: data.keyId, name: 'Razorpay Sandbox' });
-        } else {
-          setGatewayOrder({ name: 'UPI Sandbox (NPCI Test Spec)' });
-        }
-      } catch {
-        setGatewayOrder({ name: 'UPI Sandbox (NPCI Test Spec)' });
-      }
-      setShowUpiModal(true);
-      return;
-    }
-
     await executeSubmission();
   };
 
   const handleUpiSuccess = async (_vpa: string) => {
     setShowUpiModal(false);
-    await executeSubmission('MOCK_UPI');
+    if (pendingOrderId) {
+      router.push(`/customer/order/${pendingOrderId}`);
+    }
   };
 
   const handleUpiFailure = (reason: string) => {
     setShowUpiModal(false);
-    setError(`Payment Unsuccessful: ${reason}. You can retry or switch to Cash on Delivery.`);
+    if (pendingOrderId) {
+      router.push(`/customer/order/${pendingOrderId}`);
+    } else {
+      setError(`Payment Unsuccessful: ${reason}. You can retry or switch to Cash on Delivery.`);
+    }
   };
 
   const cartTotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
@@ -979,12 +989,17 @@ export default function OrderBuilderPage() {
       {/* Realistic Mock UPI Modal (Section 4 Spec Requirement) */}
       <MockUpiModal
         isOpen={showUpiModal}
-        amount={cartTotal > 0 ? cartTotal : estimatedRxTotal}
+        amount={pendingOrderAmount > 0 ? pendingOrderAmount : (cartTotal > 0 ? cartTotal : estimatedRxTotal)}
         gatewayName={gatewayOrder?.name}
         orderId={gatewayOrder?.orderId}
         onSuccess={handleUpiSuccess}
         onFailure={handleUpiFailure}
-        onClose={() => setShowUpiModal(false)}
+        onClose={() => {
+          setShowUpiModal(false);
+          if (pendingOrderId) {
+            router.push(`/customer/order/${pendingOrderId}`);
+          }
+        }}
       />
 
       {/* Path B: Real UPI Demo Transfer Modal */}
