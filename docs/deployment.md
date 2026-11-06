@@ -33,14 +33,16 @@ Ensure the following variables are configured in `.env`:
 - `SESSION_SECRET`: A 32+ character random secret for signing session cookies
 - `PRESCRIPTION_ENC_KEY`: A 64-character hex string (32 bytes) for AES-256-GCM prescription encryption
 - `CRON_SECRET`: Secret bearer token securing automated refill reminders
-- `OTP_MOCK`: Set to `"true"` for local review (displays OTP on screen in the Demo SMS banner)
-- `DEMO_MODE`: Set to `"true"` for local review (activates the top 1-click role switcher ribbon)
+- `OTP_PEPPER`: 16+ character secret used for salted HMAC-SHA256 OTP hashing
+- `DEMO_MODE`: Set to `"true"` for local review (activates the top 1-click role switcher ribbon and mock OTP for demo numbers)
+- `DEMO_PHONES`: (Optional) Comma-separated list of allowlisted demo phone numbers
+- `SMS_PROVIDER`: (Optional) SMS provider name (`msg91`, `twilio_verify`, `fast2sms`, or `mock`)
+- `MSG91_AUTH_KEY`: (Optional) MSG91 API key for real SMS OTP delivery
 - `HF_API_TOKEN`: (Optional) Free Hugging Face user access token. If omitted, Tier 2 (in-process Tesseract.js WASM) runs automatically.
 - `HF_OCR_MODEL`: AI OCR model (default: `microsoft/trocr-base-handwritten`).
 - `PAYMENT_GATEWAY_KEY_ID`: (Optional) Razorpay or Cashfree Sandbox Key ID.
 - `PAYMENT_GATEWAY_KEY_SECRET`: (Optional) Razorpay or Cashfree Sandbox Key Secret.
 - `PAYMENT_GATEWAY_WEBHOOK_SECRET`: (Optional) Secret for HMAC-SHA256 webhook signature verification.
-- `SMS_PROVIDER_API_KEY`: (Optional) Free-tier SMS provider API key (e.g. MSG91/Twilio).
 
 ### Step 3: Run Database Migrations & Seed
 ```bash
@@ -94,6 +96,24 @@ Every component of MedKart runs end-to-end on verified free tiers:
 | `PRESCRIPTION_ENC_KEY` | **Yes** | 64-character hex string for AES-256-GCM encryption |
 | `CRON_SECRET` | **Yes** | Secret bearer token for daily refill cron (`/api/cron/reminders`) |
 | `OTP_PEPPER` | **Yes** | 16+ character secret used for salted HMAC-SHA256 OTP hashing (fails closed in prod) |
+| `NEXT_PUBLIC_APP_URL` | No | Canonical URL of deployed Vercel application |
+| `PUBLIC_CATALOGUE_OTC_ONLY` | No | When `"true"`, restricts unauthenticated `/api/products` to OTC only |
+| `DEMO_MODE` | No | `"true"` to enable 1-click reviewer ribbon |
+| `DEMO_PHONES` | No | Comma-separated allowlist of demo phone numbers |
+| `SMS_PROVIDER` | No | Selected SMS provider (`msg91`, `twilio_verify`, `fast2sms`, or `mock`) |
+| `MSG91_AUTH_KEY` | No | MSG91 SMS gateway auth key |
+| `MSG91_TEMPLATE_ID` | No | MSG91 DLT approved template ID |
+| `SMS_PROVIDER_TEMPLATE_ID` | No | Generic SMS provider template ID fallback |
+| `TWILIO_ACCOUNT_SID` | No | Twilio Account SID |
+| `TWILIO_AUTH_TOKEN` | No | Twilio Auth Token |
+| `TWILIO_VERIFY_SERVICE_SID` | No | Twilio Verify Service SID (VA...) |
+| `FAST2SMS_API_KEY` | No | Fast2SMS API Key |
+| `EMAIL_PROVIDER` | No | Email provider (`resend`, `brevo`, or `smtp`) |
+| `RESEND_API_KEY` | No | Resend API key for Email OTP fallback |
+| `BREVO_API_KEY` | No | Brevo API key for transactional email delivery |
+| `SMTP_HOST` | No | SMTP host address for transactional email |
+| `EMAIL_FROM` | No | Sender email address for OTP delivery |
+| `AI_READER` | No | OCR engine selection (`hf`, `tesseract`, or `mock`) |
 | `HF_API_TOKEN` | No | Hugging Face free-tier token for hosted TrOCR model |
 | `HF_OCR_MODEL` | No | OCR model name (default: `microsoft/trocr-base-handwritten`) |
 | `PAYMENT_GATEWAY_KEY_ID` | No | Razorpay sandbox test key ID (Path A) |
@@ -102,19 +122,6 @@ Every component of MedKart runs end-to-end on verified free tiers:
 | `UPI_PAYEE_VPA` | No | Direct UPI payee VPA (Path B). When omitted, Path B is completely hidden. |
 | `UPI_PAYEE_NAME` | No | Direct UPI payee business name (default: "MedKart Pharmacy") |
 | `UPI_MAX_AMOUNT_INR` | No | Maximum permitted amount for direct UPI demo (default: 100) |
-| `MSG91_AUTH_KEY` | No | MSG91 SMS gateway auth key |
-| `MSG91_TEMPLATE_ID` | No | MSG91 DLT approved template ID |
-| `MSG91_SENDER_ID` | No | MSG91 approved 6-character sender ID |
-| `TWILIO_ACCOUNT_SID` | No | Twilio Account SID |
-| `TWILIO_AUTH_TOKEN` | No | Twilio Auth Token |
-| `TWILIO_VERIFY_SERVICE_SID` | No | Twilio Verify Service SID (VA...) |
-| `FAST2SMS_API_KEY` | No | Fast2SMS API Key |
-| `RESEND_API_KEY` | No | Resend API key for Email OTP fallback |
-| `EMAIL_FROM` | No | Sender email address for OTP delivery |
-| `PUBLIC_CATALOGUE_OTC_ONLY` | No | When `"true"`, restricts unauthenticated `/api/products` to OTC only |
-| `OTP_MOCK` | No | `"true"` for demo mode (on-screen banner for demo numbers) |
-| `DEMO_MODE` | No | `"true"` to enable 1-click reviewer ribbon |
-| `NEXT_PUBLIC_APP_URL` | No | Canonical URL of deployed Vercel application |
 
 ---
 

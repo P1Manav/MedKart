@@ -24,18 +24,8 @@ export const DEFAULT_OTP_LIMITS: OtpLimitsConfig = {
   expiryMinutes: OTP_EXPIRY_MINUTES,
 };
 
-export function getOtpPepper(): string {
-  const pepper = process.env.OTP_PEPPER;
-  if (!pepper || pepper.trim().length < 16) {
-    if (process.env.NODE_ENV === 'production' && !process.env.CI) {
-      throw new Error(
-        'FATAL: OTP_PEPPER environment variable is missing or shorter than 16 characters. Refusing to operate in production.'
-      );
-    }
-    return pepper || 'dev-otp-pepper-must-be-configured-in-production-at-least-32-chars';
-  }
-  return pepper;
-}
+export { getOtpPepper } from './pepper';
+import { getOtpPepper } from './pepper';
 
 export function hashOtp(otp: string, salt: string = ''): string {
   const pepper = getOtpPepper();

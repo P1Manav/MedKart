@@ -59,7 +59,7 @@ flowchart TD
 2. **Twilio Verify (`TwilioVerifyProvider`):** Global fallback via Twilio Verify API v2 (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID`).
 3. **Fast2SMS (`Fast2SmsProvider`):** Cost-effective Indian SMS gateway (`FAST2SMS_API_KEY`).
 4. **Email OTP (`EmailOtpProvider`):** Automatic secondary channel when SMS delivery fails or is throttled (`RESEND_API_KEY` or `SMTP_*`).
-5. **Mock Provider (`MockOtpProvider`):** Enabled **strictly** when `DEMO_MODE=true` and the recipient number belongs to the allowlisted demo pool:
+5. **Mock Provider (`MockOtpProvider`):** Selected via `SMS_PROVIDER="mock"` or engaged **strictly** when `DEMO_MODE=true` and the recipient number belongs to the allowlisted demo pool (`DEMO_PHONES` or default seeded accounts):
    - `9830011111` (Customer: Debasish Ghosh)
    - `9830022222` (Customer: Rina Sen)
    - `9830033333` (Customer: Arif Mondal)
@@ -67,7 +67,7 @@ flowchart TD
    - `9830066661` (Store Staff: Bikash Mondal)
    - `9830099999` (Ops Admin: Arijit Sen)
 
-> **No Leaks Policy:** Real phone numbers outside this allowlist are **never** shown an on-screen OTP code even in demo mode; real SMS is required.
+> **No Leaks Policy:** Real phone numbers outside this allowlist are **never** shown an on-screen OTP code even in demo mode; real SMS via `SMS_PROVIDER` (or email fallback) is required. If no real provider is configured, non-demo requests return HTTP 503 honestly.
 
 ---
 

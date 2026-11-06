@@ -6,9 +6,10 @@ import { Msg91Provider } from './msg91';
 import { TwilioVerifyProvider } from './twilio-verify';
 import { Fast2SmsProvider } from './fast2sms';
 import { EmailOtpProvider } from './email';
-import { MockOtpProvider, DEMO_PHONES } from './mock';
+import { MockOtpProvider, DEMO_PHONES, getDemoPhones } from './mock';
+import { getOtpPepper } from '../pepper';
 
-export { DEMO_PHONES };
+export { DEMO_PHONES, getDemoPhones };
 
 export interface DispatchOtpResult {
   success: boolean;
@@ -26,7 +27,7 @@ export function maskPhone(phone: string): string {
 }
 
 export function hashPhoneForLog(phone: string): string {
-  const pepper = process.env.OTP_PEPPER || 'default-pepper-medkart-dev-32-chars-long';
+  const pepper = getOtpPepper();
   const digits = phone.replace(/\D/g, '').slice(-10);
   return createHmac('sha256', pepper).update(digits).digest('hex');
 }
@@ -37,21 +38,24 @@ export class OtpProviderChain {
   private mockProvider: MockOtpProvider;
 
   constructor() {
+    this.emailProvider = new EmailOtpProvider();
+    this.mockProvider = new MockOtpProvider();
     this.smsProviders = new Map<string, OtpProvider>([
       ['msg91', new Msg91Provider()],
       ['twilio_verify', new TwilioVerifyProvider()],
       ['fast2sms', new Fast2SmsProvider()],
     ]);
-    this.emailProvider = new EmailOtpProvider();
-    this.mockProvider = new MockOtpProvider();
   }
 
   getPrimarySmsProvider(): OtpProvider | null {
     const selected = (process.env.SMS_PROVIDER || '').trim().toLowerCase();
+    if (selected === 'mock') {
+      return this.mockProvider;
+    }
     if (selected && this.smsProviders.has(selected)) {
       return this.smsProviders.get(selected)!;
     }
-    // Auto-detect based on configured credentials
+    // Auto-detect based on configured credentials (real SMS providers)
     for (const provider of this.smsProviders.values()) {
       if (provider.isConfigured()) return provider;
     }
@@ -60,7 +64,7 @@ export class OtpProviderChain {
 
   isDemoNumber(phone: string): boolean {
     const raw = phone.replace(/\D/g, '').slice(-10);
-    return DEMO_PHONES.includes(raw);
+    return getDemoPhones().includes(raw);
   }
 
   async dispatch(params: SendOtpParams): Promise<DispatchOtpResult> {

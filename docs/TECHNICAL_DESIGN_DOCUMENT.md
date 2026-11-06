@@ -70,7 +70,7 @@ flowchart TD
 
 ## 3. Data Model & Entity Relationships
 
-The data model is strictly normalized across 12 relational tables:
+The data model is strictly normalized across 18 relational tables:
 
 ```mermaid
 erDiagram
@@ -90,8 +90,8 @@ erDiagram
 ### 3.1 Primary Entities
 - `users`: Phone-based authentication, RBAC roles (`CUSTOMER`, `PHARMACIST`, `STORE_STAFF`, `OPS`), and pharmacist registration numbers.
 - `family_profiles`: Supports caregivers ordering for aging parents (e.g. Debasish Ghosh ordering for his mother, Anjali Ghosh).
-- `stores`: 10 seeded stores across Kolkata & Howrah (Salt Lake, Behala, Howrah Maidan, Gariahat, etc.) with geographic coordinates.
-- `products`: ~40 products categorised into `OTC`, `H`, `H1`, `X`, and `NARCOTIC`.
+- `stores`: 10 seeded stores across Kolkata & Howrah (Salt Lake, Behala, Howrah Maidan, Gariahat, etc.) representing the 46-store retail network.
+- `products`: 28 verified products categorised into `OTC`, `H`, `H1`, `X`, and `NARCOTIC`.
 - `schedule_rules`: Configurable database-driven rules governing online sales, prescription requirements, pharmacist approvals, and register entries.
 - `orders`: Tracks lifecycle from `DRAFT` to `DELIVERED`, storing encrypted prescription bytea, IV, auth tag, and AI metadata.
 - `order_lines`: Line-level status (`PENDING`, `APPROVED`, `EDITED_APPROVED`, `REJECTED`, `BLOCKED_NOT_SOLD_ONLINE`), AI confidence, generic substitution consent, and H1 register fields.

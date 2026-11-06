@@ -16,7 +16,7 @@ async function runLiveNarratedDemo() {
 
   // ── 1. HONEST OTP AUTHENTICATION ─────────────────────────────────────
   console.log('👉 STEP 1: Customer Login with Honest On-Screen OTP (No SMS Key Set)');
-  delete process.env.SMS_PROVIDER_API_KEY;
+  delete process.env.MSG91_AUTH_KEY;
   process.env.DEMO_MODE = 'true';
   process.env.OTP_MOCK = 'true';
 

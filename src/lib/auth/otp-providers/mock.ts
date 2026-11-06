@@ -1,7 +1,7 @@
 // src/lib/auth/otp-providers/mock.ts
 import type { OtpProvider, SendOtpParams, SendOtpResult } from './types';
 
-export const DEMO_PHONES = [
+export const DEFAULT_DEMO_PHONES = [
   '9830011111', // Debasish Ghosh (Customer)
   '9830022222', // Rina Sen (Customer)
   '9830033333', // Amitava Roy (Customer)
@@ -10,21 +10,35 @@ export const DEMO_PHONES = [
   '9830099999', // Central Ops Administrator
 ];
 
+export function getDemoPhones(): string[] {
+  if (process.env.DEMO_MODE !== 'true') {
+    return [];
+  }
+  if (process.env.DEMO_PHONES) {
+    return process.env.DEMO_PHONES.split(',')
+      .map((p) => p.trim().replace(/\D/g, '').slice(-10))
+      .filter((p) => p.length === 10);
+  }
+  return DEFAULT_DEMO_PHONES;
+}
+
+export const DEMO_PHONES = DEFAULT_DEMO_PHONES;
+
 export class MockOtpProvider implements OtpProvider {
   readonly name = 'mock';
   readonly channel = 'SMS' as const;
 
   isConfigured(): boolean {
-    return process.env.DEMO_MODE === 'true' || process.env.OTP_PROVIDER === 'mock';
+    return process.env.DEMO_MODE === 'true' || process.env.SMS_PROVIDER === 'mock';
   }
 
   isDemoPhone(phone: string): boolean {
     const raw = phone.replace(/\D/g, '').slice(-10);
-    return DEMO_PHONES.includes(raw);
+    return getDemoPhones().includes(raw);
   }
 
   async send(params: SendOtpParams): Promise<SendOtpResult> {
-    const isExplicitMock = process.env.OTP_PROVIDER === 'mock';
+    const isExplicitMock = process.env.SMS_PROVIDER === 'mock';
     const isDemoModeAllowlisted = process.env.DEMO_MODE === 'true' && this.isDemoPhone(params.phone);
 
     if (isExplicitMock || isDemoModeAllowlisted) {
@@ -39,4 +53,3 @@ export class MockOtpProvider implements OtpProvider {
     };
   }
 }
-

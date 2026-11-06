@@ -2,9 +2,9 @@
 
 A regulated healthcare commerce web application built for a pharmacy chain in Kolkata and Howrah (10 seeded demo stores across key Kolkata and Howrah clusters, representing the 46-store network with central warehouse operations).
 
-[![CI](https://github.com/P1Manav/MedKart/actions/workflows/ci.yml/badge.svg)](https://github.com/P1Manav/MedKart/actions/workflows/ci.yml)
-[![Tests Passing](https://img.shields.io/badge/tests-219%20passing-brightgreen)](https://github.com/P1Manav/MedKart)
-[![TypeScript Strict](https://img.shields.io/badge/TypeScript-strict-blue)](https://github.com/P1Manav/MedKart)
+[![CI](https://github.com/P1Manav/isocode_assignment/actions/workflows/ci.yml/badge.svg)](https://github.com/P1Manav/isocode_assignment/actions/workflows/ci.yml)
+[![Tests Passing](https://img.shields.io/badge/tests-228%20passing-brightgreen)](https://github.com/P1Manav/isocode_assignment)
+[![TypeScript Strict](https://img.shields.io/badge/TypeScript-strict-blue)](https://github.com/P1Manav/isocode_assignment)
 
 ---
 
@@ -50,7 +50,41 @@ Copy `.env.example` to `.env`:
 ```bash
 cp .env.example .env
 ```
-Default `.env` settings work out of the box with `OTP_MOCK="true"` and local SQLite/PostgreSQL.
+Default `.env.example` settings work out of the box with `DEMO_MODE="true"` and PostgreSQL (Neon serverless or local Docker Compose).
+
+| Variable Name | Required in Prod | Group | Description |
+|---|---|---|---|
+| `DATABASE_URL` | **Yes** | Core | PostgreSQL connection string |
+| `NEXT_PUBLIC_APP_URL` | No | Core | Canonical public URL of the application |
+| `CRON_SECRET` | **Yes** | Core | Shared secret bearer token securing automated refill cron |
+| `PUBLIC_CATALOGUE_OTC_ONLY` | No | Core | Restricts unauthenticated /api/products to OTC items only |
+| `SESSION_SECRET` | **Yes** | Session/Crypto | 32+ char secret for HS256 JWT cookie signing |
+| `PRESCRIPTION_ENC_KEY` | **Yes** | Session/Crypto | 64-char hex key (32 bytes) for AES-256-GCM prescription encryption |
+| `OTP_PEPPER` | **Yes** | Session/Crypto | 16+ char secret pepper for HMAC-SHA256 OTP hashing and audit logs |
+| `SMS_PROVIDER` | No | OTP/SMS | Selected provider (`msg91`, `twilio_verify`, `fast2sms`, or `mock`) |
+| `MSG91_AUTH_KEY` | No | OTP/SMS | MSG91 API auth key for SMS dispatch |
+| `MSG91_TEMPLATE_ID` | No | OTP/SMS | MSG91 DLT approved flow template ID |
+| `SMS_PROVIDER_TEMPLATE_ID` | No | OTP/SMS | Generic SMS provider template ID fallback |
+| `TWILIO_ACCOUNT_SID` | No | OTP/SMS | Twilio Account SID |
+| `TWILIO_AUTH_TOKEN` | No | OTP/SMS | Twilio Auth Token |
+| `TWILIO_VERIFY_SERVICE_SID` | No | OTP/SMS | Twilio Verify Service SID |
+| `FAST2SMS_API_KEY` | No | OTP/SMS | Fast2SMS API Key |
+| `EMAIL_PROVIDER` | No | Email | Email provider (`resend`, `brevo`, or `smtp`) |
+| `RESEND_API_KEY` | No | Email | Resend API key for email OTP fallback |
+| `BREVO_API_KEY` | No | Email | Brevo API key for transactional email delivery |
+| `SMTP_HOST` | No | Email | SMTP host address for transactional email |
+| `EMAIL_FROM` | No | Email | Sender email address for OTP delivery |
+| `DEMO_MODE` | No | Demo | Enables top role switcher & mock OTP for demo numbers |
+| `DEMO_PHONES` | No | Demo | Comma-separated allowlist of 10-digit demo numbers |
+| `AI_READER` | No | AI/OCR | Reader selection: `hf`, `tesseract`, or `mock` |
+| `HF_API_TOKEN` | No | AI/OCR | Hugging Face free-tier token for Tier 1 TrOCR |
+| `HF_OCR_MODEL` | No | AI/OCR | OCR model identifier (default: `microsoft/trocr-base-handwritten`) |
+| `PAYMENT_GATEWAY_KEY_ID` | No | Payments | Razorpay / Cashfree sandbox test key ID |
+| `PAYMENT_GATEWAY_KEY_SECRET` | No | Payments | Payment gateway sandbox key secret |
+| `PAYMENT_GATEWAY_WEBHOOK_SECRET` | No | Payments | Webhook HMAC verification secret |
+| `UPI_PAYEE_VPA` | No | UPI | Direct UPI payee VPA (Path B). Option hidden if omitted. |
+| `UPI_PAYEE_NAME` | No | UPI | Direct UPI payee business name |
+| `UPI_MAX_AMOUNT_INR` | No | UPI | Maximum order amount in INR permitted for direct UPI (default: 100) |
 
 ### 3. Generate Synthetic Prescriptions & Seed Database
 ```bash

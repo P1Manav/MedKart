@@ -6,12 +6,12 @@ export class Msg91Provider implements OtpProvider {
   readonly channel = 'SMS' as const;
 
   isConfigured(): boolean {
-    const key = process.env.MSG91_AUTH_KEY || process.env.SMS_PROVIDER_API_KEY;
+    const key = process.env.MSG91_AUTH_KEY;
     return Boolean(key && key.trim().length > 0);
   }
 
   async send(params: SendOtpParams): Promise<SendOtpResult> {
-    const apiKey = process.env.MSG91_AUTH_KEY || process.env.SMS_PROVIDER_API_KEY;
+    const apiKey = process.env.MSG91_AUTH_KEY;
     if (!apiKey) {
       return { sent: false, provider: this.name, channel: this.channel, error: 'MSG91_AUTH_KEY not configured' };
     }

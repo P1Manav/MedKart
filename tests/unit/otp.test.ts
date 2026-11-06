@@ -76,7 +76,7 @@ describe('Production-Grade OTP & Authentication Hardening (Master Prompt v6)', (
 
   it('requestOtp: non-demo numbers NEVER receive mockOtp even if DEMO_MODE=true', async () => {
     process.env.DEMO_MODE = 'true';
-    process.env.SMS_PROVIDER_API_KEY = 'test_key';
+    process.env.MSG91_AUTH_KEY = 'test_key';
 
     vi.spyOn(db.otpRecord, 'findFirst').mockResolvedValue(null);
     vi.spyOn(db.otpRecord, 'count').mockResolvedValue(0);
@@ -105,7 +105,6 @@ describe('Production-Grade OTP & Authentication Hardening (Master Prompt v6)', (
     process.env.DEMO_MODE = 'true';
     delete process.env.SMS_PROVIDER;
     delete process.env.MSG91_AUTH_KEY;
-    delete process.env.SMS_PROVIDER_API_KEY;
     delete process.env.TWILIO_ACCOUNT_SID;
     delete process.env.FAST2SMS_API_KEY;
 
