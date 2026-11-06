@@ -203,14 +203,13 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ language: locale }),
           });
-          await mutate();
         } catch (e) {
           logger.error('Failed to save language preference to profile', e);
         }
       }
-      router.refresh();
+      window.location.reload();
     },
-    [data?.authenticated, mutate, router]
+    [data?.authenticated]
   );
 
   const user = data?.authenticated ? (data.user as UserSession) : null;

@@ -83,6 +83,7 @@ export default function OrderBuilderPage() {
   const [showUpiModal, setShowUpiModal] = useState(false);
   const [gatewayOrder, setGatewayOrder] = useState<{ orderId?: string; keyId?: string; name?: string } | null>(null);
   const [directUpiData, setDirectUpiData] = useState<{ orderId: string; displayId: string; amount: number } | null>(null);
+  const [estimatedRxTotal, setEstimatedRxTotal] = useState<number>(120);
 
   // Fetch session and payment config on mount
   useEffect(() => {
@@ -231,6 +232,18 @@ export default function OrderBuilderPage() {
       setFile(sampleFile);
       setPreviewUrl(URL.createObjectURL(sampleFile));
       setError(null);
+
+      if (samplePath.includes('metformin')) {
+        setEstimatedRxTotal(120);
+      } else if (samplePath.includes('telmisartan')) {
+        setEstimatedRxTotal(285);
+      } else if (samplePath.includes('levothyroxine')) {
+        setEstimatedRxTotal(190);
+      } else if (samplePath.includes('multi')) {
+        setEstimatedRxTotal(310);
+      } else {
+        setEstimatedRxTotal(130);
+      }
     } catch {
       setError('Could not load sample prescription.');
     }
@@ -307,8 +320,10 @@ export default function OrderBuilderPage() {
         return;
       }
 
+      const effectiveAmount = cartTotal > 0 ? cartTotal : estimatedRxTotal;
+
       if (finalPayment === 'DIRECT_UPI') {
-        const orderAmount = cartTotal > 0 ? cartTotal : 185.0;
+        const orderAmount = data.order?.totalAmount > 0 ? data.order.totalAmount : effectiveAmount;
         setDirectUpiData({
           orderId: data.order.id,
           displayId: data.order.displayId,
@@ -332,12 +347,14 @@ export default function OrderBuilderPage() {
       return;
     }
 
+    const effectiveAmount = cartTotal > 0 ? cartTotal : estimatedRxTotal;
+
     if (paymentMethod === 'DIRECT_UPI') {
       if (!paymentConfig?.directUpi?.enabled) {
         setError('Direct UPI demo transfer is not currently enabled by administrator.');
         return;
       }
-      if (paymentConfig.directUpi.maxAmountInr && cartTotal > paymentConfig.directUpi.maxAmountInr) {
+      if (paymentConfig.directUpi.maxAmountInr && effectiveAmount > paymentConfig.directUpi.maxAmountInr) {
         setError(`Direct UPI demo transfer is capped at ₹${paymentConfig.directUpi.maxAmountInr}. Please select Sandbox Payment or Cash on Delivery.`);
         return;
       }
@@ -349,11 +366,10 @@ export default function OrderBuilderPage() {
 
     if (paymentMethod === 'MOCK_UPI') {
       try {
-        const orderAmount = cartTotal > 0 ? cartTotal : 185.0;
         const res = await fetch('/api/payments/create-order', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ amount: orderAmount }),
+          body: JSON.stringify({ amount: effectiveAmount }),
         });
         const data = await res.json();
         if (data.isGatewayConfigured && data.orderId) {
@@ -962,7 +978,7 @@ export default function OrderBuilderPage() {
       {/* Realistic Mock UPI Modal (Section 4 Spec Requirement) */}
       <MockUpiModal
         isOpen={showUpiModal}
-        amount={cartTotal > 0 ? cartTotal : 185.0}
+        amount={cartTotal > 0 ? cartTotal : estimatedRxTotal}
         gatewayName={gatewayOrder?.name}
         orderId={gatewayOrder?.orderId}
         onSuccess={handleUpiSuccess}

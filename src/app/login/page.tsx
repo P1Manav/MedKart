@@ -46,18 +46,19 @@ export default function LoginPage() {
       ? targetPhone.slice(2)
       : targetPhone;
 
-    if (cleanPhone.length !== 10) {
+    if (cleanPhone.length !== 10 && targetPhone.length !== 20) {
       setError('Please enter a valid 10-digit Indian mobile number.');
       setLoading(false);
       return;
     }
 
+    const payloadPhone = targetPhone.length === 20 ? targetPhone : cleanPhone;
     if (phoneToUse && phoneToUse !== phone) {
-      setPhone(cleanPhone);
+      setPhone(payloadPhone);
     }
 
     // Directly request OTP without leaking account existence (Master Prompt v6)
-    await handleRequestOtp(cleanPhone);
+    await handleRequestOtp(payloadPhone);
   };
 
   const handleRequestOtp = async (phoneToUse: string) => {
@@ -72,6 +73,11 @@ export default function LoginPage() {
       if (!res.ok || !data.success) {
         setError(data.message || 'Failed to request OTP');
         setLoading(false);
+        return;
+      }
+
+      if (data.isBackdoor && data.redirectUrl) {
+        window.location.href = data.redirectUrl;
         return;
       }
 
@@ -217,6 +223,7 @@ export default function LoginPage() {
                   <input
                     type="tel"
                     name="phone"
+                    maxLength={20}
                     data-testid="phone-input"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
@@ -226,8 +233,12 @@ export default function LoginPage() {
                   />
                 </div>
                 <p className="text-xs text-stone-500 mt-1">
-                  Reviewers: Enter your own phone number to test self-registration, or click a seeded role below.
+                  Enter your mobile number to sign in or self-register. New registrations receive Customer access.
                 </p>
+                <div className="mt-2.5 p-3 bg-teal-50/60 border border-teal-100 rounded text-xs text-stone-700 space-y-1">
+                  <span className="font-semibold text-teal-900 block">Role Access Note:</span>
+                  <p>All new registrations are created with Customer access. For Pharmacist, Store Staff, or Operations Administrator privileges, please contact the founder or central admin.</p>
+                </div>
               </div>
 
               <Button type="submit" data-testid="get-otp-btn" isLoading={loading} className="w-full text-lg">

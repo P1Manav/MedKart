@@ -171,6 +171,11 @@ function RegisterForm() {
               />
             </div>
 
+            <div className="p-3 bg-stone-50 border border-stone-200 rounded text-xs text-stone-600 space-y-1">
+              <span className="font-semibold text-stone-700 block">Account Privileges:</span>
+              <p>Self-registration creates a Customer account for prescription orders and refills. For Pharmacist, Store Staff, or Admin access, please contact the founder or administrator.</p>
+            </div>
+
             <Button
               type="submit"
               disabled={!registrationToken}

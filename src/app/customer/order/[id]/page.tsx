@@ -312,6 +312,48 @@ export default function OrderTrackingPage({
               </div>
             ))}
           </div>
+
+          {(() => {
+            const orderTotal = order.lines.reduce(
+              (sum, l) => sum + (l.unitPrice || 0) * (l.quantity || 1),
+              0
+            );
+            return (
+              <div className="pt-4 mt-3 border-t border-stone-200 flex justify-between items-center text-sm">
+                <span className="font-bold text-stone-800">Total Order Amount:</span>
+                <span className="font-extrabold text-lg text-teal-800">
+                  {orderTotal > 0 ? `₹${orderTotal}` : 'Awaiting pharmacist verification'}
+                </span>
+              </div>
+            );
+          })()}
+        </CardContent>
+      </Card>
+
+      {/* ─── PRESCRIPTION IMAGE PREVIEW ────────────────────── */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-base font-bold text-stone-900">
+            Uploaded Prescription
+          </CardTitle>
+          <a
+            href={`/api/prescription/${order.id}/image`}
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs text-teal-700 hover:underline font-medium"
+          >
+            Open Full Image ↗
+          </a>
+        </CardHeader>
+        <CardContent>
+          <div className="bg-stone-900/90 rounded-lg p-3 text-center flex items-center justify-center max-h-80 overflow-hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`/api/prescription/${order.id}/image`}
+              alt="Prescription scan"
+              className="max-h-72 object-contain rounded"
+            />
+          </div>
         </CardContent>
       </Card>
 

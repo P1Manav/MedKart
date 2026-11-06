@@ -167,14 +167,17 @@ export async function GET(req: Request) {
     }
 
     if (session.role === 'STORE_STAFF') {
-      // Fix storeId undefined over-fetching bug: if storeId is missing, return empty
+      // Return store-assigned orders or unassigned network orders
       if (!session.storeId) {
         return NextResponse.json({ orders: [], nextCursor: null });
       }
 
       const orders = await db.order.findMany({
         where: {
-          storeId: session.storeId,
+          OR: [
+            { storeId: session.storeId },
+            { storeId: null },
+          ],
           ...(statusFilter ? { status: statusFilter } : {}),
         },
         select: safeOrderSelect,
@@ -557,6 +560,11 @@ export async function POST(req: Request) {
       }).catch(() => null);
     }
 
+    const calculatedOrderTotal = allLinesToCreate.reduce(
+      (sum, line) => sum + (line.unitPrice || 0) * (line.quantity || 1),
+      0
+    );
+
     return NextResponse.json({
       success: true,
       order: {
@@ -567,6 +575,7 @@ export async function POST(req: Request) {
         routingIssue: order.routingIssue,
         manualEntryNeeded: order.manualEntryNeeded,
         linesCount: order.lines.length,
+        totalAmount: calculatedOrderTotal,
       },
     });
   } catch (err: unknown) {

@@ -54,7 +54,7 @@ export default function StoreOrdersPage() {
   const { data: ordersData, error: swrError, isLoading: swrLoading, mutate } = useSWR(
     '/api/orders?limit=100',
     fetcher,
-    { refreshInterval: 5000 }
+    { refreshInterval: 3000, revalidateOnFocus: true }
   );
 
   const orders: StoreOrder[] = ordersData?.orders || [];

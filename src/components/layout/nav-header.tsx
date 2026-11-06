@@ -16,16 +16,14 @@ export const NavHeader: React.FC = () => {
     user,
     loading,
     demoMode,
-    theme,
     logout,
     quickLogin,
-    updateTheme,
     updateLanguage,
   } = useSession();
 
   return (
-    <header className="bg-white dark:bg-stone-900 border-b border-stone-200 dark:border-stone-800 sticky top-0 z-50 shadow-xs transition-colors duration-200">
-      {/* Top Utility Ribbon (Demo Switcher when DEMO_MODE=true, Language Switcher, and Theme Toggle) */}
+    <header className="bg-white border-b border-stone-200 sticky top-0 z-50 shadow-xs">
+      {/* Top Utility Ribbon (Demo Switcher when DEMO_MODE=true and Language Switcher) */}
       <div className="bg-teal-900 text-teal-100 text-xs py-1.5 px-4 flex flex-wrap items-center justify-between gap-2 border-b border-teal-800">
         {demoMode ? (
           <div className="flex items-center gap-2 flex-wrap">
@@ -66,37 +64,6 @@ export const NavHeader: React.FC = () => {
         )}
 
         <div className="flex items-center gap-3">
-          {/* Theme Selector */}
-          <div className="flex items-center gap-1 bg-teal-950/60 rounded px-1.5 py-0.5 border border-teal-800/80">
-            <span className="text-teal-300 mr-1">{tCommon('theme')}:</span>
-            <button
-              type="button"
-              onClick={() => updateTheme('light')}
-              title="Light Mode"
-              className={`px-1 rounded cursor-pointer ${theme === 'light' ? 'bg-teal-700 text-white font-bold' : 'text-teal-200 hover:text-white'}`}
-            >
-              ☀️ {tCommon('light')}
-            </button>
-            <span>|</span>
-            <button
-              type="button"
-              onClick={() => updateTheme('dark')}
-              title="Dark Mode"
-              className={`px-1 rounded cursor-pointer ${theme === 'dark' ? 'bg-teal-700 text-white font-bold' : 'text-teal-200 hover:text-white'}`}
-            >
-              🌙 {tCommon('dark')}
-            </button>
-            <span>|</span>
-            <button
-              type="button"
-              onClick={() => updateTheme('system')}
-              title="System Preference"
-              className={`px-1 rounded cursor-pointer ${theme === 'system' ? 'bg-teal-700 text-white font-bold' : 'text-teal-200 hover:text-white'}`}
-            >
-              💻 {tCommon('system')}
-            </button>
-          </div>
-
           {/* Language Selector */}
           <div className="flex items-center gap-1.5">
             <span className="text-teal-300">{tCommon('language')}:</span>
@@ -135,10 +102,10 @@ export const NavHeader: React.FC = () => {
               M
             </div>
             <div>
-              <span className="text-xl font-bold tracking-tight text-stone-900 dark:text-stone-100 block leading-tight">
+              <span className="text-xl font-bold tracking-tight text-stone-900 block leading-tight">
                 MedKart
               </span>
-              <span className="text-xs text-stone-500 dark:text-stone-400 block">Kolkata Pharmacy Network</span>
+              <span className="text-xs text-stone-500 block">Kolkata Pharmacy Network</span>
             </div>
           </Link>
 
@@ -146,34 +113,34 @@ export const NavHeader: React.FC = () => {
             <nav className="hidden md:flex items-center gap-4 text-sm font-medium">
               {user.role === 'CUSTOMER' && (
                 <>
-                  <Link href="/customer/home" className="text-stone-700 dark:text-stone-300 hover:text-teal-700 dark:hover:text-teal-400">
+                  <Link href="/customer/home" className="text-stone-700 hover:text-teal-700">
                     {tNav('reorderMedicines')}
                   </Link>
-                  <Link href="/customer/order/new" className="text-stone-700 dark:text-stone-300 hover:text-teal-700 dark:hover:text-teal-400">
+                  <Link href="/customer/order/new" className="text-stone-700 hover:text-teal-700">
                     {tNav('newOrder')}
                   </Link>
-                  <Link href="/customer/profile" className="text-stone-700 dark:text-stone-300 hover:text-teal-700 dark:hover:text-teal-400">
+                  <Link href="/customer/profile" className="text-stone-700 hover:text-teal-700">
                     {tNav('profile')}
                   </Link>
                 </>
               )}
               {user.role === 'PHARMACIST' && (
-                <Link href="/pharmacist/queue" className="text-teal-800 dark:text-teal-300 font-semibold flex items-center gap-1.5">
+                <Link href="/pharmacist/queue" className="text-teal-800 font-semibold flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-teal-600 animate-pulse"></span>
                   {tNav('verificationQueue')}
                 </Link>
               )}
               {user.role === 'STORE_STAFF' && (
-                <Link href="/store/orders" className="text-stone-700 dark:text-stone-300 hover:text-teal-700 dark:hover:text-teal-400">
+                <Link href="/store/orders" className="text-stone-700 hover:text-teal-700">
                   {tNav('storePacking')}
                 </Link>
               )}
               {user.role === 'OPS' && (
                 <>
-                  <Link href="/ops/dashboard" className="text-stone-700 dark:text-stone-300 hover:text-teal-700 dark:hover:text-teal-400">
+                  <Link href="/ops/dashboard" className="text-stone-700 hover:text-teal-700">
                     {tNav('opsDashboard')}
                   </Link>
-                  <Link href="/pharmacist/queue" className="text-stone-700 dark:text-stone-300 hover:text-teal-700 dark:hover:text-teal-400">
+                  <Link href="/pharmacist/queue" className="text-stone-700 hover:text-teal-700">
                     {tNav('verificationQueue')}
                   </Link>
                 </>

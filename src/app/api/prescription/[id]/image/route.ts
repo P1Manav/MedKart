@@ -12,11 +12,11 @@ export async function GET(
 ) {
   try {
     const session = await requireAuth();
-    const { id: orderId } = await props.params;
+    const { id: orderParam } = await props.params;
 
-    // Fetch order metadata and encrypted bytes
-    const order = await db.order.findUnique({
-      where: { id: orderId },
+    // Fetch order metadata and encrypted bytes by cuid ID or displayId (e.g. RX-50214)
+    let order = await db.order.findUnique({
+      where: { id: orderParam },
       select: {
         id: true,
         customerId: true,
@@ -28,6 +28,22 @@ export async function GET(
         prescriptionMime: true,
       },
     });
+
+    if (!order) {
+      order = await db.order.findUnique({
+        where: { displayId: orderParam },
+        select: {
+          id: true,
+          customerId: true,
+          storeId: true,
+          status: true,
+          prescriptionEncrypted: true,
+          prescriptionIv: true,
+          prescriptionAuthTag: true,
+          prescriptionMime: true,
+        },
+      });
+    }
 
     if (!order) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });

@@ -101,6 +101,7 @@ export default function PharmacistReviewPage({
   // Direct UPI confirmation states (Master Prompt v5)
   const [upiUtrInput, setUpiUtrInput] = useState('');
   const [confirmingUpi, setConfirmingUpi] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
   // H1 register inputs
   const [h1Inputs, setH1Inputs] = useState<
@@ -529,14 +530,22 @@ export default function PharmacistReviewPage({
       {/* Main Verification Grid: Side-by-side on desktop, tabbed on mobile */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* ─── LEFT: PRESCRIPTION VIEWER (PAN / ZOOM / ROTATE) ───────── */}
-        <div className={`lg:col-span-6 lg:block ${activeTab === 'IMAGE' ? 'block' : 'hidden'}`}>
-          <Card className="h-full flex flex-col">
-            <CardHeader className="py-3 px-4 flex flex-row items-center justify-between border-b border-stone-100">
+        <div className={`lg:col-span-6 ${activeTab === 'IMAGE' ? 'block' : 'hidden lg:block'}`}>
+          <Card className="h-full flex flex-col shadow-xs">
+            <CardHeader className="py-3 px-4 flex flex-row items-center justify-between border-b border-stone-100 flex-wrap gap-2">
               <CardTitle className="text-sm font-bold text-stone-800 flex items-center gap-2">
                 <span>{t('prescriptionViewer')}</span>
                 <span className="text-[10px] bg-teal-50 text-teal-700 px-1.5 py-0.5 rounded font-mono">
                   AES-256 Decrypted
                 </span>
+                <a
+                  href={`/api/prescription/${order.id}/image`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs text-teal-700 hover:underline font-normal ml-1"
+                >
+                  (Open full ↗)
+                </a>
               </CardTitle>
               {/* Zoom & Rotate Controls */}
               <div className="flex items-center gap-1.5">
@@ -572,6 +581,7 @@ export default function PharmacistReviewPage({
                   onClick={() => {
                     setZoom(1);
                     setRotation(0);
+                    setImageError(false);
                   }}
                   className="p-1.5 border rounded hover:bg-stone-100 text-xs px-2 cursor-pointer text-stone-500"
                 >
@@ -579,27 +589,47 @@ export default function PharmacistReviewPage({
                 </button>
               </div>
             </CardHeader>
-            <CardContent className="p-2 flex-1 bg-stone-900/90 rounded-b-lg overflow-auto flex items-center justify-center min-h-[500px]">
-              <div
-                style={{
-                  transform: `scale(${zoom}) rotate(${rotation}deg)`,
-                  transition: 'transform 0.15s ease-out',
-                }}
-                className="origin-center"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={`/api/prescription/${order.id}/image`}
-                  alt="Prescription Scan"
-                  className="max-w-full max-h-[600px] object-contain shadow-2xl rounded"
-                />
-              </div>
+            <CardContent className="p-2 flex-1 bg-stone-900/95 rounded-b-lg overflow-auto flex items-center justify-center min-h-[500px] relative">
+              {imageError ? (
+                <div className="p-6 text-center text-stone-200 space-y-3">
+                  <p className="text-sm font-semibold text-amber-300">
+                    Unable to render inline prescription image.
+                  </p>
+                  <p className="text-xs text-stone-400">
+                    Click below to open the AES-256 decrypted image in full view:
+                  </p>
+                  <a
+                    href={`/api/prescription/${order.id}/image`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-block px-4 py-2 bg-teal-700 text-white text-xs font-semibold rounded hover:bg-teal-600 transition"
+                  >
+                    Open Decrypted Image in New Tab ↗
+                  </a>
+                </div>
+              ) : (
+                <div
+                  style={{
+                    transform: `scale(${zoom}) rotate(${rotation}deg)`,
+                    transition: 'transform 0.15s ease-out',
+                  }}
+                  className="origin-center"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={`/api/prescription/${order.id}/image`}
+                    alt="Prescription Scan"
+                    onError={() => setImageError(true)}
+                    className="max-w-full max-h-[600px] object-contain shadow-2xl rounded"
+                  />
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
 
         {/* ─── RIGHT: MATCHED MEDICINES & PHARMACIST ACTIONS ─────────── */}
-        <div className={`lg:col-span-6 lg:block ${activeTab === 'ITEMS' ? 'block' : 'hidden'}`}>
+        <div className={`lg:col-span-6 ${activeTab === 'ITEMS' ? 'block' : 'hidden lg:block'}`}>
           <div className="space-y-4">
             <div className="flex items-center justify-between text-xs text-stone-500 px-1">
               <span>Compare written text with matched catalogue medicine:</span>

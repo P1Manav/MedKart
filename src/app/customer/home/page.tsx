@@ -112,6 +112,13 @@ export default function CustomerHomePage() {
 
   useEffect(() => {
     loadData();
+    const interval = setInterval(loadData, 3000);
+    const onFocus = () => loadData();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
   }, []);
 
   const handleSaveName = async () => {
@@ -170,6 +177,17 @@ export default function CustomerHomePage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 py-4">
+      {/* Role Notice Card */}
+      <div className="bg-teal-50/70 border border-teal-200/80 rounded-lg p-3.5 text-xs text-stone-700 flex flex-wrap items-center justify-between gap-2 shadow-2xs">
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-teal-600"></span>
+          <span>
+            <strong>Account Role:</strong> Registered as Customer. For Pharmacist verification queue, Store staff packing, or Ops dashboard privileges, please contact the founder or administrator.
+          </span>
+        </div>
+        <span className="text-teal-900 font-semibold text-[11px] bg-teal-100/70 px-2 py-0.5 rounded">MedKart Network</span>
+      </div>
+
       {/* ─── 1. FAMILY PROFILE SWITCHER ───────────────────────── */}
       <div className="bg-white p-4 rounded-lg border border-stone-200 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -419,12 +437,22 @@ export default function CustomerHomePage() {
                     ? 'blocked'
                     : 'default';
 
+                const orderTotal = ord.lines.reduce(
+                  (sum, l) => sum + (l.product?.price || 0) * (l.quantity || 1),
+                  0
+                );
+
                 return (
                   <div key={ord.id} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-stone-900 text-base">{ord.displayId}</span>
                         <Badge variant={statusBadgeVariant}>{ord.status.replace('_', ' ')}</Badge>
+                        {orderTotal > 0 && (
+                          <span className="font-bold text-teal-900 text-xs bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
+                            ₹{orderTotal}
+                          </span>
+                        )}
                         {ord.familyProfile && (
                           <span className="text-xs text-stone-500 capitalize">
                             (For {ord.familyProfile.relationship}: {ord.familyProfile.name})

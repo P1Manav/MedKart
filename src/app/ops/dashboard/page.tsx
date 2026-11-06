@@ -137,6 +137,13 @@ export default function OpsDashboardPage() {
   useEffect(() => {
     loadMetrics();
     loadRules();
+    const interval = setInterval(loadMetrics, 4000);
+    const onFocus = () => loadMetrics();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
   }, []);
 
   const handleRunReminders = async () => {

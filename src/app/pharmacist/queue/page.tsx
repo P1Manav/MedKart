@@ -42,7 +42,8 @@ export default function PharmacistQueuePage() {
   const [filter, setFilter] = useState<'ALL' | 'WAITING' | 'ON_HOLD' | 'APPROVED'>('WAITING');
 
   const { data: queueData, error: queueError, isLoading: queueLoading, mutate } = useSWR('/api/orders', fetcher, {
-    refreshInterval: 10000,
+    refreshInterval: 3000,
+    revalidateOnFocus: true,
   });
 
   const orders: QueueOrder[] = queueData?.orders
@@ -57,14 +58,17 @@ export default function PharmacistQueuePage() {
     return Math.floor(diffMs / (1000 * 60));
   };
 
+  const isAwaitingReview = (o: QueueOrder) =>
+    o.status === 'SUBMITTED' || o.status === 'PAYMENT_PENDING_VERIFICATION';
+
   const filteredOrders = orders.filter((o) => {
-    if (filter === 'WAITING') return o.status === 'SUBMITTED';
+    if (filter === 'WAITING') return isAwaitingReview(o);
     if (filter === 'ON_HOLD') return o.status === 'ON_HOLD';
     if (filter === 'APPROVED') return o.status === 'APPROVED' || o.status === 'PACKED';
     return true;
   });
 
-  const waitingCount = orders.filter((o) => o.status === 'SUBMITTED').length;
+  const waitingCount = orders.filter(isAwaitingReview).length;
 
   return (
     <div className="max-w-6xl mx-auto py-6 space-y-6">
