@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import db from '@/lib/db';
 import { requireAuth } from '@/lib/auth/rbac';
+import { handleApiError } from '@/lib/api-error';
 import { validateTransition } from '@/domain/order-state';
 
 const ProcessRefundSchema = z.object({
@@ -71,7 +72,6 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, message: 'Refund successfully processed and order closed.' });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Failed to process refund';
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return handleApiError(err, 'ops/process-refund');
   }
 }

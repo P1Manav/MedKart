@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import db from '@/lib/db';
 import { requireAuth } from '@/lib/auth/rbac';
+import { handleApiError } from '@/lib/api-error';
 
 const ConfirmManualSchema = z.object({
   orderId: z.string().min(1, 'Order ID is required'),
@@ -116,8 +117,6 @@ export async function POST(req: Request) {
       message: `Direct UPI payment verified and confirmed with UTR ${utrReference}.`,
     });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Manual confirmation failed';
-    const status = msg.includes('Unauthorized') || msg.includes('Forbidden') ? 403 : 500;
-    return NextResponse.json({ success: false, message: msg }, { status });
+    return handleApiError(err, 'payments/confirm-manual');
   }
 }

@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { requireAuth } from '@/lib/auth/rbac';
 import { safeOrderSelect } from '../route';
+import { handleApiError } from '@/lib/api-error';
 
 export async function GET(
   req: Request,
@@ -56,7 +57,6 @@ export async function GET(
 
     return NextResponse.json({ order });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Failed to retrieve order';
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return handleApiError(err, 'orders/[id]');
   }
 }

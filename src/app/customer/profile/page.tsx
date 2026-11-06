@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSession } from '@/components/providers/session-provider';
+import { logger } from '@/lib/logger';
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -227,7 +228,7 @@ export default function CustomerProfilePage() {
       router.push('/login');
       router.refresh();
     } catch (err) {
-      console.error('Logout all error:', err);
+      logger.error('Logout all error:', err);
     } finally {
       setLoggingOutAll(false);
     }

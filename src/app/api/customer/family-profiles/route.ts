@@ -1,8 +1,9 @@
 // src/app/api/customer/family-profiles/route.ts
 import { NextResponse } from 'next/server';
-import { requireAuth, AuthorizationError } from '@/lib/auth/rbac';
+import { requireAuth } from '@/lib/auth/rbac';
 import db from '@/lib/db';
 import { z } from 'zod';
+import { handleApiError } from '@/lib/api-error';
 
 const CreateFamilyProfileSchema = z.object({
   name: z.string().trim().min(2, 'Name must be at least 2 characters').max(60, 'Name must be at most 60 characters'),
@@ -17,11 +18,8 @@ export async function GET() {
       orderBy: { createdAt: 'asc' },
     });
     return NextResponse.json({ success: true, profiles });
-  } catch (err) {
-    if (err instanceof AuthorizationError) {
-      return NextResponse.json({ error: err.message }, { status: 401 });
-    }
-    return NextResponse.json({ error: 'Failed to fetch family profiles' }, { status: 500 });
+  } catch (err: unknown) {
+    return handleApiError(err, 'customer/family-profiles');
   }
 }
 
@@ -46,11 +44,7 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ success: true, profile });
-  } catch (err) {
-    if (err instanceof AuthorizationError) {
-      return NextResponse.json({ error: err.message }, { status: 401 });
-    }
-    return NextResponse.json({ error: 'Failed to create family profile' }, { status: 500 });
+  } catch (err: unknown) {
+    return handleApiError(err, 'customer/family-profiles');
   }
 }
-

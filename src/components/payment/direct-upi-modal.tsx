@@ -6,6 +6,7 @@ import QRCode from 'qrcode';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { buildUpiUri } from '@/lib/payments/upi-config';
+import { logger } from '@/lib/logger';
 
 interface DirectUpiModalProps {
   isOpen: boolean;
@@ -75,7 +76,7 @@ export const DirectUpiModal: React.FC<DirectUpiModalProps> = ({
         },
       })
         .then((url) => setQrDataUrl(url))
-        .catch((err) => console.error('Failed to generate UPI QR code:', err));
+        .catch((err) => logger.error('Failed to generate UPI QR code:', err));
     }
   }, [isOpen, upiUri]);
 

@@ -10,6 +10,7 @@ import {
   type DispatchableOrder,
 } from '@/domain/assert-dispatchable';
 import { validateTransition } from '@/domain/order-state';
+import { handleApiError } from '@/lib/api-error';
 
 const LineActionSchema = z.discriminatedUnion('action', [
   z.object({
@@ -491,11 +492,7 @@ export async function POST(
 
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
   } catch (err: unknown) {
-    if (err instanceof AuthorizationError) {
-      return NextResponse.json({ error: err.message }, { status: 403 });
-    }
-    const msg = err instanceof Error ? err.message : 'Server error';
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return handleApiError(err, 'pharmacist/orders/[id]/verify');
   }
 }
 

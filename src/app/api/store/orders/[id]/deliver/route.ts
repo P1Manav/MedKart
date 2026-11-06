@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { requireAuth, assertStoreStaffAccess } from '@/lib/auth/rbac';
 import { validateTransition } from '@/domain/order-state';
+import { handleApiError } from '@/lib/api-error';
 
 export async function POST(
   req: Request,
@@ -62,8 +63,6 @@ export async function POST(
       message: `Order ${order.displayId} successfully delivered.`,
     });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Delivery confirmation failed';
-    const status = msg.includes('Unauthorized') || msg.includes('Forbidden') ? 403 : 500;
-    return NextResponse.json({ error: msg }, { status });
+    return handleApiError(err, 'store/orders/deliver');
   }
 }

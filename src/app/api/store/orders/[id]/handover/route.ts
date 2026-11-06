@@ -4,6 +4,7 @@ import { z } from 'zod';
 import db from '@/lib/db';
 import { requireAuth, assertStoreStaffAccess } from '@/lib/auth/rbac';
 import { validateTransition } from '@/domain/order-state';
+import { handleApiError } from '@/lib/api-error';
 
 const HandoverSchema = z.object({
   partnerName: z.string().trim().min(2, 'Delivery partner name is required').max(60).default('MedKart Local Fleet'),
@@ -69,8 +70,6 @@ export async function POST(
       message: `Order ${order.displayId} handed over for dispatch to ${partnerName}.`,
     });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Handover failed';
-    const status = msg.includes('Unauthorized') || msg.includes('Forbidden') ? 403 : 500;
-    return NextResponse.json({ error: msg }, { status });
+    return handleApiError(err, 'store/orders/handover');
   }
 }

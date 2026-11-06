@@ -8,6 +8,7 @@ import { Fast2SmsProvider } from './fast2sms';
 import { EmailOtpProvider } from './email';
 import { MockOtpProvider, DEMO_PHONES, getDemoPhones } from './mock';
 import { getOtpPepper } from '../pepper';
+import { logger } from '../../logger';
 
 export { DEMO_PHONES, getDemoPhones };
 
@@ -120,7 +121,7 @@ export class OtpProviderChain {
         });
       }
     } catch (logErr) {
-      console.warn('[OtpProviderChain] Failed to record OtpDelivery audit log:', logErr);
+      logger.warn('[OtpProviderChain] Failed to record OtpDelivery audit log:', logErr);
     }
 
     return {

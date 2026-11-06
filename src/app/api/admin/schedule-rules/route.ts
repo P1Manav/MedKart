@@ -4,6 +4,8 @@ import { z } from 'zod';
 import { ScheduleType } from '@prisma/client';
 import db from '@/lib/db';
 import { requireAuth } from '@/lib/auth/rbac';
+import { handleApiError } from '@/lib/api-error';
+import { logger } from '@/lib/logger';
 
 const UpdateScheduleRuleSchema = z.object({
   schedule: z.nativeEnum(ScheduleType),
@@ -21,8 +23,7 @@ export async function GET() {
     });
     return NextResponse.json({ success: true, rules });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Unauthorized';
-    return NextResponse.json({ error: msg }, { status: 403 });
+    return handleApiError(err, 'admin/schedule-rules');
   }
 }
 
@@ -51,13 +52,12 @@ export async function PATCH(req: Request) {
       },
     });
 
-    console.log(
+    logger.info(
       `[ScheduleRulesAdmin] Schedule rule updated for ${schedule} by OPS user ${session.userId} (${session.name})`
     );
 
     return NextResponse.json({ success: true, rule: updated });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Unauthorized';
-    return NextResponse.json({ error: msg }, { status: 403 });
+    return handleApiError(err, 'admin/schedule-rules');
   }
 }

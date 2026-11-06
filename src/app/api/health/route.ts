@@ -1,6 +1,7 @@
 // src/app/api/health/route.ts
 import { NextResponse } from 'next/server';
 import db from '@/lib/db';
+import { logger } from '@/lib/logger';
 
 export async function GET() {
   const startTime = Date.now();
@@ -23,14 +24,14 @@ export async function GET() {
       { status: 200 }
     );
   } catch (err: unknown) {
-    const errorMsg = err instanceof Error ? err.message : 'Database ping failed';
+    logger.error('Healthcheck DB ping failed:', err);
     return NextResponse.json(
       {
         status: 'DOWN',
         timestamp: new Date().toISOString(),
         database: {
           status: 'DISCONNECTED',
-          error: errorMsg,
+          error: 'Database ping failed',
         },
       },
       { status: 503 }

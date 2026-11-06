@@ -1,7 +1,9 @@
 // src/app/api/customer/refills/route.ts
 import { NextResponse } from 'next/server';
-import { requireAuth, AuthorizationError } from '@/lib/auth/rbac';
+import { requireAuth } from '@/lib/auth/rbac';
 import db from '@/lib/db';
+
+import { handleApiError } from '@/lib/api-error';
 
 export async function GET() {
   try {
@@ -55,11 +57,8 @@ export async function GET() {
         forProfile: `${r.familyProfile.relationship}: ${r.familyProfile.name}`,
       })),
     });
-  } catch (err) {
-    if (err instanceof AuthorizationError) {
-      return NextResponse.json({ error: err.message }, { status: 401 });
-    }
-    return NextResponse.json({ error: 'Failed to fetch refills' }, { status: 500 });
+  } catch (err: unknown) {
+    return handleApiError(err, 'customer/refills');
   }
 }
 

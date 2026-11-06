@@ -4,6 +4,7 @@ import { z } from 'zod';
 import db from '@/lib/db';
 import { verifyRegistrationToken } from '@/lib/auth/registration-token';
 import { setSessionCookie } from '@/lib/auth/session';
+import { handleApiError } from '@/lib/api-error';
 
 export const RegisterInputSchema = z.object({
   registrationToken: z.string().optional(),
@@ -178,7 +179,6 @@ export async function POST(req: Request) {
       { status: 201 }
     );
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Registration failed';
-    return NextResponse.json({ success: false, message: msg }, { status: 500 });
+    return handleApiError(err, 'auth/register');
   }
 }

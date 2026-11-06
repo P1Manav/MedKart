@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import db from '@/lib/db';
 import { requireAuth } from '@/lib/auth/rbac';
+import { handleApiError } from '@/lib/api-error';
 
 const SubmitUtrSchema = z.object({
   orderId: z.string().min(1, 'Order ID is required'),
@@ -69,7 +70,6 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, message: 'UTR reference recorded' });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Failed to record UTR';
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return handleApiError(err, 'payments/submit-utr');
   }
 }

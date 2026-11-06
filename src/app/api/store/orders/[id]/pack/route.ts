@@ -5,6 +5,7 @@ import db from '@/lib/db';
 import { requireAuth, assertStoreStaffAccess } from '@/lib/auth/rbac';
 import { assertDispatchable, type DispatchableOrder } from '@/domain/assert-dispatchable';
 import { validateTransition } from '@/domain/order-state';
+import { handleApiError } from '@/lib/api-error';
 
 const PackSchema = z.object({
   invoiceNumber: z.string().min(2, 'Invoice number is required'),
@@ -105,8 +106,7 @@ export async function POST(
       order: { id: updated.id, status: updated.status },
     });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Pack operation failed';
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return handleApiError(err, 'store/orders/pack');
   }
 }
 

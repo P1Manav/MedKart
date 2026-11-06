@@ -1,9 +1,10 @@
 // src/app/api/prescription/[id]/image/route.ts
 import { NextResponse } from 'next/server';
 import db from '@/lib/db';
-import { requireAuth, assertPrescriptionAccess, AuthorizationError } from '@/lib/auth/rbac';
+import { requireAuth, assertPrescriptionAccess } from '@/lib/auth/rbac';
 import { decryptPrescription } from '@/lib/crypto/encrypt';
 import { logPrescriptionAccess } from '@/lib/crypto/access-log';
+import { handleApiError } from '@/lib/api-error';
 
 export async function GET(
   req: Request,
@@ -72,10 +73,6 @@ export async function GET(
       },
     });
   } catch (err: unknown) {
-    if (err instanceof AuthorizationError) {
-      return NextResponse.json({ error: err.message }, { status: 403 });
-    }
-    const msg = err instanceof Error ? err.message : 'Unauthorized';
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return handleApiError(err, 'prescription/image');
   }
 }

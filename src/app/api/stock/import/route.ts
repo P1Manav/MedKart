@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { requireAuth } from '@/lib/auth/rbac';
 import { validateStockCsv } from '@/lib/validators/stock-csv';
+import { handleApiError } from '@/lib/api-error';
 
 export async function POST(req: Request) {
   try {
@@ -59,8 +60,7 @@ export async function POST(req: Request) {
       preview: validation.validRows.slice(0, 10),
     });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Stock import failed';
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return handleApiError(err, 'stock/import');
   }
 }
 

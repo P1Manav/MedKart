@@ -2,6 +2,7 @@
 import fs from 'fs';
 import path from 'path';
 import { createWorker } from 'tesseract.js';
+import { logger } from '../logger';
 import type { PrescriptionReader, ReadResult, AiPrescriptionResponse } from './types';
 import {
   parseOcrOutputToPrescription,
@@ -99,7 +100,7 @@ export class HfOcrReader implements PrescriptionReader {
           };
         }
       } catch (err: unknown) {
-        console.warn(
+        logger.warn(
           `[HfOcrReader] Tier 1 (${this.modelName}) failed or timed out: ${err instanceof Error ? err.message : String(err)}. Falling back to Tier 2 (Tesseract.js WASM)...`
         );
       }
@@ -129,7 +130,7 @@ export class HfOcrReader implements PrescriptionReader {
         manualEntryNeeded: false,
       };
     } catch (err: unknown) {
-      console.warn(
+      logger.warn(
         `[HfOcrReader] Tier 2 Tesseract engine failure: ${err instanceof Error ? err.message : String(err)}. Routing to Tier 3 manual queue.`
       );
     }

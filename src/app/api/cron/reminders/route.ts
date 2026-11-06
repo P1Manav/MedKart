@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { isRefillReminderDue } from '@/domain/refill';
+import { handleApiError } from '@/lib/api-error';
 
 export interface RunRemindersOptions {
   asOfDate?: Date;
@@ -107,8 +108,7 @@ async function handleCronRequest(req: Request) {
     const result = await runRemindersJob({ asOfDate });
     return NextResponse.json(result);
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Cron failed';
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return handleApiError(err, 'cron/reminders');
   }
 }
 

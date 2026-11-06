@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { verifyOtp } from '@/lib/auth/otp';
 import { setSessionCookie } from '@/lib/auth/session';
+import { handleApiError } from '@/lib/api-error';
 import { createRegistrationToken } from '@/lib/auth/registration-token';
 import type { UserRole } from '@prisma/client';
 
@@ -59,8 +60,7 @@ export async function POST(req: Request) {
       user: result.user,
     });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Internal error';
-    return NextResponse.json({ success: false, message: msg }, { status: 500 });
+    return handleApiError(err, 'auth/otp/verify');
   }
 }
 

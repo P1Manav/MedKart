@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requestOtp } from '@/lib/auth/otp';
+import { handleApiError } from '@/lib/api-error';
 
 const RequestSchema = z.object({
   phone: z.string().min(10, 'Mobile number must be at least 10 digits'),
@@ -31,8 +32,6 @@ export async function POST(req: Request) {
 
     return NextResponse.json(result);
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Internal error';
-    return NextResponse.json({ success: false, message: msg }, { status: 500 });
+    return handleApiError(err, 'auth/otp/request');
   }
 }
-

@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import type { ScheduleType } from '@prisma/client';
 import db from '@/lib/db';
 import { getSession } from '@/lib/auth/session';
+import { handleApiError } from '@/lib/api-error';
 
 export async function GET(req: Request) {
   try {
@@ -65,7 +66,6 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ success: true, products: enriched });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Failed to fetch catalogue products';
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return handleApiError(err, 'products');
   }
 }

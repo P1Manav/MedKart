@@ -10,6 +10,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { logger } from '@/lib/logger';
 
 interface FamilyProfile {
   id: string;
@@ -103,7 +104,7 @@ export default function CustomerHomePage() {
         setRefills(refillsData.refills);
       }
     } catch (e) {
-      console.error('Failed to load customer data', e);
+      logger.error('Failed to load customer data', e);
     } finally {
       setLoading(false);
     }

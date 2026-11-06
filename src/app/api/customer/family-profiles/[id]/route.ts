@@ -1,8 +1,9 @@
 // src/app/api/customer/family-profiles/[id]/route.ts
 import { NextResponse } from 'next/server';
-import { requireAuth, AuthorizationError } from '@/lib/auth/rbac';
+import { requireAuth } from '@/lib/auth/rbac';
 import db from '@/lib/db';
 import { z } from 'zod';
+import { handleApiError } from '@/lib/api-error';
 
 const UpdateFamilyProfileSchema = z.object({
   name: z.string().trim().min(2, 'Name must be at least 2 characters').max(60, 'Name must be at most 60 characters').optional(),
@@ -42,11 +43,8 @@ export async function PATCH(
     });
 
     return NextResponse.json({ success: true, profile: updated });
-  } catch (err) {
-    if (err instanceof AuthorizationError) {
-      return NextResponse.json({ error: err.message }, { status: 401 });
-    }
-    return NextResponse.json({ error: 'Failed to update family profile' }, { status: 500 });
+  } catch (err: unknown) {
+    return handleApiError(err, 'customer/family-profiles/[id]');
   }
 }
 
@@ -87,10 +85,7 @@ export async function DELETE(
     });
 
     return NextResponse.json({ success: true, message: 'Family member removed successfully' });
-  } catch (err) {
-    if (err instanceof AuthorizationError) {
-      return NextResponse.json({ error: err.message }, { status: 401 });
-    }
-    return NextResponse.json({ error: 'Failed to delete family profile' }, { status: 500 });
+  } catch (err: unknown) {
+    return handleApiError(err, 'customer/family-profiles/[id]');
   }
 }

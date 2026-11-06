@@ -2,6 +2,8 @@
 import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/rbac';
 import { runRemindersJob } from '@/app/api/cron/reminders/route';
+import { handleApiError } from '@/lib/api-error';
+import { logger } from '@/lib/logger';
 
 export async function POST(req: Request) {
   try {
@@ -17,11 +19,10 @@ export async function POST(req: Request) {
       // Body is optional
     }
 
-    console.log(`[Ops] Reminder run triggered by user ${session.userId} (${session.name})`);
+    logger.info(`[Ops] Reminder run triggered by user ${session.userId} (${session.name})`);
     const result = await runRemindersJob({ asOfDate, isOpsCaller: true });
     return NextResponse.json(result);
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Failed to run reminders';
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return handleApiError(err, 'ops/run-reminders');
   }
 }

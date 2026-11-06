@@ -4,6 +4,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import useSWR from 'swr';
 import { useRouter } from 'next/navigation';
+import { logger } from '@/lib/logger';
 
 export interface UserSession {
   userId: string;
@@ -163,7 +164,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }
         return false;
       } catch (err) {
-        console.error('Quick login failed:', err);
+        logger.error('Quick login failed:', err);
         return false;
       }
     },
@@ -184,7 +185,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
           });
           await mutate();
         } catch (e) {
-          console.error('Failed to save theme preference to profile', e);
+          logger.error('Failed to save theme preference to profile', e);
         }
       }
     },
@@ -204,7 +205,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
           });
           await mutate();
         } catch (e) {
-          console.error('Failed to save language preference to profile', e);
+          logger.error('Failed to save language preference to profile', e);
         }
       }
       router.refresh();

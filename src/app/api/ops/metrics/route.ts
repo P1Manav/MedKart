@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { requireAuth } from '@/lib/auth/rbac';
 import { calculateMedianSlaMinutes } from '@/lib/metrics';
+import { handleApiError } from '@/lib/api-error';
 
 export async function GET() {
   try {
@@ -171,7 +172,6 @@ export async function GET() {
       },
     });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Failed to compute ops metrics';
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return handleApiError(err, 'ops/metrics');
   }
 }

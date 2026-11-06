@@ -1,5 +1,6 @@
 // src/lib/env.ts
 import { z } from 'zod';
+import { logger } from './logger';
 
 const EnvSchema = z.object({
   // Core
@@ -102,27 +103,27 @@ export function validateEnv(env: Record<string, string | undefined> = process.en
       data.SMS_PROVIDER === 'mock'
     );
     if (!hasSms) {
-      console.warn('[ENV] SMS provider credentials not configured (MSG91/Twilio/Fast2SMS). Real OTP SMS delivery is disabled.');
+      logger.warn('[ENV] SMS provider credentials not configured (MSG91/Twilio/Fast2SMS). Real OTP SMS delivery is disabled.');
     }
 
     const hasEmail = Boolean(data.RESEND_API_KEY || data.BREVO_API_KEY || data.SMTP_HOST);
     if (!hasEmail) {
-      console.warn('[ENV] Email credentials not configured (Resend/Brevo/SMTP). Email OTP delivery is disabled.');
+      logger.warn('[ENV] Email credentials not configured (Resend/Brevo/SMTP). Email OTP delivery is disabled.');
     }
 
     const hasPaymentGateway = Boolean(data.PAYMENT_GATEWAY_KEY_ID && data.PAYMENT_GATEWAY_KEY_SECRET);
     if (!hasPaymentGateway) {
-      console.warn('[ENV] Payment gateway credentials not configured. Falling back to sandbox payment modal.');
+      logger.warn('[ENV] Payment gateway credentials not configured. Falling back to sandbox payment modal.');
     }
 
     const hasDirectUpi = Boolean(data.UPI_PAYEE_VPA);
     if (!hasDirectUpi) {
-      console.warn('[ENV] UPI_PAYEE_VPA not set. Path B Direct UPI option is hidden.');
+      logger.warn('[ENV] UPI_PAYEE_VPA not set. Path B Direct UPI option is hidden.');
     }
 
     const hasHfToken = Boolean(data.HF_API_TOKEN);
     if (!hasHfToken) {
-      console.warn('[ENV] HF_API_TOKEN not set. Tier 1 TrOCR falls back to Tier 2 Tesseract.js WASM.');
+      logger.warn('[ENV] HF_API_TOKEN not set. Tier 1 TrOCR falls back to Tier 2 Tesseract.js WASM.');
     }
   }
 

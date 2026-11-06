@@ -8,6 +8,7 @@ import { encryptPrescription } from '@/lib/crypto/encrypt';
 import { getPrescriptionReader } from '@/lib/ai';
 import { matchPrescriptionLine, type CatalogueProduct } from '@/lib/ai/fuzzy-matcher';
 import { routeOrderToStore, type StoreStockItem, type OrderItemRequirement } from '@/domain/routing';
+import { handleApiError } from '@/lib/api-error';
 
 export async function POST(
   req: Request,
@@ -222,7 +223,6 @@ export async function POST(
       routingIssue,
     });
   } catch (err: unknown) {
-    const errorMsg = err instanceof Error ? err.message : 'Re-upload failed';
-    return NextResponse.json({ error: errorMsg }, { status: 500 });
+    return handleApiError(err, 'orders/[id]/reupload');
   }
 }

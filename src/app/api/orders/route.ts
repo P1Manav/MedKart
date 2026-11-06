@@ -7,6 +7,7 @@ import { encryptPrescription } from '@/lib/crypto/encrypt';
 import { getPrescriptionReader } from '@/lib/ai';
 import { matchPrescriptionLine, type CatalogueProduct } from '@/lib/ai/fuzzy-matcher';
 import { routeOrderToStore, type StoreStockItem, type OrderItemRequirement } from '@/domain/routing';
+import { handleApiError } from '@/lib/api-error';
 import { computePrescriptionValidUntil } from '@/domain/assert-dispatchable';
 import { CreateOrderInputSchema, PrescriptionFileSchema } from '@/lib/validators/order-input';
 import { validateMagicBytes, stripExifGps } from '@/lib/validators/upload';
@@ -190,8 +191,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ orders: [], nextCursor: null });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Unauthorized';
-    return NextResponse.json({ error: msg }, { status: 401 });
+    return handleApiError(err, 'orders/GET');
   }
 }
 
@@ -579,8 +579,7 @@ export async function POST(req: Request) {
       },
     });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Failed to create order';
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return handleApiError(err, 'orders/POST');
   }
 }
 

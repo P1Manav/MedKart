@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { requireAuth } from '@/lib/auth/rbac';
 import { clearSessionCookie } from '@/lib/auth/session';
+import { handleApiError } from '@/lib/api-error';
 
 export async function POST() {
   try {
@@ -22,8 +23,6 @@ export async function POST() {
       message: 'All active sessions on all devices have been signed out.',
     });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Failed to revoke sessions';
-    return NextResponse.json({ success: false, message: msg }, { status: 401 });
+    return handleApiError(err, 'auth/logout-all');
   }
 }
-

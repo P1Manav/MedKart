@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { verifyWebhookSignature } from '@/lib/payments/gateway';
+import { handleApiError } from '@/lib/api-error';
 
 export async function POST(req: Request) {
   try {
@@ -114,7 +115,6 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ status: 'ok', received: true, event: eventName });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Webhook processing error';
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return handleApiError(err, 'payments/webhook');
   }
 }

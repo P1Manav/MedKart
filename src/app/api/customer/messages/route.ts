@@ -1,14 +1,12 @@
 // src/app/api/customer/messages/route.ts
 import { NextResponse } from 'next/server';
 import db from '@/lib/db';
-import { requireAuth, AuthorizationError } from '@/lib/auth/rbac';
+import { requireAuth } from '@/lib/auth/rbac';
+import { handleApiError } from '@/lib/api-error';
 
 export async function GET() {
   try {
     const session = await requireAuth();
-    if (!session || !session.userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
 
     const messages = await db.messageOutbox.findMany({
       where: {
@@ -31,10 +29,6 @@ export async function GET() {
       })),
     });
   } catch (err: unknown) {
-    if (err instanceof AuthorizationError) {
-      return NextResponse.json({ error: err.message }, { status: 401 });
-    }
-    const message = err instanceof Error ? err.message : 'Internal Server Error';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return handleApiError(err, 'customer/messages');
   }
 }

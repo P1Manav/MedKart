@@ -4,6 +4,7 @@ import { z } from 'zod';
 import db from '@/lib/db';
 import { getSession } from '@/lib/auth/session';
 import { isGatewayConfigured, createSandboxPaymentOrder } from '@/lib/payments/gateway';
+import { handleApiError } from '@/lib/api-error';
 
 const CreateOrderSchema = z.object({
   orderId: z.string({ message: 'Order ID is required' }).min(1, 'Order ID is required'),
@@ -82,7 +83,6 @@ export async function POST(req: Request) {
       keyId: process.env.PAYMENT_GATEWAY_KEY_ID,
     });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Failed to create payment order';
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return handleApiError(err, 'payments/create-order');
   }
 }

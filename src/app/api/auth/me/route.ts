@@ -4,6 +4,7 @@ import { getSession } from '@/lib/auth/session';
 import db from '@/lib/db';
 import { z } from 'zod';
 import { Language } from '@prisma/client';
+import { handleApiError } from '@/lib/api-error';
 
 const UpdateProfileSchema = z.object({
   name: z.string().trim().min(2, 'Name must be at least 2 characters').max(80, 'Name cannot exceed 80 characters').optional(),
@@ -20,62 +21,66 @@ const UpdateProfileSchema = z.object({
 });
 
 export async function GET() {
-  const session = await getSession();
-  const demoMode = process.env.DEMO_MODE === 'true';
+  try {
+    const session = await getSession();
+    const demoMode = process.env.DEMO_MODE === 'true';
 
-  if (!session) {
-    return NextResponse.json({ authenticated: false, user: null, demoMode });
+    if (!session) {
+      return NextResponse.json({ authenticated: false, user: null, demoMode });
+    }
+
+    const dbUser = await db.user.findUnique({
+      where: { id: session.userId },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        role: true,
+        email: true,
+        emailVerified: true,
+        language: true,
+        theme: true,
+        sessionVersion: true,
+        pharmacistRegNo: true,
+        storeId: true,
+        familyProfiles: {
+          select: {
+            id: true,
+            name: true,
+            relationship: true,
+          },
+        },
+        addresses: {
+          select: {
+            id: true,
+            label: true,
+            addressText: true,
+            pincode: true,
+            lat: true,
+            lng: true,
+          },
+        },
+      },
+    });
+
+    return NextResponse.json({
+      authenticated: true,
+      user: {
+        ...session,
+        name: dbUser?.name || session.name,
+        email: dbUser?.email || null,
+        emailVerified: dbUser?.emailVerified || false,
+        language: dbUser?.language || 'en',
+        theme: dbUser?.theme || 'system',
+        sessionVersion: dbUser?.sessionVersion || 1,
+        familyProfiles: dbUser?.familyProfiles || [],
+        addresses: dbUser?.addresses || [],
+      },
+      demoMode,
+    });
+  } catch (err: unknown) {
+    return handleApiError(err, 'auth/me');
   }
-
-  const dbUser = await db.user.findUnique({
-    where: { id: session.userId },
-    select: {
-      id: true,
-      name: true,
-      phone: true,
-      role: true,
-      email: true,
-      emailVerified: true,
-      language: true,
-      theme: true,
-      sessionVersion: true,
-      pharmacistRegNo: true,
-      storeId: true,
-      familyProfiles: {
-        select: {
-          id: true,
-          name: true,
-          relationship: true,
-        },
-      },
-      addresses: {
-        select: {
-          id: true,
-          label: true,
-          addressText: true,
-          pincode: true,
-          lat: true,
-          lng: true,
-        },
-      },
-    },
-  });
-
-  return NextResponse.json({
-    authenticated: true,
-    user: {
-      ...session,
-      name: dbUser?.name || session.name,
-      email: dbUser?.email || null,
-      emailVerified: dbUser?.emailVerified || false,
-      language: dbUser?.language || 'en',
-      theme: dbUser?.theme || 'system',
-      sessionVersion: dbUser?.sessionVersion || 1,
-      familyProfiles: dbUser?.familyProfiles || [],
-      addresses: dbUser?.addresses || [],
-    },
-    demoMode,
-  });
 }
 
 export async function PATCH(req: Request) {
@@ -176,6 +181,6 @@ export async function PATCH(req: Request) {
     if (err && typeof err === 'object' && 'code' in err && (err as { code: string }).code === 'P2002') {
       return NextResponse.json({ error: 'This email is already in use by another account' }, { status: 409 });
     }
-    return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
+    return handleApiError(err, 'auth/me');
   }
 }
