@@ -20,11 +20,11 @@ export const Timeline: React.FC<TimelineProps> = ({ steps, className = '' }) => 
     <div className={`relative pl-6 border-l-2 border-stone-200 space-y-6 ${className}`}>
       {steps.map((step, idx) => {
         const dotStyles = {
-          completed: 'bg-teal-600 border-teal-600 text-white',
-          current: 'bg-white border-teal-600 ring-4 ring-teal-100 text-teal-700',
-          upcoming: 'bg-white border-stone-300 text-stone-400',
+          completed: 'bg-[#190042] border-[#190042] text-white',
+          current: 'bg-[#B69D0C] border-[#9c8609] ring-4 ring-[#fcf8db] text-[#190042]',
+          upcoming: 'bg-white border-[#e3ddef] text-[#796e94]',
           failed: 'bg-red-600 border-red-600 text-white',
-          on_hold: 'bg-amber-500 border-amber-500 text-white',
+          on_hold: 'bg-[#B69D0C] border-[#B69D0C] text-white',
         };
 
         return (

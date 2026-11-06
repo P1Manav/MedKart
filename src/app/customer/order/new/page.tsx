@@ -422,8 +422,8 @@ export default function OrderBuilderPage() {
           onClick={() => setActiveTab('PRESCRIPTION')}
           className={`pb-3 px-4 font-bold text-sm border-b-2 transition-colors cursor-pointer ${
             activeTab === 'PRESCRIPTION'
-              ? 'border-teal-700 text-teal-900'
-              : 'border-transparent text-stone-500 hover:text-stone-700'
+              ? 'border-[#190042] text-[#190042]'
+              : 'border-transparent text-[#796e94] hover:text-[#190042]'
           }`}
         >
           {t('uploadPrescription')}
@@ -433,13 +433,13 @@ export default function OrderBuilderPage() {
           onClick={() => setActiveTab('CATALOGUE')}
           className={`pb-3 px-4 font-bold text-sm border-b-2 transition-colors cursor-pointer flex items-center gap-2 ${
             activeTab === 'CATALOGUE'
-              ? 'border-teal-700 text-teal-900'
-              : 'border-transparent text-stone-500 hover:text-stone-700'
+              ? 'border-[#190042] text-[#190042]'
+              : 'border-transparent text-[#796e94] hover:text-[#190042]'
           }`}
         >
           <span>Search Catalogue & Cart</span>
           {cart.length > 0 && (
-            <span className="bg-teal-700 text-white text-[11px] font-bold px-1.5 py-0.2 rounded-full">
+            <span className="bg-[#B69D0C] text-[#190042] text-[11px] font-black px-1.5 py-0.2 rounded-full">
               {cart.reduce((s, i) => s + i.quantity, 0)}
             </span>
           )}
@@ -593,15 +593,15 @@ export default function OrderBuilderPage() {
           <CardHeader>
             <CardTitle className="text-lg font-bold text-stone-900 flex items-center justify-between">
               <span>{t('uploadPrescription')}</span>
-              <span className="text-xs font-normal text-teal-800 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
+              <span className="text-xs font-bold text-[#7b6905] bg-[#fcf8db] px-2 py-0.5 rounded border border-[#B69D0C]/40">
                 AES-256-GCM Encrypted
               </span>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {!previewUrl ? (
-              <div className="border-2 border-dashed border-stone-300 rounded-lg p-8 text-center space-y-4 bg-stone-50/50">
-                <div className="w-14 h-14 bg-teal-50 text-teal-700 rounded-full flex items-center justify-center mx-auto">
+              <div className="border-2 border-dashed border-[#e3ddef] rounded-lg p-8 text-center space-y-4 bg-[#f9f8fc]">
+                <div className="w-14 h-14 bg-[#f3effa] text-[#190042] rounded-full flex items-center justify-center mx-auto border border-[#190042]/20">
                   <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
@@ -852,8 +852,8 @@ export default function OrderBuilderPage() {
                 data-testid="payment-sandbox"
                 className={`p-3.5 border rounded-lg cursor-pointer flex items-center gap-3 ${
                   paymentMethod === 'MOCK_UPI'
-                    ? 'border-teal-600 bg-teal-50 text-teal-900 font-semibold shadow-xs'
-                    : 'border-stone-200 hover:bg-stone-50'
+                    ? 'border-[#B69D0C] bg-[#fcf8db] text-[#190042] font-bold shadow-xs'
+                    : 'border-[#e3ddef] hover:bg-[#f9f8fc]'
                 }`}
               >
                 <input
@@ -864,10 +864,10 @@ export default function OrderBuilderPage() {
                 />
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="block text-sm font-semibold">Online Payment (Razorpay Sandbox — Test Mode)</span>
-                    <span className="text-[10px] bg-teal-100 text-teal-800 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Default</span>
+                    <span className="block text-sm font-bold">Online Payment (Razorpay Sandbox — Test Mode)</span>
+                    <span className="text-[10px] bg-[#B69D0C] text-[#190042] px-1.5 py-0.5 rounded font-black uppercase tracking-wider">Default</span>
                   </div>
-                  <span className="block text-xs text-stone-500 font-normal">Real sandbox gateway calls with HMAC signature verification (Zero real money charged)</span>
+                  <span className="block text-xs text-[#4a3e65] font-normal">Real sandbox gateway calls with HMAC signature verification (Zero real money charged)</span>
                 </div>
               </label>
 
@@ -876,8 +876,8 @@ export default function OrderBuilderPage() {
                 data-testid="payment-cod"
                 className={`p-3.5 border rounded-lg cursor-pointer flex items-center gap-3 ${
                   paymentMethod === 'COD'
-                    ? 'border-teal-600 bg-teal-50 text-teal-900 font-semibold shadow-xs'
-                    : 'border-stone-200 hover:bg-stone-50'
+                    ? 'border-[#B69D0C] bg-[#fcf8db] text-[#190042] font-bold shadow-xs'
+                    : 'border-[#e3ddef] hover:bg-[#f9f8fc]'
                 }`}
               >
                 <input
@@ -887,8 +887,8 @@ export default function OrderBuilderPage() {
                   onChange={() => setPaymentMethod('COD')}
                 />
                 <div>
-                  <span className="block text-sm font-semibold">{t('cod')}</span>
-                  <span className="block text-xs text-stone-500 font-normal">Pay cash or scan QR at your doorstep upon medicine delivery</span>
+                  <span className="block text-sm font-bold">{t('cod')}</span>
+                  <span className="block text-xs text-[#4a3e65] font-normal">Pay cash or scan QR at your doorstep upon medicine delivery</span>
                 </div>
               </label>
 
@@ -930,8 +930,8 @@ export default function OrderBuilderPage() {
 
                   {/* Mandatory voluntary demo consent when Path B selected */}
                   {paymentMethod === 'DIRECT_UPI' && (
-                    <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg text-xs space-y-1">
-                      <label className="flex items-start gap-2 cursor-pointer font-medium text-amber-950 dark:text-amber-200">
+                    <div className="p-3 bg-[#fcf8db] border border-[#B69D0C]/50 rounded-lg text-xs space-y-1">
+                      <label className="flex items-start gap-2 cursor-pointer font-medium text-[#7b6905]">
                         <input
                           type="checkbox"
                           checked={upiConsent}
@@ -951,25 +951,26 @@ export default function OrderBuilderPage() {
         </Card>
 
         {/* Safety statement & Submit */}
-        <div className="bg-teal-50 border border-teal-200 rounded-lg p-4 text-xs text-teal-900 space-y-1">
-          <p className="font-semibold text-sm text-teal-950 flex items-center gap-1.5">
-            <svg className="w-5 h-5 text-teal-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="bg-[#f3effa] border border-[#190042]/20 rounded-lg p-4 text-xs text-[#190042] space-y-1">
+          <p className="font-bold text-sm text-[#190042] flex items-center gap-1.5">
+            <svg className="w-5 h-5 text-[#B69D0C]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             Registered Pharmacist Verification Mandate:
           </p>
-          <p>
+          <p className="text-[#4a3e65] leading-relaxed">
             By submitting this order, your prescription will be reviewed by a licensed pharmacist before any medicine is dispensed or packed. If anything is unclear, the pharmacist will contact you or request a clear re-upload.
           </p>
         </div>
 
         <Button
           type="submit"
+          variant="gold"
           data-testid="submit-order-btn"
           isLoading={loading}
           disabled={!file}
           size="lg"
-          className="w-full text-lg shadow-md"
+          className="w-full text-lg font-black shadow-md border border-[#9c8609]"
         >
           {tc('submit')} &rarr;
         </Button>

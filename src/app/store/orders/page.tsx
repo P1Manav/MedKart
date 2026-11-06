@@ -333,7 +333,7 @@ export default function StoreOrdersPage() {
                             <span>
                               {l.product ? `${l.product.name} ${l.product.strength}` : 'Custom line'}
                             </span>
-                            <span className="font-bold text-teal-900">
+                            <span className="font-bold text-[#190042]">
                               Qty: {l.quantity}
                             </span>
                           </div>
@@ -405,13 +405,13 @@ export default function StoreOrdersPage() {
             </CardHeader>
             <CardContent>
               <form onSubmit={handleConfirmUpiSubmit} className="space-y-4">
-                <div className="text-xs text-stone-600 bg-stone-50 p-2.5 rounded border border-stone-200">
+                <div className="text-xs text-[#4a3e65] bg-[#f9f8fc] p-2.5 rounded border border-[#e3ddef]">
                   Customer: <strong>{confirmingUpiOrder.customer.name}</strong> (+91 {confirmingUpiOrder.customer.phone})
                   <br />
-                  Payee VPA: <span className="font-mono text-teal-800">Configured in UPI_PAYEE_VPA</span>
+                  Payee VPA: <span className="font-mono text-[#190042]">Configured in UPI_PAYEE_VPA</span>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-stone-700 mb-1">
+                  <label className="block text-xs font-bold text-[#190042] mb-1">
                     12-digit UPI UTR / Bank Reference Number *
                   </label>
                   <input
@@ -419,11 +419,11 @@ export default function StoreOrdersPage() {
                     value={upiUtrInput}
                     onChange={(e) => setUpiUtrInput(e.target.value)}
                     placeholder="e.g. 431209871234"
-                    className="w-full p-2.5 border rounded-md text-sm font-mono focus:ring-2 focus:ring-teal-600 focus:outline-none"
+                    className="w-full p-2.5 border border-[#e3ddef] rounded-md text-sm font-mono focus:ring-2 focus:ring-[#B69D0C] focus:outline-none"
                     autoFocus
                     required
                   />
-                  <p className="text-[11px] text-stone-500 mt-1">
+                  <p className="text-[11px] text-[#796e94] mt-1">
                     Verifying this transaction writes an immutable audit record with your staff ID and timestamp.
                   </p>
                 </div>
@@ -438,9 +438,10 @@ export default function StoreOrdersPage() {
                   </Button>
                   <Button
                     type="submit"
+                    variant="gold"
                     size="sm"
                     isLoading={confirmingUpi}
-                    className="bg-teal-700 hover:bg-teal-800"
+                    className="font-bold"
                   >
                     Verify & Confirm Receipt
                   </Button>

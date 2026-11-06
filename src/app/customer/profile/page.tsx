@@ -249,10 +249,10 @@ export default function CustomerProfilePage() {
   return (
     <div className="max-w-4xl mx-auto space-y-8">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-stone-900 dark:text-stone-100">
+        <h1 className="text-3xl font-bold tracking-tight text-stone-900">
           {t('title')}
         </h1>
-        <p className="text-stone-600 dark:text-stone-400 mt-1">{t('subtitle')}</p>
+        <p className="text-stone-600 mt-1">{t('subtitle')}</p>
       </div>
 
       {/* 1. Personal Information */}
@@ -266,8 +266,8 @@ export default function CustomerProfilePage() {
               <div
                 className={`p-3 rounded text-sm ${
                   profileMessage.type === 'success'
-                    ? 'bg-teal-50 dark:bg-teal-950 text-teal-800 dark:text-teal-200 border border-teal-200 dark:border-teal-800'
-                    : 'bg-red-50 dark:bg-red-950 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-800'
+                    ? 'bg-teal-50 text-teal-800 border border-teal-200'
+                    : 'bg-red-50 text-red-800 border border-red-200'
                 }`}
               >
                 {profileMessage.text}
@@ -276,7 +276,7 @@ export default function CustomerProfilePage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1">
+                <label className="block text-sm font-medium text-stone-700 mb-1">
                   {t('fullName')} *
                 </label>
                 <input
@@ -284,19 +284,19 @@ export default function CustomerProfilePage() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required
-                  className="w-full px-3 py-2 border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 rounded text-stone-900 dark:text-stone-100 focus:outline-teal-600"
+                  className="w-full px-3 py-2 border border-stone-300 bg-white rounded text-stone-900 focus:outline-teal-600"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1">
+                <label className="block text-sm font-medium text-stone-700 mb-1">
                   {t('phoneNumber')}
                 </label>
                 <input
                   type="text"
                   value={user?.phone || ''}
                   disabled
-                  className="w-full px-3 py-2 border border-stone-200 dark:border-stone-800 bg-stone-100 dark:bg-stone-900 rounded text-stone-500 cursor-not-allowed"
+                  className="w-full px-3 py-2 border border-stone-200 bg-stone-100 rounded text-stone-500 cursor-not-allowed"
                 />
                 <span className="text-xs text-stone-500 mt-0.5 block">{t('phoneImmutable')}</span>
               </div>
@@ -304,7 +304,7 @@ export default function CustomerProfilePage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1">
+                <label className="block text-sm font-medium text-stone-700 mb-1">
                   {t('email')}
                 </label>
                 <input
@@ -312,19 +312,19 @@ export default function CustomerProfilePage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@example.com"
-                  className="w-full px-3 py-2 border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 rounded text-stone-900 dark:text-stone-100 focus:outline-teal-600"
+                  className="w-full px-3 py-2 border border-stone-300 bg-white rounded text-stone-900 focus:outline-teal-600"
                 />
                 <span className="text-xs text-stone-500 mt-0.5 block">{t('emailHelp')}</span>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1">
+                <label className="block text-sm font-medium text-stone-700 mb-1">
                   {t('language')}
                 </label>
                 <select
                   value={language}
                   onChange={(e) => setLanguage(e.target.value as 'en' | 'hi' | 'bn')}
-                  className="w-full px-3 py-2 border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 rounded text-stone-900 dark:text-stone-100 focus:outline-teal-600"
+                  className="w-full px-3 py-2 border border-stone-300 bg-white rounded text-stone-900 focus:outline-teal-600"
                 >
                   <option value="en">English</option>
                   <option value="hi">हिंदी (Hindi)</option>
@@ -334,12 +334,12 @@ export default function CustomerProfilePage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1">
+              <label className="block text-sm font-medium text-stone-700 mb-1">
                 {t('theme')}
               </label>
               <div className="flex gap-4">
                 {(['light', 'dark', 'system'] as const).map((th) => (
-                  <label key={th} className="flex items-center gap-1.5 cursor-pointer text-sm text-stone-700 dark:text-stone-300">
+                  <label key={th} className="flex items-center gap-1.5 cursor-pointer text-sm text-stone-700">
                     <input
                       type="radio"
                       name="theme"
@@ -374,8 +374,8 @@ export default function CustomerProfilePage() {
               <div
                 className={`p-3 rounded text-sm ${
                   addressMessage.type === 'success'
-                    ? 'bg-teal-50 dark:bg-teal-950 text-teal-800 dark:text-teal-200 border border-teal-200 dark:border-teal-800'
-                    : 'bg-red-50 dark:bg-red-950 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-800'
+                    ? 'bg-teal-50 text-teal-800 border border-teal-200'
+                    : 'bg-red-50 text-red-800 border border-red-200'
                 }`}
               >
                 {addressMessage.text}
@@ -383,7 +383,7 @@ export default function CustomerProfilePage() {
             )}
 
             <div>
-              <label className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1">
+              <label className="block text-sm font-medium text-stone-700 mb-1">
                 Delivery Address *
               </label>
               <textarea
@@ -392,13 +392,13 @@ export default function CustomerProfilePage() {
                 rows={2}
                 placeholder={t('addressPlaceholder')}
                 required
-                className="w-full px-3 py-2 border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 rounded text-stone-900 dark:text-stone-100 focus:outline-teal-600"
+                className="w-full px-3 py-2 border border-stone-300 bg-white rounded text-stone-900 focus:outline-teal-600"
               />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1">
+                <label className="block text-sm font-medium text-stone-700 mb-1">
                   {t('pincode')} *
                 </label>
                 <input
@@ -408,18 +408,18 @@ export default function CustomerProfilePage() {
                   onChange={(e) => setPincode(e.target.value.replace(/\D/g, ''))}
                   placeholder={t('pincodePlaceholder')}
                   required
-                  className="w-full px-3 py-2 border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 rounded text-stone-900 dark:text-stone-100 focus:outline-teal-600"
+                  className="w-full px-3 py-2 border border-stone-300 bg-white rounded text-stone-900 focus:outline-teal-600"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-1">
+                <label className="block text-sm font-medium text-stone-700 mb-1">
                   Label
                 </label>
                 <select
                   value={addressLabel}
                   onChange={(e) => setAddressLabel(e.target.value)}
-                  className="w-full px-3 py-2 border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 rounded text-stone-900 dark:text-stone-100 focus:outline-teal-600"
+                  className="w-full px-3 py-2 border border-stone-300 bg-white rounded text-stone-900 focus:outline-teal-600"
                 >
                   <option value="Home">Home</option>
                   <option value="Office">Office</option>
@@ -442,15 +442,15 @@ export default function CustomerProfilePage() {
       <Card>
         <CardHeader>
           <CardTitle>{t('familyProfiles')}</CardTitle>
-          <p className="text-sm text-stone-600 dark:text-stone-400 mt-1">{t('familySubtitle')}</p>
+          <p className="text-sm text-stone-600 mt-1">{t('familySubtitle')}</p>
         </CardHeader>
         <CardContent className="space-y-6">
           {familyMessage && (
             <div
               className={`p-3 rounded text-sm ${
                 familyMessage.type === 'success'
-                  ? 'bg-teal-50 dark:bg-teal-950 text-teal-800 dark:text-teal-200 border border-teal-200 dark:border-teal-800'
-                  : 'bg-red-50 dark:bg-red-950 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-800'
+                  ? 'bg-teal-50 text-teal-800 border border-teal-200'
+                  : 'bg-red-50 text-red-800 border border-red-200'
               }`}
             >
               {familyMessage.text}
@@ -458,22 +458,22 @@ export default function CustomerProfilePage() {
           )}
 
           {/* Existing Members List */}
-          <div className="divide-y divide-stone-200 dark:divide-stone-800 border border-stone-200 dark:border-stone-800 rounded-lg overflow-hidden">
+          <div className="divide-y divide-stone-200 border border-stone-200 rounded-lg overflow-hidden">
             {familyLoading ? (
               <div className="p-4 text-center text-sm text-stone-500">Loading family members...</div>
             ) : familyData?.profiles?.length > 0 ? (
               familyData.profiles.map((member: { id: string; name: string; relationship: string }) => (
-                <div key={member.id} className="p-4 flex items-center justify-between bg-white dark:bg-stone-900">
+                <div key={member.id} className="p-4 flex items-center justify-between bg-white">
                   <div>
-                    <span className="font-semibold text-stone-900 dark:text-stone-100 block">{member.name}</span>
-                    <span className="text-xs text-stone-500 dark:text-stone-400 capitalize">Relationship: {member.relationship}</span>
+                    <span className="font-semibold text-stone-900 block">{member.name}</span>
+                    <span className="text-xs text-stone-500 capitalize">Relationship: {member.relationship}</span>
                   </div>
                   {member.relationship !== 'self' && (
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => handleDeleteFamilyMember(member.id)}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40"
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50:bg-red-950/40"
                     >
                       {t('delete')}
                     </Button>
@@ -486,11 +486,11 @@ export default function CustomerProfilePage() {
           </div>
 
           {/* Add Member Form */}
-          <form onSubmit={handleAddFamilyMember} className="bg-stone-50 dark:bg-stone-800/40 p-4 rounded-lg border border-stone-200 dark:border-stone-800 space-y-4">
-            <h4 className="font-semibold text-sm text-stone-900 dark:text-stone-100">{t('addMember')}</h4>
+          <form onSubmit={handleAddFamilyMember} className="bg-stone-50 p-4 rounded-lg border border-stone-200 space-y-4">
+            <h4 className="font-semibold text-sm text-stone-900">{t('addMember')}</h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-medium text-stone-700 dark:text-stone-300 mb-1">
+                <label className="block text-xs font-medium text-stone-700 mb-1">
                   {t('memberName')} *
                 </label>
                 <input
@@ -499,18 +499,18 @@ export default function CustomerProfilePage() {
                   onChange={(e) => setNewMemberName(e.target.value)}
                   placeholder="e.g. Arati Roy"
                   required
-                  className="w-full px-3 py-1.5 border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 rounded text-sm text-stone-900 dark:text-stone-100 focus:outline-teal-600"
+                  className="w-full px-3 py-1.5 border border-stone-300 bg-white rounded text-sm text-stone-900 focus:outline-teal-600"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-stone-700 dark:text-stone-300 mb-1">
+                <label className="block text-xs font-medium text-stone-700 mb-1">
                   {t('relationship')} *
                 </label>
                 <select
                   value={newMemberRel}
                   onChange={(e) => setNewMemberRel(e.target.value)}
-                  className="w-full px-3 py-1.5 border border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800 rounded text-sm text-stone-900 dark:text-stone-100 focus:outline-teal-600"
+                  className="w-full px-3 py-1.5 border border-stone-300 bg-white rounded text-sm text-stone-900 focus:outline-teal-600"
                 >
                   <option value="spouse">Spouse</option>
                   <option value="father">Father</option>
@@ -535,12 +535,12 @@ export default function CustomerProfilePage() {
       <Card>
         <CardHeader>
           <CardTitle>{t('security')}</CardTitle>
-          <p className="text-sm text-stone-600 dark:text-stone-400 mt-1">{t('securityDesc')}</p>
+          <p className="text-sm text-stone-600 mt-1">{t('securityDesc')}</p>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between p-3 bg-stone-50 dark:bg-stone-800/40 rounded border border-stone-200 dark:border-stone-800 text-sm">
+          <div className="flex items-center justify-between p-3 bg-stone-50 rounded border border-stone-200 text-sm">
             <div>
-              <span className="font-semibold text-stone-900 dark:text-stone-100 block">Current Session Version</span>
+              <span className="font-semibold text-stone-900 block">Current Session Version</span>
               <span className="text-xs text-stone-500">Security generation: v{user?.sessionVersion || 1}</span>
             </div>
             <Badge variant="default">Active</Badge>
@@ -551,7 +551,7 @@ export default function CustomerProfilePage() {
               variant="outline"
               onClick={handleLogoutAll}
               disabled={loggingOutAll}
-              className="border-red-300 text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/40 cursor-pointer"
+              className="border-red-300 text-red-700 hover:bg-red-50:bg-red-950/40 cursor-pointer"
             >
               {loggingOutAll ? 'Revoking...' : t('logoutAll')}
             </Button>

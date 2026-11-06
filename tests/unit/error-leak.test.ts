@@ -37,7 +37,7 @@ describe('Task 4: Error Handling & Information Leak Prevention', () => {
     it('never leaks stack traces, SQL syntax, or DB errors in 500 responses', async () => {
       const sensitiveErrors = [
         new Error('SELECT * FROM "User" WHERE id = \'xyz\' failed: syntax error at or near "SELECT"'),
-        new Error('PrismaClientInitializationError: Can\'t reach database server at postgres://user:secret123@neon.tech'),
+        new Error('PrismaClientInitializationError: Can\'t reach database server at postgres://user:secret123@supabase.co'),
         new Error('FATAL: password authentication failed for user "medkart_admin"'),
         new Error('Unhandled exception: NullReferenceException at Line 42 in /app/secret-logic.ts'),
       ];

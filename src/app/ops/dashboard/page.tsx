@@ -541,9 +541,9 @@ export default function OpsDashboardPage() {
       </Card>
 
       {/* ─── CUSTOMER REFUNDS QUEUE (REFUND_DUE) ────────────────────── */}
-      <Card className="border-amber-200 dark:border-amber-900 bg-amber-50/20">
+      <Card className="border-[#B69D0C]/40 bg-[#fcf8db]/20">
         <CardHeader>
-          <CardTitle className="text-base font-semibold text-stone-900 dark:text-stone-100 flex items-center justify-between">
+          <CardTitle className="text-base font-bold text-[#190042] flex items-center justify-between">
             <span>Customer Refunds Queue (REFUND_DUE)</span>
             <Badge variant={metrics?.refundDueOrders && metrics.refundDueOrders.length > 0 ? 'caution' : 'default'} className="text-xs">
               {metrics?.refundDueOrders?.length || 0} Pending
@@ -552,18 +552,18 @@ export default function OpsDashboardPage() {
         </CardHeader>
         <CardContent>
           {refundMessage && (
-            <div className="mb-4 p-2.5 bg-amber-100 text-amber-900 rounded text-xs">
+            <div className="mb-4 p-2.5 bg-[#fcf8db] text-[#7b6905] border border-[#B69D0C] rounded text-xs font-medium">
               {refundMessage}
             </div>
           )}
           {!metrics?.refundDueOrders || metrics.refundDueOrders.length === 0 ? (
-            <p className="text-xs text-stone-500 py-3 text-center">
+            <p className="text-xs text-[#796e94] py-3 text-center">
               No orders currently pending refund settlement.
             </p>
           ) : (
-            <div className="overflow-x-auto border border-stone-200 dark:border-stone-800 rounded-lg">
+            <div className="overflow-x-auto border border-[#e3ddef] rounded-lg">
               <table className="w-full text-xs text-left">
-                <thead className="bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 font-bold border-b border-stone-200 dark:border-stone-700">
+                <thead className="bg-[#f9f8fc] text-[#190042] font-bold border-b border-[#e3ddef]">
                   <tr>
                     <th className="p-2.5">Order ID</th>
                     <th className="p-2.5">Customer</th>
@@ -573,20 +573,20 @@ export default function OpsDashboardPage() {
                     <th className="p-2.5 text-center">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-stone-200 dark:divide-stone-800 bg-white dark:bg-stone-900">
+                <tbody className="divide-y divide-[#e3ddef] bg-white">
                   {metrics.refundDueOrders.map((ord) => (
-                    <tr key={ord.id} className="hover:bg-stone-50/50">
-                      <td className="p-2.5 font-mono font-bold text-teal-800 dark:text-teal-400">
+                    <tr key={ord.id} className="hover:bg-[#f3effa]/40">
+                      <td className="p-2.5 font-mono font-bold text-[#190042]">
                         {ord.displayId}
                       </td>
                       <td className="p-2.5">
                         <span className="font-semibold block">{ord.customerName}</span>
-                        <span className="text-stone-500 text-[10px]">{ord.customerPhone}</span>
+                        <span className="text-[#796e94] text-[10px]">{ord.customerPhone}</span>
                       </td>
                       <td className="p-2.5">
                         <Badge variant="default" className="text-[10px]">{ord.paymentMethod}</Badge>
                       </td>
-                      <td className="p-2.5 max-w-xs text-stone-700 dark:text-stone-300 truncate">
+                      <td className="p-2.5 max-w-xs text-[#4a3e65] truncate">
                         {ord.reason}
                       </td>
                       <td className="p-2.5">
@@ -600,7 +600,7 @@ export default function OpsDashboardPage() {
                               [ord.id]: e.target.value,
                             }))
                           }
-                          className="px-2 py-1 text-xs border rounded bg-white dark:bg-stone-800 w-28"
+                          className="px-2 py-1 text-xs border border-[#e3ddef] rounded bg-white w-28 text-[#190042]"
                         />
                       </td>
                       <td className="p-2.5 text-center">

@@ -82,7 +82,7 @@ sequenceDiagram
     participant Web as Next.js Client
     participant Auth as /api/auth/otp/verify
     participant Reg as /api/auth/register
-    participant DB as Neon PostgreSQL
+    participant DB as Supabase PostgreSQL
 
     Customer->>Web: Enter new phone number (e.g. 9830088888)
     Web->>Auth: POST /api/auth/otp/request

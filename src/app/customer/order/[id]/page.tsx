@@ -121,7 +121,7 @@ export default function OrderTrackingPage({
     return (
       <div className="max-w-3xl mx-auto py-8">
         <ErrorState message={error || 'Order could not be loaded.'} />
-        <Link href="/customer/home" className="mt-4 inline-block text-teal-700 hover:underline">
+        <Link href="/customer/home" className="mt-4 inline-block text-[#B69D0C] font-bold hover:underline">
           &larr; {tc('back')}
         </Link>
       </div>
@@ -319,9 +319,9 @@ export default function OrderTrackingPage({
               0
             );
             return (
-              <div className="pt-4 mt-3 border-t border-stone-200 flex justify-between items-center text-sm">
-                <span className="font-bold text-stone-800">Total Order Amount:</span>
-                <span className="font-extrabold text-lg text-teal-800">
+              <div className="pt-4 mt-3 border-t border-[#e3ddef] flex justify-between items-center text-sm">
+                <span className="font-bold text-[#190042]">Total Order Amount:</span>
+                <span className="font-black text-lg text-[#190042]">
                   {orderTotal > 0 ? `₹${orderTotal}` : 'Awaiting pharmacist verification'}
                 </span>
               </div>
@@ -331,22 +331,22 @@ export default function OrderTrackingPage({
       </Card>
 
       {/* ─── PRESCRIPTION IMAGE PREVIEW ────────────────────── */}
-      <Card>
+      <Card className="border-[#e3ddef] shadow-xs">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-base font-bold text-stone-900">
+          <CardTitle className="text-base font-black text-[#190042]">
             Uploaded Prescription
           </CardTitle>
           <a
             href={`/api/prescription/${order.id}/image`}
             target="_blank"
             rel="noreferrer"
-            className="text-xs text-teal-700 hover:underline font-medium"
+            className="text-xs text-[#B69D0C] hover:underline font-bold"
           >
             Open Full Image ↗
           </a>
         </CardHeader>
         <CardContent>
-          <div className="bg-stone-900/90 rounded-lg p-3 text-center flex items-center justify-center max-h-80 overflow-hidden">
+          <div className="bg-[#10002b] rounded-lg p-3 text-center flex items-center justify-center max-h-80 overflow-hidden border border-[#B69D0C]/30">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={`/api/prescription/${order.id}/image`}
@@ -358,16 +358,16 @@ export default function OrderTrackingPage({
       </Card>
 
       {/* ─── DELIVERY & STORE DETAILS ────────────────────────── */}
-      <Card>
+      <Card className="border-[#e3ddef] shadow-xs">
         <CardContent className="pt-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
           <div>
-            <span className="font-semibold text-stone-500 text-xs uppercase block">{t('deliveryAddress')}</span>
-            <p className="mt-1 text-stone-800">{order.addressText || 'Kolkata, West Bengal'}</p>
+            <span className="font-bold text-[#796e94] text-xs uppercase block">{t('deliveryAddress')}</span>
+            <p className="mt-1 text-[#190042] font-medium">{order.addressText || 'Kolkata, West Bengal'}</p>
           </div>
           <div>
-            <span className="font-semibold text-stone-500 text-xs uppercase block">Assigned Fulfillment Store</span>
-            <p className="mt-1 font-semibold text-teal-800">{order.store?.name || 'Nearest Stocked Store'}</p>
-            <p className="text-xs text-stone-500">{order.store?.address}</p>
+            <span className="font-bold text-[#796e94] text-xs uppercase block">Assigned Fulfillment Store</span>
+            <p className="mt-1 font-black text-[#190042]">{order.store?.name || 'Nearest Stocked Store'}</p>
+            <p className="text-xs text-[#796e94]">{order.store?.address}</p>
           </div>
         </CardContent>
       </Card>

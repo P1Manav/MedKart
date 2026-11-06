@@ -475,9 +475,10 @@ export default function PharmacistReviewPage({
                   />
                   <Button
                     size="sm"
+                    variant="gold"
                     onClick={handleConfirmDirectUpi}
                     isLoading={confirmingUpi}
-                    className="text-xs whitespace-nowrap bg-teal-700 hover:bg-teal-800"
+                    className="text-xs whitespace-nowrap font-bold"
                   >
                     Confirm Direct UPI Receipt
                   </Button>
@@ -504,23 +505,23 @@ export default function PharmacistReviewPage({
       {error && <ErrorState message={error} />}
 
       {/* Mobile Sticky Tab Switcher (375px requirement) */}
-      <div className="lg:hidden flex border-b border-stone-200 bg-white sticky top-16 z-20">
+      <div className="lg:hidden flex border-b border-[#e3ddef] bg-white sticky top-16 z-20">
         <button
           onClick={() => setActiveTab('ITEMS')}
-          className={`flex-1 py-3 text-center text-sm font-semibold border-b-2 cursor-pointer ${
+          className={`flex-1 py-3 text-center text-sm font-bold border-b-2 cursor-pointer ${
             activeTab === 'ITEMS'
-              ? 'border-teal-700 text-teal-800'
-              : 'border-transparent text-stone-500 hover:text-stone-800'
+              ? 'border-[#190042] text-[#190042]'
+              : 'border-transparent text-[#796e94] hover:text-[#190042]'
           }`}
         >
           Matched Medicines ({order.lines.length})
         </button>
         <button
           onClick={() => setActiveTab('IMAGE')}
-          className={`flex-1 py-3 text-center text-sm font-semibold border-b-2 cursor-pointer ${
+          className={`flex-1 py-3 text-center text-sm font-bold border-b-2 cursor-pointer ${
             activeTab === 'IMAGE'
-              ? 'border-teal-700 text-teal-800'
-              : 'border-transparent text-stone-500 hover:text-stone-800'
+              ? 'border-[#190042] text-[#190042]'
+              : 'border-transparent text-[#796e94] hover:text-[#190042]'
           }`}
         >
           Prescription Image
@@ -531,18 +532,18 @@ export default function PharmacistReviewPage({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* ─── LEFT: PRESCRIPTION VIEWER (PAN / ZOOM / ROTATE) ───────── */}
         <div className={`lg:col-span-6 ${activeTab === 'IMAGE' ? 'block' : 'hidden lg:block'}`}>
-          <Card className="h-full flex flex-col shadow-xs">
-            <CardHeader className="py-3 px-4 flex flex-row items-center justify-between border-b border-stone-100 flex-wrap gap-2">
-              <CardTitle className="text-sm font-bold text-stone-800 flex items-center gap-2">
+          <Card className="h-full flex flex-col shadow-xs border-[#e3ddef]">
+            <CardHeader className="py-3 px-4 flex flex-row items-center justify-between border-b border-[#e3ddef] flex-wrap gap-2">
+              <CardTitle className="text-sm font-black text-[#190042] flex items-center gap-2">
                 <span>{t('prescriptionViewer')}</span>
-                <span className="text-[10px] bg-teal-50 text-teal-700 px-1.5 py-0.5 rounded font-mono">
+                <span className="text-[10px] bg-[#fcf8db] text-[#7b6905] px-1.5 py-0.5 rounded font-mono border border-[#B69D0C]/40">
                   AES-256 Decrypted
                 </span>
                 <a
                   href={`/api/prescription/${order.id}/image`}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-xs text-teal-700 hover:underline font-normal ml-1"
+                  className="text-xs text-[#B69D0C] hover:underline font-bold ml-1"
                 >
                   (Open full ↗)
                 </a>
@@ -602,7 +603,7 @@ export default function PharmacistReviewPage({
                     href={`/api/prescription/${order.id}/image`}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-block px-4 py-2 bg-teal-700 text-white text-xs font-semibold rounded hover:bg-teal-600 transition"
+                    className="inline-block px-4 py-2 bg-[#190042] text-white text-xs font-bold rounded hover:bg-[#26055f] border border-[#B69D0C]/40 transition"
                   >
                     Open Decrypted Image in New Tab ↗
                   </a>
@@ -631,9 +632,9 @@ export default function PharmacistReviewPage({
         {/* ─── RIGHT: MATCHED MEDICINES & PHARMACIST ACTIONS ─────────── */}
         <div className={`lg:col-span-6 ${activeTab === 'ITEMS' ? 'block' : 'hidden lg:block'}`}>
           <div className="space-y-4">
-            <div className="flex items-center justify-between text-xs text-stone-500 px-1">
+            <div className="flex items-center justify-between text-xs text-[#796e94] px-1">
               <span>Compare written text with matched catalogue medicine:</span>
-              <span className="font-semibold text-teal-800">
+              <span className="font-bold text-[#190042]">
                 All Schedule H/H1 items require pharmacist approval
               </span>
             </div>
@@ -721,16 +722,16 @@ export default function PharmacistReviewPage({
 
                     {/* GENERIC SUBSTITUTION OFFER & CONSENT */}
                     {genericSub && (
-                      <div className="p-3 bg-teal-50 border border-teal-200 rounded text-xs text-teal-950 space-y-2">
-                        <div className="flex justify-between font-semibold">
+                      <div className="p-3 bg-[#fcf8db] border border-[#B69D0C]/40 rounded text-xs text-[#7b6905] space-y-2">
+                        <div className="flex justify-between font-bold">
                           <span>
                             Generic Alternative Available: {genericSub.name} {genericSub.strength}
                           </span>
-                          <span className="text-emerald-800 font-bold">
+                          <span className="text-emerald-800 font-black">
                             Save ₹{priceDiff} (₹{genericSub.price} vs ₹{line.product?.price})
                           </span>
                         </div>
-                        <p className="text-[11px] text-stone-600">
+                        <p className="text-[11px] text-[#4a3e65]">
                           Price difference only; no clinical claim. Requires both pharmacist approval AND patient consent.
                         </p>
                         <label className="flex items-center gap-2 font-medium cursor-pointer pt-1">
@@ -740,7 +741,7 @@ export default function PharmacistReviewPage({
                             onChange={(e) =>
                               setGenericConsents({ ...genericConsents, [line.id]: e.target.checked })
                             }
-                            className="text-teal-600 rounded"
+                            className="text-[#190042] rounded focus:ring-[#B69D0C]"
                           />
                           <span>Customer Consent Recorded (per §5.5)</span>
                         </label>

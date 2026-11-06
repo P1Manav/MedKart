@@ -1,6 +1,6 @@
 # Deployment Guide — MedKart Pharmacy Monolith
 
-This document describes how to run MedKart locally step by step, how it is deployed to production on Vercel and Neon (Free Tier), the real free-tier services and their verified limits, and demo login details for reviewer evaluation.
+This document describes how to run MedKart locally step by step, how it is deployed to production on Vercel and Supabase (Free Tier), the real free-tier services and their verified limits, and demo login details for reviewer evaluation.
 
 - **GitHub Repository:** [https://github.com/P1Manav/isocode_assignment](https://github.com/P1Manav/isocode_assignment)
 - **Live Deployed Application:** [https://medkart-pharmacyt.vercel.app](https://medkart-pharmacyt.vercel.app)
@@ -14,7 +14,7 @@ This document describes how to run MedKart locally step by step, how it is deplo
 ### Prerequisites
 - Node.js 20+ or 22+
 - npm 10+
-- PostgreSQL 16 (local installation, Neon free tier, or Docker Compose)
+- PostgreSQL 16 (local installation, Supabase free tier, or Docker Compose)
 
 ### Step 1: Clone Repository & Install Dependencies
 ```bash
@@ -29,7 +29,7 @@ Copy the template `.env.example` to `.env`:
 cp .env.example .env
 ```
 Ensure the following variables are configured in `.env`:
-- `DATABASE_URL`: Connection string to your PostgreSQL instance (e.g. Neon or `postgresql://postgres:postgres@localhost:5432/medkart`)
+- `DATABASE_URL`: Connection string to your PostgreSQL instance (e.g. Supabase or `postgresql://postgres:postgres@localhost:5432/medkart`)
 - `SESSION_SECRET`: A 32+ character random secret for signing session cookies
 - `PRESCRIPTION_ENC_KEY`: A 64-character hex string (32 bytes) for AES-256-GCM prescription encryption
 - `CRON_SECRET`: Secret bearer token securing automated refill reminders
@@ -82,7 +82,7 @@ Every component of MedKart runs end-to-end on verified free tiers:
 | **Vercel Hobby** | Web hosting & Serverless API routes | **Limits**: 250 MB uncompressed function bundle, 15s serverless execution timeout, 4.5 MB request body limit. **Execution Reality**: Tesseract.js WASM engine fits within the 250 MB bundle, but cold-start WASM instantiation on Vercel's shared vCPUs can consume 4–8s. Hosted Tier 1 (`router.huggingface.co`) offloads compute to Hugging Face infrastructure; Tier 2 (Tesseract.js WASM) runs reliably in local/Docker runtimes; both safely fall back to Tier 3 pharmacist manual queue if timeouts or quota limits occur without ever crashing the request. |
 | **Hugging Face Inference API** | Tier 1 Non-generative OCR model (`microsoft/trocr-base-handwritten`) | **Limits**: Free tier access token, rate-limited to a few hundred requests/hour. Endpoint migrated to `router.huggingface.co`. Cold-starts handled via 25s timeout and automatic fallback to Tier 2 Tesseract. |
 | **Tesseract.js WASM Engine** | Tier 2 In-process local OCR | **Limits**: Pure WebAssembly (WASM), zero network calls, zero rate limits, runs completely in-process with real per-word confidence scores. |
-| **Neon PostgreSQL** | Serverless relational database | **Limits**: 0.5 GiB storage, auto-suspend after 5 min idle, 1 free branch, pooling via PgBouncer. |
+| **Supabase PostgreSQL** | Cloud-native relational database | **Limits**: 500 MB storage, connection pooling via Supavisor / PgBouncer on port 6543, direct Postgres on 5432. |
 | **Razorpay / Cashfree Sandbox** | UPI payments & checkout simulation (Path A) | **Limits**: Test mode credentials, zero real money. Real webhook HMAC-SHA256 signature verification via `crypto.timingSafeEqual`. |
 | **Direct UPI Transfer (Path B)** | Peer-to-peer / merchant UPI QR payment | **Limits**: Dynamically driven by `UPI_PAYEE_VPA`. Path B is hidden if unconfigured. Capped by `UPI_MAX_AMOUNT_INR` (default ₹100). Payments are never auto-marked paid; staff manually verifies UTR before dispatch. |
 | **SMS / OTP Provider Chain** | Resilient phone verification | **Limits**: Configurable fallback chain (MSG91 -> Twilio Verify -> Fast2SMS -> Email -> Mock). Honest on-screen demo SMS banner by default for allowlisted demo accounts only; real SMS dispatched when provider credentials are configured. |
@@ -91,7 +91,7 @@ Every component of MedKart runs end-to-end on verified free tiers:
 
 | Variable Name | Required | Description |
 |---|---|---|
-| `DATABASE_URL` | **Yes** | Neon PostgreSQL connection string (pooled) |
+| `DATABASE_URL` | **Yes** | Supabase PostgreSQL connection string (pooled or direct) |
 | `SESSION_SECRET` | **Yes** | 32+ character secret for HS256 JWT cookie signing |
 | `PRESCRIPTION_ENC_KEY` | **Yes** | 64-character hex string for AES-256-GCM encryption |
 | `CRON_SECRET` | **Yes** | Secret bearer token for daily refill cron (`/api/cron/reminders`) |

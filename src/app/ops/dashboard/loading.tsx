@@ -6,14 +6,14 @@ export default function OpsDashboardLoading() {
   return (
     <div className="space-y-8" aria-busy="true" aria-label="Loading operations dashboard">
       {/* Dashboard Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-stone-200 dark:border-stone-800">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-[#e3ddef]">
         <div className="space-y-2">
-          <Skeleton className="h-8 w-80 bg-stone-200 dark:bg-stone-800 rounded-md" />
-          <Skeleton className="h-4 w-96 bg-stone-100 dark:bg-stone-850 rounded" />
+          <Skeleton className="h-8 w-80 bg-[#e2d9f3] rounded-md" />
+          <Skeleton className="h-4 w-96 bg-[#f3effa] rounded" />
         </div>
         <div className="flex gap-3">
-          <Skeleton className="h-10 w-36 bg-teal-100 dark:bg-teal-950/50 rounded-lg" />
-          <Skeleton className="h-10 w-28 bg-stone-100 dark:bg-stone-800 rounded-lg" />
+          <Skeleton className="h-10 w-36 bg-[#fcf8db] rounded-lg" />
+          <Skeleton className="h-10 w-28 bg-[#f3effa] rounded-lg" />
         </div>
       </div>
 
@@ -27,35 +27,34 @@ export default function OpsDashboardLoading() {
         ].map((kpi, idx) => (
           <div
             key={idx}
-            className="p-6 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-xl space-y-3 shadow-sm"
+            className="p-6 bg-white border border-[#e3ddef] rounded-xl space-y-3 shadow-xs"
           >
-            <Skeleton className="h-4 w-28 bg-stone-100 dark:bg-stone-800 rounded" />
-            <Skeleton className="h-9 w-20 bg-teal-100/70 dark:bg-teal-950/70 rounded-md" />
-            <Skeleton className="h-3 w-36 bg-stone-100 dark:bg-stone-850 rounded" />
+            <Skeleton className="h-4 w-28 bg-[#f3effa] rounded" />
+            <Skeleton className="h-9 w-20 bg-[#fcf8db] rounded-md" />
+            <Skeleton className="h-3 w-36 bg-[#f3effa] rounded" />
           </div>
         ))}
       </div>
 
       {/* Main Grid: Orders by Store & Action Center */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 p-6 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-xl space-y-4 shadow-sm">
-          <Skeleton className="h-6 w-48 bg-stone-200 dark:bg-stone-800 rounded" />
+        <div className="lg:col-span-2 p-6 bg-white border border-[#e3ddef] rounded-xl space-y-4 shadow-xs">
+          <Skeleton className="h-6 w-48 bg-[#e2d9f3] rounded" />
           <div className="space-y-3 pt-2">
             {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="flex items-center justify-between p-3 bg-stone-50 dark:bg-stone-850/50 rounded-lg">
-                <Skeleton className="h-5 w-44 bg-stone-200 dark:bg-stone-800 rounded" />
-                <Skeleton className="h-5 w-16 bg-stone-200 dark:bg-stone-800 rounded" />
+              <div key={i} className="flex items-center justify-between p-3 bg-[#f9f8fc] rounded-lg border border-[#e3ddef]">
+                <Skeleton className="h-5 w-44 bg-[#e2d9f3] rounded" />
+                <Skeleton className="h-5 w-16 bg-[#fcf8db] rounded" />
               </div>
             ))}
           </div>
         </div>
 
-        <div className="p-6 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-xl space-y-4 shadow-sm">
-          <Skeleton className="h-6 w-36 bg-stone-200 dark:bg-stone-800 rounded" />
-          <div className="space-y-3">
-            <Skeleton className="h-16 w-full bg-stone-50 dark:bg-stone-850/50 rounded-lg" />
-            <Skeleton className="h-16 w-full bg-stone-50 dark:bg-stone-850/50 rounded-lg" />
-            <Skeleton className="h-16 w-full bg-stone-50 dark:bg-stone-850/50 rounded-lg" />
+        <div className="p-6 bg-white border border-[#e3ddef] rounded-xl space-y-4 shadow-xs">
+          <Skeleton className="h-6 w-36 bg-[#e2d9f3] rounded" />
+          <div className="space-y-3 pt-2">
+            <Skeleton className="h-12 w-full bg-[#f3effa] rounded-lg" />
+            <Skeleton className="h-12 w-full bg-[#f3effa] rounded-lg" />
           </div>
         </div>
       </div>

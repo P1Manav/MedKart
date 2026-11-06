@@ -136,7 +136,7 @@ export const MockUpiModal: React.FC<MockUpiModalProps> = ({
                 <rect x="42" y="32" width="16" height="8" />
                 <rect x="10" y="42" width="16" height="8" />
                 <rect x="32" y="42" width="8" height="16" />
-                <rect x="46" y="46" width="8" height="8" fill="#0f766e" />
+                <rect x="46" y="46" width="8" height="8" fill="#190042" />
                 <rect x="60" y="42" width="16" height="8" />
                 <rect x="76" y="42" width="8" height="16" />
                 <rect x="42" y="60" width="16" height="8" />
@@ -145,7 +145,7 @@ export const MockUpiModal: React.FC<MockUpiModalProps> = ({
                 <rect x="70" y="70" width="16" height="16" />
               </svg>
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <span className="bg-teal-700 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow">
+                <span className="bg-[#B69D0C] text-[#190042] text-[9px] font-black px-1.5 py-0.5 rounded shadow">
                   MOCK QR
                 </span>
               </div>
@@ -218,7 +218,8 @@ export const MockUpiModal: React.FC<MockUpiModalProps> = ({
           <div className="space-y-2 pt-2 border-t border-stone-100">
             <Button
               type="button"
-              className="w-full bg-teal-700 hover:bg-teal-800 text-white font-bold py-2.5 shadow-md flex items-center justify-center gap-2"
+              variant="gold"
+              className="w-full text-[#190042] font-black py-2.5 shadow-md flex items-center justify-center gap-2"
               onClick={handleSimulateSuccess}
               isLoading={simulating}
             >

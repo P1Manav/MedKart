@@ -1,25 +1,52 @@
 @import "tailwindcss";
 
 @theme {
-  /* ─── Colors ──────────────────────────────── */
-  --color-primary-50: #f0fdfa;
-  --color-primary-100: #ccfbf1;
-  --color-primary-200: #99f6e4;
-  --color-primary-300: #5eead4;
-  --color-primary-400: #2dd4bf;
-  --color-primary-500: #0f766e;
-  --color-primary-600: #0d6560;
-  --color-primary-700: #0a5550;
-  --color-primary-800: #084540;
-  --color-primary-900: #053530;
+  /* ─── MedKart Brand Palette (Single Theme: Deep Royal Violet & Gold) ─── */
+  --color-brand-purple: #190042;
+  --color-brand-purple-hover: #26055f;
+  --color-brand-purple-deep: #10002b;
+  --color-brand-purple-light: #2d1066;
+  --color-brand-purple-subtle: #f3effa;
 
-  --color-caution-50: #fffbeb;
-  --color-caution-100: #fef3c7;
-  --color-caution-200: #fde68a;
-  --color-caution-300: #fcd34d;
-  --color-caution-400: #fbbf24;
-  --color-caution-500: #b45309;
-  --color-caution-600: #92400e;
+  --color-brand-gold: #B69D0C;
+  --color-brand-gold-hover: #9c8609;
+  --color-brand-gold-light: #fefcf0;
+  --color-brand-gold-badge: #f7f1cb;
+  --color-brand-gold-border: #d4bc2c;
+  --color-brand-gold-glow: rgba(182, 157, 12, 0.25);
+
+  /* Primary Scale -> Deep Royal Violet #190042 */
+  --color-primary-50: #faf8fe;
+  --color-primary-100: #f3effa;
+  --color-primary-200: #e2d9f3;
+  --color-primary-300: #c1b0e3;
+  --color-primary-400: #8d6ec7;
+  --color-primary-500: #190042;
+  --color-primary-600: #190042;
+  --color-primary-700: #150036;
+  --color-primary-800: #10002b;
+  --color-primary-900: #0a001b;
+
+  /* Accent Scale -> Luminous Rich Gold #B69D0C */
+  --color-accent-50: #fefdf7;
+  --color-accent-100: #fcf8db;
+  --color-accent-200: #f7edab;
+  --color-accent-300: #efdc68;
+  --color-accent-400: #d6be20;
+  --color-accent-500: #B69D0C;
+  --color-accent-600: #9c8609;
+  --color-accent-700: #7b6905;
+  --color-accent-800: #594c03;
+  --color-accent-900: #383001;
+
+  /* Clinical Alerts */
+  --color-caution-50: #fefdf2;
+  --color-caution-100: #fef9c3;
+  --color-caution-200: #fef08a;
+  --color-caution-300: #fde047;
+  --color-caution-400: #eab308;
+  --color-caution-500: #B69D0C;
+  --color-caution-600: #9c8609;
 
   --color-danger-50: #fef2f2;
   --color-danger-100: #fee2e2;
@@ -29,12 +56,13 @@
   --color-danger-500: #b91c1c;
   --color-danger-600: #991b1b;
 
-  --color-surface: #fafaf9;
+  /* Surfaces & High-Contrast Typography (Single Unified Theme) */
+  --color-surface: #f9f8fc;
   --color-surface-raised: #ffffff;
-  --color-text-primary: #1c1917;
-  --color-text-secondary: #57534e;
-  --color-text-muted: #a8a29e;
-  --color-border: #e7e5e4;
+  --color-text-primary: #190042;
+  --color-text-secondary: #4a3e65;
+  --color-text-muted: #796e94;
+  --color-border: #e3ddef;
 
   /* ─── Typography ──────────────────────────── */
   --font-sans: "Noto Sans", "Noto Sans Devanagari", "Noto Sans Bengali", system-ui, sans-serif;
@@ -55,17 +83,7 @@
   --radius-xl: 1rem;
 }
 
-/* ─── Dark Mode Overrides ───────────────────── */
-.dark {
-  --color-surface: #0c0a09;
-  --color-surface-raised: #1c1917;
-  --color-text-primary: #f5f5f4;
-  --color-text-secondary: #d6d3d1;
-  --color-text-muted: #78716c;
-  --color-border: #292524;
-}
-
-/* ─── Base Styles ───────────────────────────── */
+/* ─── Base Styles (Single Theme - No Light/Dark Switching) ─── */
 
 body {
   background-color: var(--color-surface);
@@ -77,15 +95,10 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-.dark body {
-  background-color: #0c0a09;
-  color: #f5f5f4;
-}
-
 /* ─── Focus Ring ────────────────────────────── */
 
 *:focus-visible {
-  outline: 2px solid var(--color-primary-500);
+  outline: 2px solid var(--color-brand-gold);
   outline-offset: 2px;
   border-radius: var(--radius-sm);
 }
@@ -101,6 +114,10 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--color-text-muted);
+  background: var(--color-border);
   border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-brand-gold);
 }

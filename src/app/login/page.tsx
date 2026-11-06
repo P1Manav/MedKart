@@ -180,13 +180,13 @@ export default function LoginPage() {
     <div className="max-w-md mx-auto py-12 px-4">
       <Card className="border-stone-200 shadow-md">
         <CardHeader className="text-center">
-          <div className="w-12 h-12 bg-teal-700 text-white rounded-lg flex items-center justify-center font-bold text-2xl mx-auto mb-3">
+          <div className="w-12 h-12 bg-[#B69D0C] text-[#190042] rounded-lg flex items-center justify-center font-black text-2xl mx-auto mb-3 shadow-md border border-[#9c8609]">
             M
           </div>
-          <CardTitle className="text-2xl font-bold text-stone-900">
+          <CardTitle className="text-2xl font-black text-[#190042]">
             {step === 'REGISTER' ? 'Customer Self-Registration' : t('loginTitle')}
           </CardTitle>
-          <CardDescription className="text-stone-600">
+          <CardDescription className="text-[#4a3e65]">
             {step === 'REGISTER'
               ? 'Create your customer profile to safely reorder medicines online.'
               : tCommon('tagline')}
@@ -198,15 +198,15 @@ export default function LoginPage() {
 
           {/* Demo SMS Banner */}
           {mockOtp && (
-            <div className="bg-amber-50 border border-amber-300 rounded-md p-4 text-amber-900">
-              <div className="flex items-center gap-2 font-semibold text-sm">
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping"></span>
+            <div className="bg-[#fcf8db] border border-[#B69D0C] rounded-md p-4 text-[#7b6905]">
+              <div className="flex items-center gap-2 font-bold text-sm">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#B69D0C] animate-ping"></span>
                 <span>{t('demoCodeText')}</span>
               </div>
-              <p data-testid="demo-otp-code" className="text-xl font-mono font-bold tracking-widest mt-1 text-teal-900">
+              <p data-testid="demo-otp-code" className="text-2xl font-mono font-black tracking-widest mt-1 text-[#190042]">
                 {mockOtp}
               </p>
-              <p className="text-xs text-amber-700 mt-1">
+              <p className="text-xs text-[#594c03] mt-1">
                 Valid for 5 minutes (max 5 attempts). Honest fallback: real SMS dispatched if provider key configured.
               </p>
             </div>
@@ -235,13 +235,13 @@ export default function LoginPage() {
                 <p className="text-xs text-stone-500 mt-1">
                   Enter your mobile number to sign in or self-register. New registrations receive Customer access.
                 </p>
-                <div className="mt-2.5 p-3 bg-teal-50/60 border border-teal-100 rounded text-xs text-stone-700 space-y-1">
-                  <span className="font-semibold text-teal-900 block">Role Access Note:</span>
-                  <p>All new registrations are created with Customer access. For Pharmacist, Store Staff, or Operations Administrator privileges, please contact the founder or central admin.</p>
+                <div className="mt-2.5 p-3 bg-[#f3effa] border border-[#190042]/20 rounded text-xs text-[#190042] space-y-1">
+                  <span className="font-bold text-[#190042] block">Role Access Note:</span>
+                  <p className="text-[#4a3e65]">All new registrations are created with Customer access. For Pharmacist, Store Staff, or Operations Administrator privileges, please contact the founder or central admin.</p>
                 </div>
               </div>
 
-              <Button type="submit" data-testid="get-otp-btn" isLoading={loading} className="w-full text-lg">
+              <Button type="submit" variant="gold" data-testid="get-otp-btn" isLoading={loading} className="w-full text-lg font-bold">
                 {t('getOtp')}
               </Button>
 
@@ -372,14 +372,14 @@ export default function LoginPage() {
                 />
               </div>
 
-              <Button type="submit" isLoading={loading} className="w-full text-base">
+              <Button type="submit" variant="gold" isLoading={loading} className="w-full text-base font-bold">
                 Complete Registration & Sign In &rarr;
               </Button>
 
               <button
                 type="button"
                 onClick={() => setStep('PHONE')}
-                className="w-full text-xs text-stone-500 hover:text-stone-800 text-center block pt-1"
+                className="w-full text-xs text-[#796e94] hover:text-[#190042] text-center block pt-1 cursor-pointer"
               >
                 &larr; Back to mobile number entry
               </button>
@@ -390,13 +390,13 @@ export default function LoginPage() {
             <form onSubmit={handleVerifyOtp} className="space-y-4">
               <div>
                 <div className="flex justify-between items-baseline mb-1">
-                  <label className="block text-sm font-semibold text-stone-700">
+                  <label className="block text-sm font-bold text-[#190042]">
                     {t('enterOtp')}
                   </label>
                   <button
                     type="button"
                     onClick={() => setStep('PHONE')}
-                    className="text-xs text-teal-700 hover:underline"
+                    className="text-xs text-[#B69D0C] hover:underline font-semibold cursor-pointer"
                   >
                     Change phone (+91 {phone})
                   </button>
@@ -408,13 +408,13 @@ export default function LoginPage() {
                   value={otp}
                   onChange={(e) => setOtp(e.target.value)}
                   placeholder={t('otpPlaceholder')}
-                  className="w-full px-4 py-3 text-center border border-stone-300 rounded-md text-2xl font-mono tracking-widest focus:ring-2 focus:ring-teal-600 focus:outline-none"
+                  className="w-full px-4 py-3 text-center border border-[#e3ddef] rounded-md text-2xl font-mono tracking-widest text-[#190042] focus:ring-2 focus:ring-[#B69D0C] focus:outline-none"
                   autoFocus
                   required
                 />
               </div>
 
-              <Button type="submit" data-testid="verify-otp-btn" isLoading={loading} className="w-full text-lg">
+              <Button type="submit" variant="gold" data-testid="verify-otp-btn" isLoading={loading} className="w-full text-lg font-bold">
                 {t('verifyOtp')}
               </Button>
 
@@ -422,7 +422,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => handleRequestOtp(phone)}
-                  className="text-sm text-stone-600 hover:text-teal-700 underline"
+                  className="text-sm text-[#4a3e65] hover:text-[#190042] underline cursor-pointer"
                 >
                   {t('resend')}
                 </button>

@@ -50,7 +50,8 @@ submission/
 *.traineddata
 
 REPO_DIGEST.md
-.neon
+.supabase
+supabase/.temp
 
 .vercel
 .env*

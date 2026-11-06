@@ -71,7 +71,7 @@ export const DirectUpiModal: React.FC<DirectUpiModalProps> = ({
         width: 256,
         margin: 2,
         color: {
-          dark: '#0f766e', // teal-700
+          dark: '#190042', // Brand Purple
           light: '#ffffff',
         },
       })
@@ -130,55 +130,55 @@ export const DirectUpiModal: React.FC<DirectUpiModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-white dark:bg-stone-900 rounded-xl shadow-2xl max-w-md w-full p-6 text-stone-900 dark:text-stone-100 border border-stone-200 dark:border-stone-800 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between pb-3 border-b border-stone-100 dark:border-stone-800 mb-4">
+      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 text-[#190042] border border-[#e3ddef] animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between pb-3 border-b border-[#e3ddef] mb-4">
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-teal-100 dark:bg-teal-950 text-teal-800 dark:text-teal-300">
+            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-[#f3effa] text-[#190042] border border-[#190042]/20">
               Path B — Direct UPI Transfer
             </span>
-            <h3 className="text-lg font-bold text-stone-900 dark:text-stone-100 mt-1">Real UPI Transfer</h3>
+            <h3 className="text-xl font-black text-[#190042] mt-1">Real UPI Transfer</h3>
           </div>
           <button
             onClick={handleFinish}
-            className="text-stone-400 hover:text-stone-600 text-lg font-bold p-1 cursor-pointer"
+            className="text-[#796e94] hover:text-[#190042] text-2xl font-bold p-1 cursor-pointer leading-none"
           >
             &times;
           </button>
         </div>
 
         <div className="space-y-4 text-center">
-          <div className="bg-stone-50 dark:bg-stone-800/50 border border-stone-200 dark:border-stone-700 rounded-lg p-3 text-left text-xs space-y-1">
+          <div className="bg-[#f9f8fc] border border-[#e3ddef] rounded-lg p-3 text-left text-xs space-y-1.5">
             <div className="flex justify-between">
-              <span className="text-stone-500 dark:text-stone-400">Order Reference:</span>
-              <strong className="font-mono text-stone-900 dark:text-stone-100">{displayId}</strong>
+              <span className="text-[#4a3e65] font-medium">Order Reference:</span>
+              <strong className="font-mono text-[#190042]">{displayId}</strong>
             </div>
             {payeeVpa && (
               <div className="flex justify-between">
-                <span className="text-stone-500 dark:text-stone-400">Payee VPA:</span>
-                <strong className="font-mono text-teal-800 dark:text-teal-400">{payeeVpa}</strong>
+                <span className="text-[#4a3e65] font-medium">Payee VPA:</span>
+                <strong className="font-mono text-[#190042]">{payeeVpa}</strong>
               </div>
             )}
-            <div className="flex justify-between">
-              <span className="text-stone-500 dark:text-stone-400">Total Payable:</span>
-              <strong className="text-base text-stone-900 dark:text-stone-100">₹{amount.toFixed(2)}</strong>
+            <div className="flex justify-between items-center pt-1 border-t border-[#e3ddef]">
+              <span className="text-[#4a3e65] font-semibold">Total Payable:</span>
+              <strong className="text-lg font-black text-[#190042]">₹{amount.toFixed(2)}</strong>
             </div>
           </div>
 
           {/* Genuine Dynamic QR Code */}
-          <div className="flex flex-col items-center justify-center p-3 bg-white dark:bg-stone-800 border-2 border-dashed border-teal-300 dark:border-teal-700 rounded-lg">
+          <div className="flex flex-col items-center justify-center p-4 bg-white border-2 border-dashed border-[#B69D0C]/60 rounded-xl">
             {qrDataUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={qrDataUrl}
                 alt={`Scan to pay ₹${amount.toFixed(2)} for ${displayId}`}
-                className="w-52 h-52 mx-auto rounded shadow-sm bg-white p-2"
+                className="w-52 h-52 mx-auto rounded shadow-sm bg-white p-2 border border-[#B69D0C]/30"
               />
             ) : (
-              <div className="w-52 h-52 flex items-center justify-center text-xs text-stone-400">
+              <div className="w-52 h-52 flex items-center justify-center text-xs text-[#796e94]">
                 {payeeVpa ? 'Generating genuine QR...' : 'Direct UPI is not currently configured by administrator.'}
               </div>
             )}
-            <span className="text-[11px] text-stone-500 dark:text-stone-400 mt-2">
+            <span className="text-xs font-semibold text-[#190042] mt-2">
               Scan with Google Pay, PhonePe, Paytm, or BHIM
             </span>
           </div>
@@ -188,7 +188,7 @@ export const DirectUpiModal: React.FC<DirectUpiModalProps> = ({
             <div className="space-y-2">
               <a
                 href={upiUri}
-                className="inline-flex items-center justify-center w-full px-4 py-2.5 bg-teal-700 hover:bg-teal-800 text-white font-medium rounded-lg text-sm transition-colors shadow-sm"
+                className="inline-flex items-center justify-center w-full px-4 py-2.5 bg-[#190042] hover:bg-[#26055f] text-white font-bold rounded-lg text-sm transition-colors shadow-sm border border-[#B69D0C]/40"
               >
                 Open in Installed UPI App &rarr;
               </a>
@@ -196,7 +196,7 @@ export const DirectUpiModal: React.FC<DirectUpiModalProps> = ({
               <button
                 type="button"
                 onClick={handleCopyUri}
-                className="w-full text-xs text-stone-600 dark:text-stone-400 hover:text-stone-900 underline py-1 cursor-pointer"
+                className="w-full text-xs text-[#4a3e65] hover:text-[#190042] font-medium underline py-1 cursor-pointer"
               >
                 {copied ? '✓ UPI Intent URI copied to clipboard' : 'Copy raw UPI URI string'}
               </button>
@@ -204,8 +204,8 @@ export const DirectUpiModal: React.FC<DirectUpiModalProps> = ({
           )}
 
           {/* UTR Reference Input */}
-          <div className="bg-stone-50 dark:bg-stone-800/40 p-3 rounded-lg border border-stone-200 dark:border-stone-700 text-left space-y-1.5">
-            <label className="block text-xs font-semibold text-stone-800 dark:text-stone-200">
+          <div className="bg-[#f9f8fc] p-3.5 rounded-lg border border-[#e3ddef] text-left space-y-1.5">
+            <label className="block text-xs font-bold text-[#190042]">
               Transaction UTR / Reference (12 Digits):
             </label>
             <input
@@ -213,32 +213,33 @@ export const DirectUpiModal: React.FC<DirectUpiModalProps> = ({
               value={utrInput}
               onChange={(e) => setUtrInput(e.target.value.trim())}
               placeholder="e.g. 401234567890"
-              className="w-full px-2.5 py-1.5 border border-stone-300 dark:border-stone-600 bg-white dark:bg-stone-900 rounded text-xs font-mono text-stone-900 dark:text-stone-100"
+              className="w-full px-3 py-2 border border-[#e3ddef] bg-white rounded-md text-xs font-mono text-[#190042] focus:border-[#B69D0C] focus:outline-none"
             />
-            <span className="text-[10px] text-stone-500 block">
+            <span className="text-[10px] text-[#796e94] block">
               Enter the 12-digit UPI reference ID from your banking app so store staff can immediately match it.
             </span>
             {utrError && (
-              <p className="text-xs text-red-600 dark:text-red-400 font-medium">{utrError}</p>
+              <p className="text-xs text-red-600 font-semibold">{utrError}</p>
             )}
           </div>
 
           {/* Honest Operational Notice */}
-          <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg p-3 text-[11px] text-amber-900 dark:text-amber-200 text-left space-y-1">
-            <p className="font-bold flex items-center gap-1 text-amber-950 dark:text-amber-100">
-              <span className="w-2 h-2 rounded-full bg-amber-600"></span>
+          <div className="bg-[#fcf8db] border border-[#B69D0C]/50 rounded-lg p-3 text-xs text-[#7b6905] text-left space-y-1">
+            <p className="font-bold flex items-center gap-1.5 text-[#594c03]">
+              <span className="w-2 h-2 rounded-full bg-[#B69D0C]"></span>
               Manual Staff Verification Notice:
             </p>
-            <p>
+            <p className="leading-relaxed">
               Direct UPI transfers require manual verification by licensed store staff or pharmacists before your order can proceed to packing.
             </p>
           </div>
 
           <Button
             type="button"
+            variant="gold"
             onClick={handleFinish}
             disabled={submittingUtr}
-            className="w-full text-base font-semibold"
+            className="w-full text-base font-bold shadow-sm"
           >
             {submittingUtr ? 'Saving...' : 'Done / View Order Status &rarr;'}
           </Button>

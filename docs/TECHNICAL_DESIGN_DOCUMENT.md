@@ -60,7 +60,7 @@ flowchart TD
 | Technology | Selection Reason & Trade-Off Analysis |
 |---|---|
 | **Next.js 16 (App Router)** | Monolithic simplicity without microservice sprawl. Server components prevent sensitive business logic from leaking to the browser. Built-in route handlers handle multipart encryption. |
-| **PostgreSQL + Prisma ORM** | ACID transactions are essential for multi-store inventory reservation and order state transitions. Committed migrations guarantee reproducible deployment on Neon. |
+| **PostgreSQL + Prisma ORM** | ACID transactions are essential for multi-store inventory reservation and order state transitions. Committed migrations guarantee reproducible deployment on Supabase. |
 | **PostgreSQL Trigger (`trg_assert_dispatchable_order`)** | Defense in depth: Guarantees that even if an application bug or malicious raw SQL attempted to update an order to `PACKED`, the database engine itself aborts the transaction if pharmacist approval or prescription is missing. |
 | **AES-256-GCM Encryption** | NIST-standard authenticated symmetric encryption. A unique random 96-bit IV per file prevents rainbow-table attacks, while 128-bit authentication tags immediately detect ciphertext tampering. |
 | **3-Tier Non-Generative OCR Pipeline** | Tier 1 hosted small OCR model (microsoft/trocr-base-handwritten via HF router) with in-process Tier 2 Tesseract.js (WASM) fallback. Uses perception and deterministic regex/fuzzy parsing instead of creative generative LLMs, eliminating hallucination risks under clinical uncertainty. |

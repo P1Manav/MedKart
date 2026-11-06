@@ -50,7 +50,7 @@ Copy `.env.example` to `.env`:
 ```bash
 cp .env.example .env
 ```
-Default `.env.example` settings work out of the box with `DEMO_MODE="true"` and PostgreSQL (Neon serverless or local Docker Compose).
+Default `.env.example` settings work out of the box with `DEMO_MODE="true"` and PostgreSQL (Supabase or local Docker Compose).
 
 | Variable Name | Required in Prod | Group | Description |
 |---|---|---|---|
@@ -101,7 +101,7 @@ npm run seed
 # Runs 211 unit & API integration tests across 32 test suites
 npm test
 
-# Run 8 real PostgreSQL trigger integration tests (against Neon or local Postgres)
+# Run 8 real PostgreSQL trigger integration tests (against Supabase or local Postgres)
 npm run test:db
 
 # Run strict TypeScript typecheck
@@ -183,4 +183,4 @@ flowchart TD
 ## 7. Assumptions
 
 See [`docs/ASSUMPTIONS.md`](docs/ASSUMPTIONS.md) for domain assumptions documented per specification.
-For production deployment instructions to Vercel and Neon, see [`docs/deployment.md`](docs/deployment.md).
+For production deployment instructions to Vercel and Supabase, see [`docs/deployment.md`](docs/deployment.md).

@@ -178,21 +178,21 @@ export default function CustomerHomePage() {
   return (
     <div className="max-w-4xl mx-auto space-y-8 py-4">
       {/* Role Notice Card */}
-      <div className="bg-teal-50/70 border border-teal-200/80 rounded-lg p-3.5 text-xs text-stone-700 flex flex-wrap items-center justify-between gap-2 shadow-2xs">
+      <div className="bg-[#f3effa] border border-[#190042]/20 rounded-lg p-3.5 text-xs text-[#190042] flex flex-wrap items-center justify-between gap-2 shadow-2xs">
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-teal-600"></span>
+          <span className="w-2 h-2 rounded-full bg-[#B69D0C]"></span>
           <span>
             <strong>Account Role:</strong> Registered as Customer. For Pharmacist verification queue, Store staff packing, or Ops dashboard privileges, please contact the founder or administrator.
           </span>
         </div>
-        <span className="text-teal-900 font-semibold text-[11px] bg-teal-100/70 px-2 py-0.5 rounded">MedKart Network</span>
+        <span className="text-[#190042] font-bold text-[11px] bg-[#B69D0C]/20 border border-[#B69D0C]/40 px-2 py-0.5 rounded">MedKart Network</span>
       </div>
 
       {/* ─── 1. FAMILY PROFILE SWITCHER ───────────────────────── */}
-      <div className="bg-white p-4 rounded-lg border border-stone-200 space-y-3">
+      <div className="bg-white p-4 rounded-lg border border-[#e3ddef] space-y-3 shadow-xs">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <span className="text-xs uppercase font-semibold text-stone-500 block">
+            <span className="text-xs uppercase font-bold text-[#796e94] block">
               {t('profileFor')}
             </span>
             {isEditingName ? (
@@ -201,29 +201,29 @@ export default function CustomerHomePage() {
                   type="text"
                   value={editNameVal}
                   onChange={(e) => setEditNameVal(e.target.value)}
-                  className="px-2 py-1 text-sm border rounded font-bold text-stone-900 focus:outline-teal-600"
+                  className="px-2 py-1 text-sm border border-[#e3ddef] rounded font-bold text-[#190042] focus:outline-[#B69D0C]"
                   autoFocus
                 />
-                <Button size="sm" onClick={handleSaveName}>
+                <Button size="sm" variant="gold" onClick={handleSaveName}>
                   Save
                 </Button>
                 <button
                   type="button"
                   onClick={() => setIsEditingName(false)}
-                  className="text-xs text-stone-500 hover:underline"
+                  className="text-xs text-[#796e94] hover:underline"
                 >
                   Cancel
                 </button>
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold text-stone-900">
+                <h2 className="text-lg font-black text-[#190042]">
                   {userName ? `${userName}’s Family` : 'My Family'}
                 </h2>
                 <button
                   type="button"
                   onClick={() => setIsEditingName(true)}
-                  className="text-xs text-teal-700 hover:underline cursor-pointer"
+                  className="text-xs text-[#B69D0C] hover:underline font-bold cursor-pointer"
                 >
                   (Edit Name)
                 </button>
@@ -234,20 +234,20 @@ export default function CustomerHomePage() {
           <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => setSelectedProfileId('ALL')}
-              className={`px-3 py-1.5 text-sm font-medium rounded-md border transition-colors cursor-pointer ${
+              className={`px-3 py-1.5 text-sm font-semibold rounded-md border transition-colors cursor-pointer ${
                 selectedProfileId === 'ALL'
-                  ? 'bg-teal-700 text-white border-teal-700'
-                  : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
+                  ? 'bg-[#190042] text-white border-[#B69D0C]/40 shadow-xs'
+                  : 'bg-[#f9f8fc] text-[#4a3e65] border-[#e3ddef] hover:bg-[#f3effa]'
               }`}
             >
               All Members
             </button>
             <button
               onClick={() => setSelectedProfileId('SELF')}
-              className={`px-3 py-1.5 text-sm font-medium rounded-md border transition-colors cursor-pointer ${
+              className={`px-3 py-1.5 text-sm font-semibold rounded-md border transition-colors cursor-pointer ${
                 selectedProfileId === 'SELF'
-                  ? 'bg-teal-700 text-white border-teal-700'
-                  : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
+                  ? 'bg-[#190042] text-white border-[#B69D0C]/40 shadow-xs'
+                  : 'bg-[#f9f8fc] text-[#4a3e65] border-[#e3ddef] hover:bg-[#f3effa]'
               }`}
             >
               {t('self')}
@@ -256,10 +256,10 @@ export default function CustomerHomePage() {
               <button
                 key={p.id}
                 onClick={() => setSelectedProfileId(p.id)}
-                className={`px-3 py-1.5 text-sm font-medium rounded-md border transition-colors cursor-pointer capitalize ${
+                className={`px-3 py-1.5 text-sm font-semibold rounded-md border transition-colors cursor-pointer capitalize ${
                   selectedProfileId === p.id
-                    ? 'bg-teal-700 text-white border-teal-700'
-                    : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100'
+                    ? 'bg-[#190042] text-white border-[#B69D0C]/40 shadow-xs'
+                    : 'bg-[#f9f8fc] text-[#4a3e65] border-[#e3ddef] hover:bg-[#f3effa]'
                 }`}
               >
                 {p.relationship}: {p.name}
@@ -269,7 +269,7 @@ export default function CustomerHomePage() {
             <button
               type="button"
               onClick={() => setShowAddFamily(!showAddFamily)}
-              className="px-2.5 py-1.5 text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-md cursor-pointer"
+              className="px-2.5 py-1.5 text-xs font-bold text-[#190042] bg-[#fcf8db] hover:bg-[#B69D0C] border border-[#B69D0C] rounded-md cursor-pointer transition-colors"
             >
               + Add Family Member
             </button>
@@ -317,30 +317,30 @@ export default function CustomerHomePage() {
       </div>
 
       {/* ─── 2. VERY LARGE PROMINENT REORDER BUTTON (SPEC REQUIREMENT) ─── */}
-      <div className="bg-gradient-to-b from-teal-50 to-white border-2 border-teal-600/30 rounded-xl p-6 sm:p-8 text-center space-y-4 shadow-sm">
+      <div className="bg-gradient-to-b from-[#f3effa] to-white border-2 border-[#190042]/25 rounded-2xl p-6 sm:p-8 text-center space-y-4 shadow-sm">
         <div className="max-w-xl mx-auto space-y-2">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-teal-100 text-teal-800">
-            <span className="w-2 h-2 rounded-full bg-teal-600"></span>
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#fcf8db] text-[#7b6905] border border-[#B69D0C]/40">
+            <span className="w-2 h-2 rounded-full bg-[#B69D0C]"></span>
             Monthly Medicine Refill
           </span>
-          <h1 className="text-2xl sm:text-3xl font-bold text-stone-900">
+          <h1 className="text-2xl sm:text-3xl font-black text-[#190042] tracking-tight">
             {t('homeTitle')}
           </h1>
-          <p className="text-stone-600 text-base">
+          <p className="text-[#4a3e65] text-base leading-relaxed">
             {t('pharmacistCheckNotice')}
           </p>
         </div>
 
         <div className="pt-2">
           <Link href="/customer/order/new">
-            <Button size="xl" className="w-full sm:w-auto px-12 py-5 text-xl font-bold shadow-lg">
+            <Button variant="gold" size="xl" className="w-full sm:w-auto px-12 py-5 text-xl font-black shadow-md border-2 border-[#9c8609]">
               {t('reorderButton')}
             </Button>
           </Link>
         </div>
 
-        <p className="text-xs text-stone-500 pt-2 flex items-center justify-center gap-2">
-          <svg className="w-4 h-4 text-teal-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <p className="text-xs text-[#796e94] pt-2 flex items-center justify-center gap-2 font-medium">
+          <svg className="w-4 h-4 text-[#B69D0C]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
           </svg>
           {t('pharmacistCheckNotice')}

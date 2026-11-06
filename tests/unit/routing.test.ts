@@ -182,6 +182,7 @@ describe('Store Routing & Haversine Distance', () => {
       {} as unknown as Awaited<ReturnType<typeof db.messageOutbox.create>>
     );
 
+    vi.spyOn(db.order, 'count').mockResolvedValue(10);
     let createdOrderData: Record<string, unknown> | null = null;
     vi.spyOn(db.order, 'create').mockImplementation(((args: { data: Record<string, unknown> }) => {
       createdOrderData = args.data;

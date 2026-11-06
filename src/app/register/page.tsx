@@ -73,10 +73,10 @@ function RegisterForm() {
     <div className="max-w-md mx-auto py-12 px-4">
       <Card className="border-stone-200 shadow-md">
         <CardHeader className="text-center">
-          <div className="w-12 h-12 bg-teal-700 text-white rounded-lg flex items-center justify-center font-bold text-2xl mx-auto mb-3">
+          <div className="w-12 h-12 bg-[#B69D0C] text-[#190042] rounded-lg flex items-center justify-center font-black text-2xl mx-auto mb-3 shadow-md border border-[#9c8609]">
             M
           </div>
-          <CardTitle className="text-2xl font-bold text-stone-900">
+          <CardTitle className="text-2xl font-black text-[#190042]">
             Customer Self-Registration
           </CardTitle>
           <CardDescription className="text-stone-600">

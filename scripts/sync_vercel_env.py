@@ -23,16 +23,8 @@ sync_keys = [
     'SMS_PROVIDER',
     'OTP_PEPPER',
     'MSG91_AUTH_KEY',
-    'NEON_BRANCH',
-    'NEON_AUTH_BASE_URL',
-    'NEON_AUTH_JWKS_URL',
-    'NEON_FUNCTION_HELLO_BASE_URL',
-    'AWS_ACCESS_KEY_ID',
-    'AWS_SECRET_ACCESS_KEY',
-    'AWS_ENDPOINT_URL_S3',
-    'AWS_REGION',
-    'NEON_REALTIME_URL',
-    'NEON_REALTIME_SECRET',
+    'SUPABASE_URL',
+    'SUPABASE_ANON_KEY',
 ]
 
 for key in sync_keys:

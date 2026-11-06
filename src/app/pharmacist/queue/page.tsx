@@ -79,11 +79,11 @@ export default function PharmacistQueuePage() {
             <h1 className="text-2xl font-bold text-stone-900">
               {t('queueTitle')}
             </h1>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-teal-100 text-teal-900">
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-[#fcf8db] text-[#7b6905] border border-[#B69D0C]">
               {waitingCount} Pending Review
             </span>
           </div>
-          <p className="text-sm text-stone-600 mt-1">
+          <p className="text-sm text-[#4a3e65] mt-1">
             Statutory duty: Verify prescription legitimacy, dosage, and schedule rules before dispensing.
           </p>
         </div>
@@ -92,10 +92,10 @@ export default function PharmacistQueuePage() {
         <div className="flex items-center gap-2 text-xs">
           <button
             onClick={() => setFilter('WAITING')}
-            className={`px-3 py-1.5 rounded-md font-semibold cursor-pointer ${
+            className={`px-3 py-1.5 rounded-md font-bold cursor-pointer transition ${
               filter === 'WAITING'
-                ? 'bg-teal-700 text-white'
-                : 'bg-white border text-stone-700 hover:bg-stone-50'
+                ? 'bg-[#190042] text-white border border-[#B69D0C]/40 shadow-xs'
+                : 'bg-white border border-[#e3ddef] text-[#4a3e65] hover:bg-[#f3effa]'
             }`}
           >
             {tc('pending')} ({waitingCount})
@@ -178,7 +178,7 @@ export default function PharmacistQueuePage() {
                           <div className="flex items-center gap-1.5 mt-1">
                             <span
                               className={`w-2 h-2 rounded-full ${
-                                slaBreached ? 'bg-red-500 animate-ping' : 'bg-teal-500'
+                                slaBreached ? 'bg-red-500 animate-ping' : 'bg-[#B69D0C]'
                               }`}
                             ></span>
                             <span
