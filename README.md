@@ -3,7 +3,7 @@
 A regulated healthcare commerce web application built for a pharmacy chain in Kolkata and Howrah (10 seeded demo stores across key Kolkata and Howrah clusters, representing the 46-store network with central warehouse operations).
 
 [![CI](https://github.com/P1Manav/isocode_assignment/actions/workflows/ci.yml/badge.svg)](https://github.com/P1Manav/isocode_assignment/actions/workflows/ci.yml)
-[![Tests Passing](https://img.shields.io/badge/tests-228%20passing-brightgreen)](https://github.com/P1Manav/isocode_assignment)
+[![Tests Passing](https://img.shields.io/badge/tests-238%20passing-brightgreen)](https://github.com/P1Manav/isocode_assignment)
 [![TypeScript Strict](https://img.shields.io/badge/TypeScript-strict-blue)](https://github.com/P1Manav/isocode_assignment)
 
 ---
@@ -40,8 +40,8 @@ A regulated healthcare commerce web application built for a pharmacy chain in Ko
 
 ### 1. Clone & Install
 ```bash
-git clone https://github.com/P1Manav/MedKart.git
-cd MedKart
+git clone https://github.com/P1Manav/isocode_assignment.git
+cd isocode_assignment
 npm install
 ```
 
@@ -55,6 +55,7 @@ Default `.env.example` settings work out of the box with `DEMO_MODE="true"` and 
 | Variable Name | Required in Prod | Group | Description |
 |---|---|---|---|
 | `DATABASE_URL` | **Yes** | Core | PostgreSQL connection string |
+| `SHADOW_DATABASE_URL` | CI / Dev | Core | Shadow PostgreSQL database for `prisma migrate dev` & CI schema drift checks |
 | `NEXT_PUBLIC_APP_URL` | No | Core | Canonical public URL of the application |
 | `CRON_SECRET` | **Yes** | Core | Shared secret bearer token securing automated refill cron |
 | `PUBLIC_CATALOGUE_OTC_ONLY` | No | Core | Restricts unauthenticated /api/products to OTC items only |
@@ -99,7 +100,7 @@ npm run seed
 
 ### 4. Run Test Suite
 ```bash
-# Runs 211 unit & API integration tests across 32 test suites
+# Runs 238 unit & API integration tests across 32 test suites
 npm test
 
 # Run 8 real PostgreSQL trigger integration tests (against Supabase or local Postgres)
@@ -127,16 +128,21 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 The top ribbon on every page includes a **Demo Roles Switcher** for instant 1-click testing:
 
-1. **Customer Flow:** Click `Customer (Debasish)` &rarr; tap `Reorder My Medicines` &rarr; select one of the synthetic prescriptions &rarr; submit order. Notice it generates a tracking timeline.
+1. **Customer Flow (or Self-Registration):**
+   - Click `Customer (Debasish)` from the top ribbon (or register a new account on `/login` via the "New to MedKart? Create an account" self-registration link).
+   - Tap `Reorder My Medicines` &rarr; select one of the synthetic prescriptions &rarr; choose delivery address.
+   - Select payment method: either **Sandbox UPI Gateway (Path A)** with instant simulation, or **Direct UPI Transfer (Path B)** with genuine QR code, voluntary demo consent, and 12-digit UTR submission.
+   - Submit order. Notice it generates a live tracking timeline.
 2. **Pharmacist Flow:** Click `Pharmacist (Sunita)` &rarr; open `Verification Queue` &rarr; click `Verify Prescription` on the submitted order.
-   - Inspect the prescription with Zoom In/Out, Rotate, and Pan controls.
-   - Review AI draft medicines with confidence indicators.
+   - Inspect the AES-256 decrypted prescription image with Zoom In/Out, Rotate, and Pan controls.
+   - Review AI draft medicines with confidence indicators (Tier 1 TrOCR / Tier 2 Tesseract WASM).
    - Approve lines or request re-upload (places order `ON_HOLD`).
    - Click `Approve Order & Route to Store`.
-3. **Store Staff Flow:** Click `Store Staff (Salt Lake)` &rarr; see order in `Store Fulfillment Desk`.
-   - Verify that unapproved orders have their `Pack` button disabled with a clear reason.
-   - For approved orders, click `Pack Order`, enter invoice number (e.g. `INV-SL-2026-901`), and mark packed.
-4. **Ops Dashboard:** Click `Ops Dashboard` &rarr; inspect multi-store volumes, median verification times, trigger automated refill reminders, and validate daily stock CSV imports.
+3. **Store Staff Fulfillment Desk:** Click `Store Staff (Salt Lake)` &rarr; view orders assigned to Salt Lake store.
+   - **Direct UPI Gate Enforcement:** If the order was placed via Direct UPI, the order requires explicit payment confirmation. Click `Confirm UPI Receipt` to verify the 12-digit UTR into the audit trail. Attempting to pack prior to confirmation is strictly blocked server-side (HTTP 400).
+   - **Pack & Invoice:** Click `Pack Order`, enter invoice number (e.g. `INV-SL-2026-901`), and mark packed. The application-layer `assertDispatchable` check and PostgreSQL trigger guarantee no unapproved orders can ever be packed.
+   - **Courier Handover & Delivery:** Mark `Handover to Courier` (recording courier partner & tracking ID) and transition to `Delivered`.
+4. **Ops Dashboard:** Click `Ops Dashboard` &rarr; inspect multi-store volume heatmaps, median pharmacist verification times, SLA tracking, trigger automated refill reminders, and validate daily stock CSV imports.
 
 ---
 
