@@ -164,22 +164,21 @@ export const DirectUpiModal: React.FC<DirectUpiModalProps> = ({
             </div>
           </div>
 
-          {/* Genuine Dynamic QR Code */}
+          {/* Genuine Merchant QR Code */}
           <div className="flex flex-col items-center justify-center p-4 bg-white border-2 border-dashed border-[#B69D0C]/60 rounded-xl">
-            {qrDataUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={qrDataUrl}
-                alt={`Scan to pay ₹${amount.toFixed(2)} for ${displayId}`}
-                className="w-52 h-52 mx-auto rounded shadow-sm bg-white p-2 border border-[#B69D0C]/30"
-              />
-            ) : (
-              <div className="w-52 h-52 flex items-center justify-center text-xs text-[#796e94]">
-                {payeeVpa ? 'Generating genuine QR...' : 'Direct UPI is not currently configured by administrator.'}
-              </div>
-            )}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/images/payment-qr.jpg"
+              alt={`Scan to pay ₹${amount.toFixed(2)} to ${payeeName}`}
+              className="w-52 h-52 mx-auto rounded-lg shadow-sm bg-black p-1 border border-[#B69D0C]/30 object-contain"
+              onError={(e) => {
+                if (qrDataUrl) {
+                  (e.target as HTMLImageElement).src = qrDataUrl;
+                }
+              }}
+            />
             <span className="text-xs font-semibold text-[#190042] mt-2">
-              Scan with Google Pay, PhonePe, Paytm, or BHIM
+              Scan with PhonePe, Google Pay, Paytm, or BHIM
             </span>
           </div>
 

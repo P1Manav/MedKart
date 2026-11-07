@@ -120,7 +120,10 @@ export async function POST(
       }
 
       const now = new Date();
-      if (rxDate.getTime() > now.getTime()) {
+      // Compare calendar date in Indian Standard Time (UTC+5:30) so that prescriptions
+      // issued today are never falsely flagged as "in the future" due to UTC time-of-day offsets.
+      const todayIST = new Date(now.getTime() + 5.5 * 3600 * 1000).toISOString().slice(0, 10);
+      if (payload.prescriptionDate > todayIST) {
         return NextResponse.json(
           { error: 'Prescription date cannot be in the future.' },
           { status: 400 }

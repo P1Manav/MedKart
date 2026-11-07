@@ -119,6 +119,16 @@ test.describe('MedKart Full Pharmacy Lifecycle Flow', () => {
     await pharmacistPage.goto(`/pharmacist/review/${orderId}`);
     await expect(pharmacistPage.locator('text=Prescription Date (Rx Issue Date)')).toBeVisible();
 
+    // Ensure prescription date input is populated
+    const dateInput = pharmacistPage.locator('input[type="date"]');
+    if (await dateInput.isVisible()) {
+      const val = await dateInput.inputValue();
+      if (!val) {
+        const todayStr = new Date().toISOString().slice(0, 10);
+        await dateInput.fill(todayStr);
+      }
+    }
+
     // Verify and confirm prescription date checkbox
     const confirmCheckbox = pharmacistPage
       .locator('label')
