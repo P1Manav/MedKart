@@ -39,17 +39,18 @@ export class TwilioVerifyProvider implements OtpProvider {
         }
       }
 
-      // Case 1: Standard Twilio Programmable Messages API (via MessagingServiceSid MG... or From phone number)
+      // Case 1: Standard Twilio Programmable Messages API
+      // When phoneFrom is available, use it directly so trial account restrictions (e.g. 21608) are returned synchronously
       if (phoneFrom || (serviceSid && serviceSid.startsWith('MG'))) {
         const url = `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`;
         const bodyParams: Record<string, string> = {
           To: e164,
           Body: `Your MedKart verification code is: ${params.otp}. Valid for 5 minutes.`,
         };
-        if (serviceSid && serviceSid.startsWith('MG')) {
-          bodyParams.MessagingServiceSid = serviceSid;
-        } else if (phoneFrom) {
+        if (phoneFrom) {
           bodyParams.From = phoneFrom;
+        } else if (serviceSid && serviceSid.startsWith('MG')) {
+          bodyParams.MessagingServiceSid = serviceSid;
         }
 
         const res = await fetch(url, {
@@ -167,4 +168,3 @@ export class TwilioVerifyProvider implements OtpProvider {
     }
   }
 }
-
