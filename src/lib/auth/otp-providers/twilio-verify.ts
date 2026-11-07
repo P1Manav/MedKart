@@ -65,15 +65,40 @@ export class TwilioVerifyProvider implements OtpProvider {
         if (!res.ok) {
           const errText = await res.text().catch(() => '');
           let errMsg = `Twilio HTTP ${res.status}`;
+          let isTrial = false;
           try {
             const parsed = JSON.parse(errText);
             if (parsed.message) {
               errMsg = parsed.message;
             }
+            if (
+              parsed.code === 21608 ||
+              String(parsed.code) === '21608' ||
+              parsed.code === 21267 ||
+              String(parsed.code) === '21267' ||
+              errMsg.toLowerCase().includes('trial') ||
+              errMsg.toLowerCase().includes('unverified')
+            ) {
+              isTrial = true;
+            }
           } catch {
-            if (errText) errMsg += `: ${errText}`;
+            if (errText) {
+              errMsg += `: ${errText}`;
+              if (errText.includes('21608') || errText.toLowerCase().includes('trial') || errText.toLowerCase().includes('unverified')) {
+                isTrial = true;
+              }
+            }
           }
-          return { sent: false, provider: this.name, channel: this.channel, error: errMsg };
+          return {
+            sent: false,
+            provider: this.name,
+            channel: this.channel,
+            error: errMsg,
+            isTrialRestricted: isTrial,
+            trialNotice: isTrial
+              ? 'Twilio Trial Account: Recipient is not verified in Twilio Console. Real SMS is restricted by Twilio Free Trial tier.'
+              : undefined,
+          };
         }
 
         return { sent: true, provider: this.name, channel: this.channel };
@@ -100,15 +125,40 @@ export class TwilioVerifyProvider implements OtpProvider {
       if (!res.ok) {
         const errText = await res.text().catch(() => '');
         let errMsg = `Twilio HTTP ${res.status}`;
+        let isTrial = false;
         try {
           const parsed = JSON.parse(errText);
           if (parsed.message) {
             errMsg = parsed.message;
           }
+          if (
+            parsed.code === 21608 ||
+            String(parsed.code) === '21608' ||
+            parsed.code === 21267 ||
+            String(parsed.code) === '21267' ||
+            errMsg.toLowerCase().includes('trial') ||
+            errMsg.toLowerCase().includes('unverified')
+          ) {
+            isTrial = true;
+          }
         } catch {
-          if (errText) errMsg += `: ${errText}`;
+          if (errText) {
+            errMsg += `: ${errText}`;
+            if (errText.includes('21608') || errText.toLowerCase().includes('trial') || errText.toLowerCase().includes('unverified')) {
+              isTrial = true;
+            }
+          }
         }
-        return { sent: false, provider: this.name, channel: this.channel, error: errMsg };
+        return {
+          sent: false,
+          provider: this.name,
+          channel: this.channel,
+          error: errMsg,
+          isTrialRestricted: isTrial,
+          trialNotice: isTrial
+            ? 'Twilio Trial Account: Recipient is not verified in Twilio Console. Real SMS is restricted by Twilio Free Trial tier.'
+            : undefined,
+        };
       }
 
       return { sent: true, provider: this.name, channel: this.channel };

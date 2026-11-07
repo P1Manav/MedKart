@@ -13,6 +13,8 @@ export interface SendOtpResult {
   channel: 'SMS' | 'EMAIL';
   costInCredits?: number;
   error?: string;
+  isTrialRestricted?: boolean;
+  trialNotice?: string;
 }
 
 export interface OtpProvider {

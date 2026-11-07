@@ -55,7 +55,8 @@ export function generateNumericOtp(): string {
 export interface RequestOtpResult {
   success: boolean;
   message: string;
-  mockOtp?: string; // Included ONLY if DEMO_MODE === 'true' AND allowlisted demo phone
+  mockOtp?: string; // Included ONLY if DEMO_MODE === 'true' AND allowlisted demo phone OR Twilio trial fallback
+  trialNotice?: string;
   statusCode?: number;
 }
 
@@ -215,6 +216,8 @@ export async function requestOtp(
   // Dispatch via provider chain (Twilio / MSG91 / Fast2SMS / Email / Mock)
   let dispatchSent = false;
   let mockAllowed = false;
+  let isTrialFallback = false;
+  let trialNotice: string | undefined;
   let dispatchError: string | undefined;
   try {
     const dispatch = await defaultOtpChain.dispatch({
@@ -224,13 +227,15 @@ export async function requestOtp(
     });
     dispatchSent = Boolean(dispatch.success);
     mockAllowed = Boolean(dispatch.mockOtpAllowed);
+    isTrialFallback = Boolean(dispatch.isTrialFallback);
+    trialNotice = dispatch.trialNotice;
     dispatchError = dispatch.error;
   } catch (err: unknown) {
     logger.warn('[OTP] Provider dispatch threw non-fatal exception:', err);
   }
 
-  // If dispatch failed AND mock is NOT allowed AND limits.allowTestFallback is not set:
-  if (!dispatchSent && !mockAllowed && !limits.allowTestFallback) {
+  // If dispatch failed AND mock is NOT allowed AND limits.allowTestFallback is not set AND not a trial fallback:
+  if (!dispatchSent && !mockAllowed && !limits.allowTestFallback && !isTrialFallback) {
     return {
       success: false,
       message: dispatchError || 'SMS service not configured on this instance. Use a demo account or configure MSG91_AUTH_KEY / TWILIO_ACCOUNT_SID.',
@@ -238,10 +243,17 @@ export async function requestOtp(
     };
   }
 
+  const shouldReturnOtp = mockAllowed || Boolean(limits.allowTestFallback) || isTrialFallback;
+
   return {
     success: true,
-    message: 'Verification code sent successfully to your phone.',
-    mockOtp: (mockAllowed || limits.allowTestFallback) ? plainOtp : undefined,
+    message: isTrialFallback
+      ? 'Twilio Trial Account: Real SMS blocked for unverified number. Your test verification code is displayed below.'
+      : 'Verification code sent successfully to your phone.',
+    mockOtp: shouldReturnOtp ? plainOtp : undefined,
+    trialNotice: isTrialFallback
+      ? (trialNotice || 'Twilio Trial Account: Recipient is unverified. For review testing, use the code above.')
+      : undefined,
   };
 }
 

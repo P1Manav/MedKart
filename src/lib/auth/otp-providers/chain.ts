@@ -19,6 +19,8 @@ export interface DispatchOtpResult {
   mockOtpAllowed: boolean;
   error?: string;
   isConfigured: boolean;
+  isTrialFallback?: boolean;
+  trialNotice?: string;
 }
 
 export function maskPhone(phone: string): string {
@@ -125,13 +127,18 @@ export class OtpProviderChain {
       logger.warn('[OtpProviderChain] Failed to record OtpDelivery audit log:', logErr);
     }
 
+    const isTrialRestricted = Boolean(dispatchResult?.isTrialRestricted);
+    const trialNotice = dispatchResult?.trialNotice;
+
     return {
-      success: finalSuccess,
+      success: finalSuccess || isTrialRestricted,
       provider: providerName,
       channel,
       mockOtpAllowed: mockAllowed,
-      error: errorMsg,
+      error: isTrialRestricted ? undefined : errorMsg,
       isConfigured: Boolean(primarySms && primarySms.isConfigured()),
+      isTrialFallback: isTrialRestricted,
+      trialNotice,
     };
   }
 }

@@ -19,6 +19,7 @@ export default function LoginPage() {
   const [step, setStep] = useState<'PHONE' | 'REGISTER' | 'OTP'>('PHONE');
   const [otp, setOtp] = useState('');
   const [mockOtp, setMockOtp] = useState<string | null>(null);
+  const [trialNotice, setTrialNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -94,9 +95,11 @@ export default function LoginPage() {
       if (data.mockOtp) {
         setMockOtp(data.mockOtp);
         setOtp(data.mockOtp); // Auto-fill for seamless testing
+        setTrialNotice(data.trialNotice || null);
       } else {
         setMockOtp(null);
         setOtp('');
+        setTrialNotice(null);
       }
     } catch {
       setError('Network error requesting OTP. Please try again.');
@@ -219,18 +222,20 @@ export default function LoginPage() {
         <CardContent className="space-y-6">
           {error && <ErrorState message={error} />}
 
-          {/* Demo SMS Banner */}
+          {/* Demo SMS / Twilio Trial Fallback Banner */}
           {mockOtp && (
             <div className="bg-[#fcf8db] border border-[#B69D0C] rounded-md p-4 text-[#7b6905]">
               <div className="flex items-center gap-2 font-bold text-sm">
                 <span className="w-2.5 h-2.5 rounded-full bg-[#B69D0C] animate-ping"></span>
-                <span>{t('demoCodeText')}</span>
+                <span>{trialNotice ? 'Twilio Trial Account — Unverified Test Recipient' : t('demoCodeText')}</span>
               </div>
               <p data-testid="demo-otp-code" className="text-2xl font-mono font-black tracking-widest mt-1 text-[#190042]">
                 {mockOtp}
               </p>
               <p className="text-xs text-[#594c03] mt-1">
-                Valid for 5 minutes (max 5 attempts). Honest fallback: real SMS dispatched if provider key configured.
+                {trialNotice
+                  ? 'Twilio Free Trial restriction: Real SMS can only be delivered to Verified Caller IDs. For testing & evaluation, use the code above.'
+                  : 'Valid for 5 minutes (max 5 attempts). Honest fallback: real SMS dispatched if provider key configured.'}
               </p>
             </div>
           )}
