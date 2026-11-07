@@ -100,7 +100,7 @@ npm run seed
 
 ### 4. Run Test Suite
 ```bash
-# Runs 238 unit & API integration tests across 32 test suites
+# Runs 238 unit & API integration tests across 35 test suites
 npm test
 
 # Run 8 real PostgreSQL trigger integration tests (against Supabase or local Postgres)

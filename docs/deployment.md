@@ -58,7 +58,7 @@ npm run seed
 
 ### Step 4: Run Tests & Verification Gates
 ```bash
-# Run unit and integration tests (238 tests across 32 suites)
+# Run unit and integration tests (238 tests across 35 suites)
 npm test
 
 # Run real PostgreSQL trigger integration tests (8 tests against live DB)
