@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import QRCode from 'qrcode';
 import { POST as confirmManualHandler } from '@/app/api/payments/confirm-manual/route';
 import { POST as submitUtrHandler } from '@/app/api/payments/submit-utr/route';
+import { POST as packHandler } from '@/app/api/store/orders/[id]/pack/route';
 import { CreateOrderInputSchema } from '@/lib/validators/order-input';
 import { getUpiConfig, buildUpiUri } from '@/lib/payments/upi-config';
 import db from '@/lib/db';
@@ -286,5 +287,173 @@ describe('Real UPI Payment Options (Path A & Path B) — Hardening Pass', () => 
         }),
       })
     );
+  });
+
+  it('POST /api/store/orders/[id]/pack: Blocks packing DIRECT_UPI order when payment has not been confirmed by staff (returns 400)', async () => {
+    vi.spyOn(rbacModule, 'requireAuth').mockResolvedValue({
+      userId: 'staff_1',
+      name: 'Bikash Mondal',
+      role: 'STORE_STAFF',
+      storeId: 'store_saltlake',
+    } as unknown as Awaited<ReturnType<typeof rbacModule.requireAuth>>);
+
+    const mockOrder = {
+      id: 'ord_direct_upi_unconfirmed',
+      displayId: 'RX-50230',
+      storeId: 'store_saltlake',
+      status: 'APPROVED',
+      paymentMethod: 'DIRECT_UPI',
+      prescriptionEncrypted: Buffer.from('mock_encrypted'),
+      prescriptionValidUntil: new Date(Date.now() + 86400000 * 30),
+      lines: [
+        {
+          id: 'line_1',
+          lineStatus: 'APPROVED',
+          pharmacistId: 'pharm_1',
+          pharmacistRegNo: 'WB-PHARM-2024-4102',
+          h1PrescriberName: null,
+          h1PrescriberRegNo: null,
+          h1PatientName: null,
+          h1Date: null,
+          h1Quantity: null,
+          product: { schedule: 'H' },
+        },
+      ],
+    };
+
+    vi.spyOn(db.order, 'findUnique').mockResolvedValue(mockOrder as never);
+    vi.spyOn(db.orderAudit, 'findFirst').mockResolvedValue(null);
+
+    const req = new Request('http://localhost:3000/api/store/orders/ord_direct_upi_unconfirmed/pack', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ invoiceNumber: 'INV-2024-001' }),
+    });
+
+    const res = await packHandler(req, { params: Promise.resolve({ id: 'ord_direct_upi_unconfirmed' }) });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBe(
+      "Cannot pack: Direct UPI payment has not been confirmed by staff. Use 'Confirm UPI Receipt' first."
+    );
+  });
+
+  it('POST /api/store/orders/[id]/pack: Allows packing DIRECT_UPI order when payment has been confirmed in orderAudit (returns 200)', async () => {
+    vi.spyOn(rbacModule, 'requireAuth').mockResolvedValue({
+      userId: 'staff_1',
+      name: 'Bikash Mondal',
+      role: 'STORE_STAFF',
+      storeId: 'store_saltlake',
+    } as unknown as Awaited<ReturnType<typeof rbacModule.requireAuth>>);
+
+    const mockOrder = {
+      id: 'ord_direct_upi_confirmed',
+      displayId: 'RX-50231',
+      storeId: 'store_saltlake',
+      status: 'APPROVED',
+      paymentMethod: 'DIRECT_UPI',
+      prescriptionEncrypted: Buffer.from('mock_encrypted'),
+      prescriptionValidUntil: new Date(Date.now() + 86400000 * 30),
+      lines: [
+        {
+          id: 'line_1',
+          lineStatus: 'APPROVED',
+          pharmacistId: 'pharm_1',
+          pharmacistRegNo: 'WB-PHARM-2024-4102',
+          h1PrescriberName: null,
+          h1PrescriberRegNo: null,
+          h1PatientName: null,
+          h1Date: null,
+          h1Quantity: null,
+          product: { schedule: 'H' },
+        },
+      ],
+    };
+
+    vi.spyOn(db.order, 'findUnique').mockResolvedValue(mockOrder as never);
+    vi.spyOn(db.orderAudit, 'findFirst').mockResolvedValue({
+      id: 'audit_conf_1',
+      orderId: 'ord_direct_upi_confirmed',
+      reason: 'Direct UPI payment verified by PHARMACIST (Sunita). UTR: 123456789012',
+    } as never);
+
+    vi.spyOn(db.scheduleRule, 'findMany').mockResolvedValue([
+      { schedule: 'H', canSellOnline: true, requiresRegisterEntry: false } as never,
+    ]);
+
+    vi.spyOn(db.order, 'update').mockResolvedValue({
+      id: 'ord_direct_upi_confirmed',
+      status: 'PACKED',
+    } as never);
+
+    const req = new Request('http://localhost:3000/api/store/orders/ord_direct_upi_confirmed/pack', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ invoiceNumber: 'INV-2024-001' }),
+    });
+
+    const res = await packHandler(req, { params: Promise.resolve({ id: 'ord_direct_upi_confirmed' }) });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    expect(body.order.status).toBe('PACKED');
+  });
+
+  it('POST /api/store/orders/[id]/pack: Does not require confirmation audit for MOCK_UPI or COD orders', async () => {
+    vi.spyOn(rbacModule, 'requireAuth').mockResolvedValue({
+      userId: 'staff_1',
+      name: 'Bikash Mondal',
+      role: 'STORE_STAFF',
+      storeId: 'store_saltlake',
+    } as unknown as Awaited<ReturnType<typeof rbacModule.requireAuth>>);
+
+    const mockOrder = {
+      id: 'ord_mock_upi_1',
+      displayId: 'RX-50232',
+      storeId: 'store_saltlake',
+      status: 'APPROVED',
+      paymentMethod: 'MOCK_UPI',
+      prescriptionEncrypted: Buffer.from('mock_encrypted'),
+      prescriptionValidUntil: new Date(Date.now() + 86400000 * 30),
+      lines: [
+        {
+          id: 'line_1',
+          lineStatus: 'APPROVED',
+          pharmacistId: 'pharm_1',
+          pharmacistRegNo: 'WB-PHARM-2024-4102',
+          h1PrescriberName: null,
+          h1PrescriberRegNo: null,
+          h1PatientName: null,
+          h1Date: null,
+          h1Quantity: null,
+          product: { schedule: 'H' },
+        },
+      ],
+    };
+
+    vi.spyOn(db.order, 'findUnique').mockResolvedValue(mockOrder as never);
+    const findAuditSpy = vi.spyOn(db.orderAudit, 'findFirst').mockResolvedValue(null);
+
+    vi.spyOn(db.scheduleRule, 'findMany').mockResolvedValue([
+      { schedule: 'H', canSellOnline: true, requiresRegisterEntry: false } as never,
+    ]);
+
+    vi.spyOn(db.order, 'update').mockResolvedValue({
+      id: 'ord_mock_upi_1',
+      status: 'PACKED',
+    } as never);
+
+    const req = new Request('http://localhost:3000/api/store/orders/ord_mock_upi_1/pack', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ invoiceNumber: 'INV-2024-002' }),
+    });
+
+    const res = await packHandler(req, { params: Promise.resolve({ id: 'ord_mock_upi_1' }) });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    expect(body.order.status).toBe('PACKED');
+    expect(findAuditSpy).not.toHaveBeenCalled();
   });
 });

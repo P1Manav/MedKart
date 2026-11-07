@@ -41,6 +41,23 @@ export async function POST(
     // Object-level authorization check: store staff can only pack their store's orders
     assertStoreStaffAccess(session, order.storeId);
 
+    // Direct UPI payment verification gate: staff must have explicitly confirmed payment receipt
+    if (order.paymentMethod === 'DIRECT_UPI') {
+      const paymentAudit = await db.orderAudit.findFirst({
+        where: {
+          orderId: order.id,
+          reason: { contains: 'Direct UPI payment verified' },
+        },
+      });
+
+      if (!paymentAudit) {
+        return NextResponse.json(
+          { error: "Cannot pack: Direct UPI payment has not been confirmed by staff. Use 'Confirm UPI Receipt' first." },
+          { status: 400 }
+        );
+      }
+    }
+
     // State machine check: must transition from APPROVED -> PACKED
     validateTransition(order.status as 'APPROVED', 'PACKED');
 
