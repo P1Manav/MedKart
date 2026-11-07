@@ -2,7 +2,7 @@
 
 This document describes how to run MedKart locally step by step, how it is deployed to production on Vercel and Supabase (Free Tier), the real free-tier services and their verified limits, and demo login details for reviewer evaluation.
 
-- **GitHub Repository:** [https://github.com/P1Manav/isocode_assignment](https://github.com/P1Manav/isocode_assignment)
+- **GitHub Repository:** [https://github.com/P1Manav/MedKart](https://github.com/P1Manav/MedKart)
 - **Live Deployed Application:** [https://medkart-pharmacyt.vercel.app](https://medkart-pharmacyt.vercel.app)
 
 > **SECURITY NOTICE:** Never commit secrets or actual private keys to the repository. All secrets must be configured via environment variables.
@@ -18,8 +18,8 @@ This document describes how to run MedKart locally step by step, how it is deplo
 
 ### Step 1: Clone Repository & Install Dependencies
 ```bash
-git clone https://github.com/P1Manav/isocode_assignment.git
-cd isocode_assignment
+git clone https://github.com/P1Manav/MedKart.git
+cd MedKart
 npm install
 ```
 
@@ -84,8 +84,8 @@ Every component of MedKart runs end-to-end on verified free tiers:
 | **Tesseract.js WASM Engine** | Tier 2 In-process local OCR | **Limits**: Pure WebAssembly (WASM), zero network calls, zero rate limits, runs completely in-process with real per-word confidence scores. |
 | **Supabase PostgreSQL** | Cloud-native relational database | **Limits**: 500 MB storage, connection pooling via Supavisor / PgBouncer on port 6543, direct Postgres on 5432. |
 | **Razorpay / Cashfree Sandbox** | UPI payments & checkout simulation (Path A) | **Limits**: Test mode credentials, zero real money. Real webhook HMAC-SHA256 signature verification via `crypto.timingSafeEqual`. |
-| **Direct UPI Transfer (Path B)** | Peer-to-peer / merchant UPI QR payment | **Limits**: Dynamically driven by `UPI_PAYEE_VPA`. Path B is hidden if unconfigured. Capped by `UPI_MAX_AMOUNT_INR` (default ₹100). Payments are never auto-marked paid; staff manually verifies UTR before dispatch. |
-| **SMS / OTP Provider Chain** | Resilient phone verification | **Limits**: Configurable fallback chain (MSG91 -> Twilio Verify -> Fast2SMS -> Email -> Mock). Honest on-screen demo SMS banner by default for allowlisted demo accounts only; real SMS dispatched when provider credentials are configured. |
+| **Direct UPI Transfer (Path B)** | Peer-to-peer / merchant UPI QR payment | **Limits**: Dynamically driven by `UPI_PAYEE_VPA`. Path B is hidden if unconfigured. Capped by `UPI_MAX_AMOUNT_INR` (₹200 limit). Payments are never auto-marked paid; staff manually verifies UTR before dispatch. |
+| **SMS / OTP Provider Chain** | Resilient phone verification | **Limits**: Configurable multi-provider chain (Twilio SMS / Twilio Verify -> MSG91 -> Fast2SMS -> Email -> Mock). Deployed with Twilio on Vercel (`SMS_PROVIDER=twilio`). Real SMS dispatched to verified phones (e.g. `7778083224`); automatic transparent fallback for unverified evaluator numbers on Twilio Free Trial tier (Error 21608) so reviewers can test end-to-end without being blocked. |
 
 ### Environment Variables on Vercel & CI
 
@@ -123,7 +123,7 @@ Every component of MedKart runs end-to-end on verified free tiers:
 | `PAYMENT_GATEWAY_WEBHOOK_SECRET` | No | Webhook HMAC verification secret |
 | `UPI_PAYEE_VPA` | No | Direct UPI payee VPA (Path B). When omitted, Path B is completely hidden. |
 | `UPI_PAYEE_NAME` | No | Direct UPI payee business name (default: "MedKart Pharmacy") |
-| `UPI_MAX_AMOUNT_INR` | No | Maximum permitted amount for direct UPI demo (default: 100) |
+| `UPI_MAX_AMOUNT_INR` | No | Maximum permitted amount for direct UPI demo (₹200 limit) |
 | `PLAYWRIGHT_TEST_BASE_URL` | No | Optional base URL override for Playwright end-to-end tests |
 
 > **Prisma Shadow Database Configuration (`SHADOW_DATABASE_URL`):**
@@ -147,10 +147,11 @@ When `DEMO_MODE=true` is enabled, the top ribbon provides **1-click instant logi
 | **Store Staff** | Bikash Mondal | `9830066661` | Salt Lake store staff. Can view routed orders for Salt Lake, access decrypted prescription for approved orders, and enter invoice numbers to pack orders. |
 | **Central Operations (Ops)** | Arijit Sen | `9830099999` | Operations manager. Can inspect system-wide metrics, SLA medians, active store volumes, trigger manual refill runs, and upload daily stock CSVs. |
 
-### How OTP Verification Works in Demo Mode:
-1. Enter any of the phone numbers above on the `/login` screen and click **"Send Verification Code"**.
-2. A yellow **"Demo SMS Received"** banner displays the 6-digit code on screen (or enter `123456`).
-3. Click **"Verify & Continue"** to be routed to your role-specific dashboard.
+### How OTP Verification Works:
+1. **Allowlisted Demo Accounts (`9830011111`, etc.):** Enter any of the pre-seeded demo phone numbers above on `/login` and click **"Send Verification Code"**. The yellow **"Demo Verification Code"** banner displays the 6-digit code on screen (or enter `123456`).
+2. **Real Verified Numbers (e.g. `7778083224`):** Dispatches real SMS directly to the handset via Twilio (`+19375076190`). No on-screen code is shown.
+3. **Unverified 3rd-Party / Evaluator Numbers:** The system attempts real delivery via Twilio. Because Twilio Trial accounts restrict carrier delivery to Verified Caller IDs (Error 21608), the app catches the restriction and provides an honest, transparent review fallback badge with the OTP code on-screen so external reviewers can register and evaluate the full application end-to-end without being blocked by Twilio's billing tier.
+4. Click **"Verify & Continue"** to be routed to your role-specific dashboard.
 
 ---
 

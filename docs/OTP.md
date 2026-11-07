@@ -55,8 +55,10 @@ flowchart TD
 ```
 
 ### Provider Details:
-1. **Msg91 (`Msg91Provider`):** Primary enterprise SMS provider in India. Uses MSG91 Send OTP v5 API (`authkey`, `template_id`).
-2. **Twilio Verify (`TwilioVerifyProvider`):** Global fallback via Twilio Verify API v2 (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID`).
+1. **Twilio SMS & Verify (`TwilioVerifyProvider`):** Active on Vercel (`SMS_PROVIDER=twilio`). Supports standard Twilio Programmable Messages API via `TWILIO_PHONE_NUMBER` (+19375076190) and `MessagingServiceSid` (`MG9c1730f60689a3da6d85af67b0523234`), as well as Twilio Verify API v2 (`VA...`).
+   - **Real SMS Delivery:** When a phone number is registered or verified in Twilio (e.g. `7778083224`), real SMS is delivered directly to the handset.
+   - **Smart Trial Fallback:** Twilio Free Trial accounts legally restrict SMS delivery to Verified Caller IDs (Twilio Error 21608). Instead of failing with an unhandled exception or blocking reviewers, the app catches this restriction and displays a transparent review fallback badge with the OTP on-screen so external reviewers can register and evaluate without being blocked.
+2. **Msg91 (`Msg91Provider`):** Primary enterprise SMS provider in India. Uses MSG91 Send OTP v5 API (`authkey`, `template_id`).
 3. **Fast2SMS (`Fast2SmsProvider`):** Cost-effective Indian SMS gateway (`FAST2SMS_API_KEY`).
 4. **Email OTP (`EmailOtpProvider`):** Automatic secondary channel when SMS delivery fails or is throttled (`RESEND_API_KEY` or `SMTP_*`).
 5. **Mock Provider (`MockOtpProvider`):** Selected via `SMS_PROVIDER="mock"` or engaged **strictly** when `DEMO_MODE=true` and the recipient number belongs to the allowlisted demo pool (`DEMO_PHONES` or default seeded accounts):

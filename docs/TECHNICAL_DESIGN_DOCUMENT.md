@@ -1,7 +1,7 @@
 # Technical Design Document (TDD)
 # MedKart Pharmacy — Online Reordering with Pharmacist Prescription Checks
 
-**Repository URL:** [https://github.com/P1Manav/isocode_assignment](https://github.com/P1Manav/isocode_assignment)  
+**Repository URL:** [https://github.com/P1Manav/MedKart](https://github.com/P1Manav/MedKart)  
 **Live Deployed Application:** [https://medkart-pharmacyt.vercel.app](https://medkart-pharmacyt.vercel.app)  
 **Author:** Manav Prajapati (maxprajapati606@gmail.com)  
 **Date:** November 2026  
@@ -202,7 +202,7 @@ flowchart LR
 | **A19** | Three-Tier OCR Architecture & Vercel Serverless Limits | Hosted small model TrOCR via Hugging Face router, in-process Tesseract.js WASM fallback, with graceful degradation to manual pharmacist queue without crashing | `src/lib/ai/hf-ocr-reader.ts`, `docs/deployment.md` |
 | **A20** | Measured Tier 1 Confidence Proxy: No Fabricated Constants | Computes deterministic lexical sanity proxy: $C = 0.35 \times S_{alnum} + 0.30 \times S_{entropy} + S_{med}$ | `src/lib/ai/hf-ocr-reader.ts` |
 | **A21** | Real OCR Image Legibility Statistics: $W_{mean} \ge 0.65$ (clear), $0.40 \le W_{mean} < 0.65$ (partial), $< 0.40$ (unreadable) | Prevents guessing legibility. Low word confidence or unreadable scans automatically route to pharmacist queue | `src/lib/ai/deterministic-parser.ts` |
-| **A22** | Honest OTP Delivery: On-screen demo SMS banner for allowlisted demo accounts, real SMS dispatched when configured | Free-tier SMS providers (Twilio/MSG91) reject unverified trial numbers; real SMS attempted for registered numbers, on-screen demo code for allowlisted accounts | `src/lib/auth/otp.ts`, `src/lib/auth/otp-providers/` |
+| **A22** | Honest OTP Delivery: Real Twilio SMS dispatch for verified numbers, smart trial fallback for unverified evaluator numbers, and demo code for allowlisted demo accounts | MedKart runs on Twilio (`SMS_PROVIDER=twilio`). Real SMS is dispatched to verified numbers (e.g. `7778083224`). Because Twilio Free Trial accounts restrict carrier delivery to Verified Caller IDs (Error 21608), the app catches this restriction and provides a transparent review fallback with the OTP code on-screen so external reviewers can register and evaluate without being blocked. Allowlisted demo accounts continue to display the demo code banner in `DEMO_MODE=true`. | `src/lib/auth/otp.ts`, `src/lib/auth/otp-providers/` |
 | **A23** | Direct UPI Payment Admin Toggle, Cap, Consent & Pack Route Gate | Path B dynamically enabled by `UPI_PAYEE_VPA`, capped by `UPI_MAX_AMOUNT_INR` (₹200), voluntary demo consent checkbox required, and strictly blocked at `/api/store/orders/[id]/pack` until staff verifies payment | `src/app/customer/order/new/page.tsx`, `src/app/api/store/orders/[id]/pack/route.ts` |
 | **A24** | Session Revocation & Versioning via `tokenVersion` | Instant multi-device invalidation on logout via `tokenVersion` claim | `src/lib/auth/session.ts`, `src/app/api/auth/logout-all/route.ts` |
 | **A25** | Pure EXIF/GPS Metadata Stripping & Magic-Byte Validation | Raw byte-level stripping of JPEG APP1 and WebP EXIF chunks before saving; true magic-byte verification | `src/lib/validators/upload.ts` |
@@ -235,7 +235,7 @@ Audit against the client brief evaluated line-by-line against the built software
 
 | # | Client Brief Requirement | Status | Implementation & Code Location |
 |---|---|---|---|
-| **1** | **Customer OTP Login & Sign-in** | **MET** | Salty HMAC-SHA256 OTP hashing with rate limits. Real SMS attempted via Twilio/MSG91 with honest on-screen fallback for allowlisted demo accounts. Customer self-registration supported for new numbers (`src/lib/auth/otp.ts`, `src/app/login/page.tsx`). |
+| **1** | **Customer OTP Login & Sign-in** | **MET** | Salty HMAC-SHA256 OTP hashing with rate limits. Real SMS dispatched via Twilio (`+19375076190`) with smart trial fallback (Error 21608) for unverified reviewer numbers, and on-screen code for allowlisted demo accounts. Customer self-registration supported for new numbers (`src/lib/auth/otp.ts`, `src/app/login/page.tsx`). |
 | **2** | **Family Profiles** | **MET** | Add, edit, and select family members (e.g. Debasish ordering for his mother Anjali Ghosh) (`src/app/customer/profile/page.tsx`, `src/app/api/customer/family-profiles/route.ts`). |
 | **3** | **Search Catalogue & Cart** | **MET** | Real-time catalogue search with Schedule filtering (H, H1, X, OTC), generic badges, and cart drawer with Schedule notices (`src/app/api/products/route.ts`, `src/components/cart/cart-drawer.tsx`). |
 | **4** | **Prescription Upload & DPDP Security** | **MET** | File upload with magic-byte validation, pure byte-level EXIF/GPS stripping, and AES-256-GCM encryption at rest with an append-only access log (`src/lib/validators/upload.ts`, `src/app/api/prescription/[id]/image/route.ts`). |
