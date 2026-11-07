@@ -58,7 +58,7 @@ npm run seed
 
 ### Step 4: Run Tests & Verification Gates
 ```bash
-# Run unit and integration tests (211 tests across 32 suites)
+# Run unit and integration tests (238 tests across 32 suites)
 npm test
 
 # Run real PostgreSQL trigger integration tests (8 tests against live DB)
@@ -87,11 +87,12 @@ Every component of MedKart runs end-to-end on verified free tiers:
 | **Direct UPI Transfer (Path B)** | Peer-to-peer / merchant UPI QR payment | **Limits**: Dynamically driven by `UPI_PAYEE_VPA`. Path B is hidden if unconfigured. Capped by `UPI_MAX_AMOUNT_INR` (default ₹100). Payments are never auto-marked paid; staff manually verifies UTR before dispatch. |
 | **SMS / OTP Provider Chain** | Resilient phone verification | **Limits**: Configurable fallback chain (MSG91 -> Twilio Verify -> Fast2SMS -> Email -> Mock). Honest on-screen demo SMS banner by default for allowlisted demo accounts only; real SMS dispatched when provider credentials are configured. |
 
-### Environment Variables on Vercel
+### Environment Variables on Vercel & CI
 
 | Variable Name | Required | Description |
 |---|---|---|
-| `DATABASE_URL` | **Yes** | Supabase PostgreSQL connection string (pooled or direct) |
+| `DATABASE_URL` | **Yes** | Supabase PostgreSQL connection string (pooled on port 6543 or direct on 5432) |
+| `SHADOW_DATABASE_URL` | CI / Dev | Shadow database URL required by Prisma (`prisma migrate dev` and CI schema-drift verification). Not used at runtime. |
 | `SESSION_SECRET` | **Yes** | 32+ character secret for HS256 JWT cookie signing |
 | `PRESCRIPTION_ENC_KEY` | **Yes** | 64-character hex string for AES-256-GCM encryption |
 | `CRON_SECRET` | **Yes** | Secret bearer token for daily refill cron (`/api/cron/reminders`) |
@@ -125,6 +126,12 @@ Every component of MedKart runs end-to-end on verified free tiers:
 | `UPI_MAX_AMOUNT_INR` | No | Maximum permitted amount for direct UPI demo (default: 100) |
 | `PLAYWRIGHT_TEST_BASE_URL` | No | Optional base URL override for Playwright end-to-end tests |
 
+> **Prisma Shadow Database Configuration (`SHADOW_DATABASE_URL`):**
+> Prisma requires a secondary, throwaway database (a "shadow database") when running `prisma migrate dev` or computing migration diffs in CI (`prisma migrate diff`) to detect schema drift against migrations without modifying the main database.
+> - **In Local Development & CI:** Run a local PostgreSQL instance or create a throwaway database (`CREATE DATABASE medkart_shadow;`), setting `SHADOW_DATABASE_URL="postgresql://postgres:postgres@localhost:5432/medkart_shadow?sslmode=disable"`.
+> - **With Cloud Supabase:** Supabase cloud projects are single-tenant databases where `CREATE DATABASE` cannot be executed over pooled connections. To run `prisma migrate dev` against Supabase, provide the direct connection string (port 5432 with `?sslmode=require`) of a second free-tier Supabase project as `SHADOW_DATABASE_URL`.
+> - **In Production:** `prisma migrate deploy` (used on Vercel or CI deploy steps) does **not** require a shadow database, as it simply executes existing migration files in sequence against `DATABASE_URL`.
+
 ---
 
 ## 3. Demo Login Details for the Reviewer
@@ -144,3 +151,25 @@ When `DEMO_MODE=true` is enabled, the top ribbon provides **1-click instant logi
 1. Enter any of the phone numbers above on the `/login` screen and click **"Send Verification Code"**.
 2. A yellow **"Demo SMS Received"** banner displays the 6-digit code on screen (or enter `123456`).
 3. Click **"Verify & Continue"** to be routed to your role-specific dashboard.
+
+---
+
+## 4. 10-Minute Reviewer Walkthrough
+
+The top ribbon on every page includes a **Demo Roles Switcher** for instant 1-click testing:
+
+1. **Customer Flow (or Self-Registration):**
+   - Click `Customer (Debasish)` from the top ribbon (or register a new account on `/login` via the "New to MedKart? Create an account" link).
+   - Tap `Reorder My Medicines` &rarr; select one of the synthetic prescriptions &rarr; choose delivery address.
+   - Select payment method: either **Sandbox UPI Gateway (Path A)** with instant simulation, or **Direct UPI Transfer (Path B)** with genuine QR code, voluntary demo consent, and 12-digit UTR submission.
+   - Submit order. Notice it generates a live tracking timeline.
+2. **Pharmacist Flow:** Click `Pharmacist (Sunita)` &rarr; open `Verification Queue` &rarr; click `Verify Prescription` on the submitted order.
+   - Inspect the AES-256 decrypted prescription image with Zoom In/Out, Rotate, and Pan controls.
+   - Review AI draft medicines with confidence indicators (Tier 1 TrOCR / Tier 2 Tesseract WASM).
+   - Approve lines or request re-upload (places order `ON_HOLD`).
+   - Click `Approve Order & Route to Store`.
+3. **Store Staff Fulfillment Desk:** Click `Store Staff (Salt Lake)` &rarr; view orders assigned to Salt Lake store.
+   - **Direct UPI Gate Enforcement:** If the order was placed via Direct UPI, the order requires explicit payment confirmation. Click `Confirm UPI Receipt` to verify the 12-digit UTR into the audit trail. Attempting to pack prior to confirmation is strictly blocked server-side (HTTP 400).
+   - **Pack & Invoice:** Click `Pack Order`, enter invoice number (e.g. `INV-SL-2026-901`), and mark packed. The application-layer `assertDispatchable` check and PostgreSQL trigger guarantee no unapproved orders can ever be packed.
+   - **Courier Handover & Delivery:** Mark `Handover to Courier` (recording courier partner & tracking ID) and transition to `Delivered`.
+4. **Ops Dashboard:** Click `Ops Dashboard` &rarr; inspect multi-store volume heatmaps, median pharmacist verification times, SLA tracking, trigger automated refill reminders, and validate daily stock CSV imports.
