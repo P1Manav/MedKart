@@ -64,7 +64,16 @@ export class TwilioVerifyProvider implements OtpProvider {
 
         if (!res.ok) {
           const errText = await res.text().catch(() => '');
-          return { sent: false, provider: this.name, channel: this.channel, error: `Twilio HTTP ${res.status}: ${errText}` };
+          let errMsg = `Twilio HTTP ${res.status}`;
+          try {
+            const parsed = JSON.parse(errText);
+            if (parsed.message) {
+              errMsg = parsed.message;
+            }
+          } catch {
+            if (errText) errMsg += `: ${errText}`;
+          }
+          return { sent: false, provider: this.name, channel: this.channel, error: errMsg };
         }
 
         return { sent: true, provider: this.name, channel: this.channel };
@@ -90,7 +99,16 @@ export class TwilioVerifyProvider implements OtpProvider {
 
       if (!res.ok) {
         const errText = await res.text().catch(() => '');
-        return { sent: false, provider: this.name, channel: this.channel, error: `Twilio HTTP ${res.status}: ${errText}` };
+        let errMsg = `Twilio HTTP ${res.status}`;
+        try {
+          const parsed = JSON.parse(errText);
+          if (parsed.message) {
+            errMsg = parsed.message;
+          }
+        } catch {
+          if (errText) errMsg += `: ${errText}`;
+        }
+        return { sent: false, provider: this.name, channel: this.channel, error: errMsg };
       }
 
       return { sent: true, provider: this.name, channel: this.channel };

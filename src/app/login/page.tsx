@@ -94,6 +94,9 @@ export default function LoginPage() {
       if (data.mockOtp) {
         setMockOtp(data.mockOtp);
         setOtp(data.mockOtp); // Auto-fill for seamless testing
+      } else {
+        setMockOtp(null);
+        setOtp('');
       }
     } catch {
       setError('Network error requesting OTP. Please try again.');

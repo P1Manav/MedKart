@@ -35,7 +35,7 @@ export const UNLIMITED_OTP_LIMITS: OtpLimitsConfig = {
   maxAttempts: 999999,
   expiryMinutes: 30,
   cooldownSeconds: 0,
-  allowTestFallback: true,
+  allowTestFallback: false,
 };
 
 export { getOtpPepper } from './pepper';
