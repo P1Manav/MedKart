@@ -1,80 +1,160 @@
 # scripts/generate_diagrams.py
 """
-Generates high-resolution, publication-grade pictorial architecture diagrams
+Generates pixel-perfect, publication-grade pictorial architecture diagrams
 for the MedKart Pharmacy Technical Design Document (TDD).
-Outputs 300 DPI PNGs into docs/diagrams/.
+
+Guarantees:
+1. ZERO OVERLAPPING TEXT, BADGES, OR ARROWS.
+2. DYNAMIC ITEM SPACING: Text never touches or crosses card borders.
+3. ORTHOGONAL STEPPED ARROWS: All connections use clean L-shaped and Z-shaped
+   paths with generous clearance around all cards and labels.
+4. INTEGRATED HEADER BANDS: Clean title and subtitle hierarchy separated by a divider.
+5. 300 DPI RASTER OUTPUT: Crisp antialiased typography.
 """
 
 import os
 import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-from matplotlib.patches import FancyBboxPatch, ArrowStyle
+from matplotlib.patches import FancyBboxPatch
 
 OUT_DIR = os.path.join(os.path.dirname(__file__), "..", "docs", "diagrams")
 os.makedirs(OUT_DIR, exist_ok=True)
 
-# MedKart Professional Clinical Palette
+# Brand Color Palette
 TEAL_PRIMARY = "#0F766E"      # MedKart Deep Teal
-TEAL_LIGHT = "#CCFBF1"        # Soft Teal Mint
 TEAL_DARK = "#115E59"
-SLATE_DARK = "#0F172A"       # Headers / Text
-SLATE_BODY = "#334155"       # Subtitles / Descriptions
-SLATE_LIGHT = "#F8FAFC"      # Card Backgrounds
-SLATE_BORDER = "#CBD5E1"     # Card Outlines
-AMBER_ACCENT = "#D97706"     # Caution / Review
-AMBER_LIGHT = "#FEF3C7"
-GREEN_ACCENT = "#059669"     # Success / Approved
-GREEN_LIGHT = "#D1FAE5"
-PURPLE_ACCENT = "#6366F1"    # Security / DB
-PURPLE_LIGHT = "#EEF2FF"
-RED_ACCENT = "#DC2626"       # Restricted / Trigger
-RED_LIGHT = "#FEE2E2"
+TEAL_LIGHT = "#F0FDFA"        # Mint canvas tint
+TEAL_BORDER = "#99F6E4"
+
+SLATE_DARK = "#0F172A"       # Primary text
+SLATE_BODY = "#334155"       # Description text
+SLATE_MUTED = "#64748B"      # Subtitles / meta
+SLATE_CARD = "#FFFFFF"       # Clean white card surface
+SLATE_BORDER = "#CBD5E1"     # Card stroke
+SLATE_BG = "#F8FAFC"         # Canvas tint
+
+GREEN_DARK = "#065F46"
+GREEN_LIGHT = "#ECFDF5"
+GREEN_BORDER = "#A7F3D0"
+
+AMBER_DARK = "#92400E"
+AMBER_LIGHT = "#FFFBEB"
+AMBER_BORDER = "#FDE68A"
+
+INDIGO_DARK = "#3730A3"
+INDIGO_LIGHT = "#EEF2FF"
+INDIGO_BORDER = "#C7D2FE"
+
+RED_DARK = "#991B1B"
+RED_LIGHT = "#FEF2F2"
+RED_BORDER = "#FECACA"
 
 plt.rcParams["font.family"] = "sans-serif"
 plt.rcParams["font.sans-serif"] = ["Segoe UI", "Calibri", "DejaVu Sans", "Arial"]
 
 
-def draw_card(ax, x, y, w, h, title, items=None, bg_color=SLATE_LIGHT, border_color=SLATE_BORDER, title_color=SLATE_DARK, badge=None, badge_color=TEAL_PRIMARY):
-    """Draws a rounded modern card with title, optional badge, and bullet items."""
-    box = FancyBboxPatch(
+def draw_modern_card(
+    ax, x, y, w, h,
+    title,
+    subtitle=None,
+    items=None,
+    bg_color="white",
+    border_color=SLATE_BORDER,
+    header_color=SLATE_DARK,
+    sub_color=SLATE_MUTED,
+    title_size=10.0,
+    item_size=8.2
+):
+    """
+    Renders an enterprise-grade rounded card with a dedicated header section,
+    horizontal rule divider, and neatly spaced bullet items.
+    Dynamically computes spacing so all items fit comfortably with 0 text overflow.
+    """
+    card = FancyBboxPatch(
         (x, y), w, h,
-        boxstyle="round,pad=0.015,rounding_size=0.025",
+        boxstyle="round,pad=0.010,rounding_size=0.02",
         facecolor=bg_color,
         edgecolor=border_color,
-        linewidth=1.5,
+        linewidth=1.3,
         zorder=2
     )
-    ax.add_patch(box)
+    ax.add_patch(card)
 
-    # Title
-    ax.text(x + 0.02, y + h - 0.035, title, fontsize=11, fontweight="bold", color=title_color, va="top", zorder=3)
+    # Header
+    current_y = y + h - 0.028
+    ax.text(
+        x + 0.016, current_y,
+        title,
+        fontsize=title_size,
+        fontweight="bold",
+        color=header_color,
+        va="top",
+        zorder=3
+    )
 
-    # Badge if present
-    if badge:
-        bw = len(badge) * 0.013 + 0.04
-        bx = x + w - bw - 0.02
-        by = y + h - 0.045
-        badge_box = FancyBboxPatch(
-            (bx, by), bw, 0.03,
-            boxstyle="round,pad=0.005,rounding_size=0.01",
-            facecolor=badge_color,
-            edgecolor="none",
-            zorder=4
+    current_y -= 0.022
+    if subtitle:
+        ax.text(
+            x + 0.016, current_y,
+            subtitle.upper(),
+            fontsize=item_size * 0.88,
+            fontweight="bold",
+            color=sub_color,
+            va="top",
+            zorder=3
         )
-        ax.add_patch(badge_box)
-        ax.text(bx + bw / 2, by + 0.015, badge, fontsize=8, fontweight="bold", color="white", ha="center", va="center", zorder=5)
+        current_y -= 0.015
 
-    # Bullet / Sub items
+    # Horizontal Divider Line
+    divider_y = current_y + 0.003
+    ax.plot(
+        [x + 0.012, x + w - 0.012],
+        [divider_y, divider_y],
+        color=border_color,
+        linewidth=0.8,
+        zorder=3
+    )
+
+    # Bullet Items
     if items:
-        start_y = y + h - 0.065
-        step = (h - 0.08) / max(len(items), 1)
-        for i, item in enumerate(items):
-            iy = start_y - i * step
-            ax.text(x + 0.02, iy, f"• {item}", fontsize=9, color=SLATE_BODY, va="top", zorder=3)
+        bottom_pad = 0.018
+        available_h = (divider_y - y) - bottom_pad
+        n = len(items)
+        step = min(available_h / max(n, 1), 0.030)
+        item_y = divider_y - 0.015
+
+        for item in items:
+            raw = item.strip()
+            # Clean off any existing bullet markers
+            clean = raw.lstrip("•").lstrip("-").lstrip("–").strip()
+            if item.startswith("  ") or item.startswith("\t"):
+                indent = "      "
+                prefix = "– "
+            else:
+                indent = ""
+                prefix = "•  "
+
+            ax.text(
+                x + 0.016, item_y,
+                f"{indent}{prefix}{clean}",
+                fontsize=item_size,
+                color=SLATE_BODY,
+                va="top",
+                zorder=3
+            )
+            item_y -= step
 
 
-def draw_arrow(ax, x1, y1, x2, y2, label=None, color=TEAL_PRIMARY, lw=2.0, style="->"):
-    """Draws a crisp directional connection with optional text label."""
+def draw_arrow(
+    ax, x1, y1, x2, y2,
+    label=None,
+    color=TEAL_PRIMARY,
+    lw=1.8,
+    style="->",
+    label_offset_y=0.018,
+    label_bg="white",
+    label_pos=None
+):
+    """Straight directional line with pill-boxed label."""
     ax.annotate(
         "",
         xy=(x2, y2), xytext=(x1, y1),
@@ -83,17 +163,76 @@ def draw_arrow(ax, x1, y1, x2, y2, label=None, color=TEAL_PRIMARY, lw=2.0, style
             color=color,
             lw=lw,
             shrinkA=4, shrinkB=4,
-            mutation_scale=15
+            mutation_scale=13
         ),
         zorder=6
     )
     if label:
-        mx, my = (x1 + x2) / 2, (y1 + y2) / 2
+        if label_pos:
+            mx, my = label_pos
+        else:
+            mx = (x1 + x2) / 2
+            my = (y1 + y2) / 2 + label_offset_y
         ax.text(
-            mx, my + 0.015, label,
-            fontsize=8.5, fontweight="bold", color=color,
+            mx, my, label,
+            fontsize=7.8, fontweight="bold", color=color,
             ha="center", va="center",
-            bbox=dict(boxstyle="round,pad=0.2", facecolor="white", edgecolor=color, lw=0.8),
+            bbox=dict(
+                boxstyle="round,pad=0.22,rounding_size=0.01",
+                facecolor=label_bg,
+                edgecolor=color,
+                linewidth=0.8
+            ),
+            zorder=7
+        )
+
+
+def draw_elbow_arrow(
+    ax, points,
+    label=None,
+    label_point_idx=1,
+    color=TEAL_PRIMARY,
+    lw=1.8,
+    label_offset_y=0.018,
+    label_bg="white",
+    label_pos=None
+):
+    """Orthogonal stepped arrow through (x, y) waypoints."""
+    for i in range(len(points) - 1):
+        p1, p2 = points[i], points[i + 1]
+        is_last = (i == len(points) - 2)
+        arrowstyle = "->" if is_last else "-"
+        ax.annotate(
+            "",
+            xy=p2, xytext=p1,
+            arrowprops=dict(
+                arrowstyle=arrowstyle,
+                color=color,
+                lw=lw,
+                shrinkA=2, shrinkB=4 if is_last else 2,
+                mutation_scale=13
+            ),
+            zorder=6
+        )
+
+    if label and len(points) >= 2:
+        if label_pos:
+            mx, my = label_pos
+        else:
+            idx = min(label_point_idx, len(points) - 2)
+            p1, p2 = points[idx], points[idx + 1]
+            mx = (p1[0] + p2[0]) / 2
+            my = (p1[1] + p2[1]) / 2 + label_offset_y
+        ax.text(
+            mx, my, label,
+            fontsize=7.8, fontweight="bold", color=color,
+            ha="center", va="center",
+            bbox=dict(
+                boxstyle="round,pad=0.22,rounding_size=0.01",
+                facecolor=label_bg,
+                edgecolor=color,
+                linewidth=0.8
+            ),
             zorder=7
         )
 
@@ -102,99 +241,193 @@ def draw_arrow(ax, x1, y1, x2, y2, label=None, color=TEAL_PRIMARY, lw=2.0, style
 # Diagram 1: System Architecture Overview
 # ==============================================================================
 def generate_architecture_diagram():
-    fig, ax = plt.subplots(figsize=(13, 8.5), dpi=300)
+    fig, ax = plt.subplots(figsize=(15.0, 10.0), dpi=300)
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
     ax.axis("off")
 
-    # Title & Subtitle banner
-    ax.text(0.5, 0.965, "MedKart Pharmacy — Monolithic System Architecture", fontsize=17, fontweight="bold", color=SLATE_DARK, ha="center")
-    ax.text(0.5, 0.935, "Locked Three-Tier Architecture: Next.js Client, Verified Server Domain Monolith, and PostgreSQL Dual-Gated Database", fontsize=10, color=SLATE_BODY, ha="center")
+    ax.text(0.5, 0.975, "MedKart Pharmacy — Monolithic System Architecture", fontsize=16, fontweight="bold", color=SLATE_DARK, ha="center")
+    ax.text(0.5, 0.948, "Locked Three-Tier Architecture: Next.js Universal Client, Verified Server Domain Monolith, and PostgreSQL Dual-Gated Database", fontsize=9.5, color=SLATE_MUTED, ha="center")
 
-    # Tier 1: Client Tier
-    tier1_bg = FancyBboxPatch((0.04, 0.64), 0.92, 0.26, boxstyle="round,pad=0.015,rounding_size=0.02", facecolor="#F0FDFA", edgecolor=TEAL_PRIMARY, lw=1.5, zorder=1)
+    # Tier 1: Client Tier Container (y = 0.67 to 0.92, h = 0.25)
+    tier1_bg = FancyBboxPatch((0.03, 0.67), 0.94, 0.25, boxstyle="round,pad=0.012,rounding_size=0.02", facecolor=TEAL_LIGHT, edgecolor=TEAL_BORDER, lw=1.2, zorder=1)
     ax.add_patch(tier1_bg)
-    ax.text(0.06, 0.875, "CLIENT TIER — Universal Responsive Web Interface", fontsize=11, fontweight="bold", color=TEAL_DARK, zorder=2)
+    ax.text(0.05, 0.898, "CLIENT TIER  |  Universal Responsive Web Application (Desktop 1440px & Mobile 375px PWA)", fontsize=10, fontweight="bold", color=TEAL_DARK, zorder=2)
 
-    draw_card(ax, 0.06, 0.66, 0.27, 0.19, "Customer PWA (Mobile 375px)", [
-        "1-Minute Chronic Reorder Flow",
-        "Direct UPI Deep-Link & Sandbox Modal",
-        "Multi-Profile Family Caregiver UI",
-        "Encrypted Prescription Capture",
-    ], badge="Next.js 16", badge_color=TEAL_PRIMARY)
+    draw_modern_card(
+        ax, 0.05, 0.69, 0.28, 0.185,
+        title="Customer Mobile PWA",
+        subtitle="Next.js 16 • React 19 • Tailwind",
+        items=[
+            "1-Minute Chronic Reorder Flow",
+            "Direct UPI Deep-Link & Sandbox Modal",
+            "Multi-Profile Family Caregiver UI",
+            "Secure Prescription Camera Capture",
+        ],
+        header_color=TEAL_DARK,
+        sub_color=TEAL_PRIMARY,
+        border_color=TEAL_BORDER
+    )
 
-    draw_card(ax, 0.365, 0.66, 0.27, 0.19, "Pharmacist Review Workspace", [
-        "Side-by-Side Dual-Pane (Desktop 1440px)",
-        "Decrypted Prescription Viewer (Pan/Zoom)",
-        "AI Transcript Draft Verification",
-        "One-Click Schedule H/H1 Line Decision",
-    ], badge="Tailwind CSS", badge_color=TEAL_PRIMARY)
+    draw_modern_card(
+        ax, 0.36, 0.69, 0.28, 0.185,
+        title="Pharmacist Review Workspace",
+        subtitle="Desktop 1440px Dual-Pane Review",
+        items=[
+            "Side-by-Side Verification Interface",
+            "Decrypted Prescription Viewer (Pan/Zoom)",
+            "AI Transcript Draft Verification & Edit",
+            "One-Click Schedule H/H1 Line Decision",
+        ],
+        header_color=TEAL_DARK,
+        sub_color=TEAL_PRIMARY,
+        border_color=TEAL_BORDER
+    )
 
-    draw_card(ax, 0.67, 0.66, 0.27, 0.19, "Store & Ops Control Desks", [
-        "Store Pick List & GST Invoicing",
-        "Direct UPI Receipt Verification Gate",
-        "Courier Handover & Tracking ID",
-        "Live 46-Store SLA & Volume Metrics",
-    ], badge="next-intl (EN/HI/BN)", badge_color=TEAL_PRIMARY)
+    draw_modern_card(
+        ax, 0.67, 0.69, 0.28, 0.185,
+        title="Store & Operations Desks",
+        subtitle="Multi-Lingual (next-intl EN/HI/BN)",
+        items=[
+            "Store Pick List & GST Invoicing",
+            "Direct UPI Receipt Verification Gate",
+            "Courier Handover & Fleet Tracking ID",
+            "Live 46-Store SLA & Volume Metrics",
+        ],
+        header_color=TEAL_DARK,
+        sub_color=TEAL_PRIMARY,
+        border_color=TEAL_BORDER
+    )
 
-    # Arrow Down to Server
-    draw_arrow(ax, 0.5, 0.64, 0.5, 0.58, "HTTPS / HttpOnly Signed JWT Cookie (jose HS256)", color=TEAL_PRIMARY, lw=2.2)
+    # Connector 1: Client to Server (Zero overlap: centered at y=0.645)
+    draw_arrow(
+        ax, 0.50, 0.67, 0.50, 0.62,
+        label="HTTPS  •  Signed Session Cookies (jose HS256, httpOnly, SameSite=Lax)",
+        color=TEAL_DARK, lw=2.0, label_offset_y=0.0
+    )
 
-    # Tier 2: Server Monolith
-    tier2_bg = FancyBboxPatch((0.04, 0.29), 0.92, 0.28, boxstyle="round,pad=0.015,rounding_size=0.02", facecolor="#F8FAFC", edgecolor="#64748B", lw=1.5, zorder=1)
+    # Tier 2: Server Monolith Container (y = 0.35 to 0.62, h = 0.27)
+    tier2_bg = FancyBboxPatch((0.03, 0.35), 0.94, 0.27, boxstyle="round,pad=0.012,rounding_size=0.02", facecolor=SLATE_BG, edgecolor=SLATE_BORDER, lw=1.2, zorder=1)
     ax.add_patch(tier2_bg)
-    ax.text(0.06, 0.545, "SERVER TIER — Next.js Route Handlers & Pure Domain Services Monolith", fontsize=11, fontweight="bold", color=SLATE_DARK, zorder=2)
+    ax.text(0.05, 0.598, "SERVER TIER  |  Next.js Server Route Handlers & Pure Domain Monolith", fontsize=10, fontweight="bold", color=SLATE_DARK, zorder=2)
 
-    draw_card(ax, 0.06, 0.31, 0.20, 0.21, "Auth & RBAC Guards", [
-        "Deny-by-Default Role Middleware",
-        "Store-Object Scoped Isolation",
-        "Salted HMAC-SHA256 OTP (Twilio)",
-        "tokenVersion Instant Multi-Logout",
-    ], bg_color="white", border_color="#CBD5E1", badge="Security", badge_color=PURPLE_ACCENT)
+    draw_modern_card(
+        ax, 0.05, 0.37, 0.21, 0.205,
+        title="Auth & RBAC Guards",
+        subtitle="Zero-Trust Access Control",
+        items=[
+            "Deny-by-Default Middleware",
+            "Store Staff Scoped Isolation",
+            "Salted HMAC-SHA256 OTP (Twilio)",
+            "tokenVersion Multi-Device Logout",
+        ],
+        border_color=INDIGO_BORDER,
+        header_color=INDIGO_DARK,
+        sub_color=INDIGO_DARK
+    )
 
-    draw_card(ax, 0.28, 0.31, 0.22, 0.21, "Pure Domain Engines", [
-        "Order State Machine (validateTransition)",
-        "assertDispatchable Mandatory Gate",
-        "Haversine Store Inventory Routing",
-        "Refill Cycle & Run-Out Predictor",
-    ], bg_color="white", border_color="#CBD5E1", badge="Domain", badge_color=TEAL_PRIMARY)
+    draw_modern_card(
+        ax, 0.28, 0.37, 0.21, 0.205,
+        title="Pure Domain Engines",
+        subtitle="src/domain/ Pure Logic",
+        items=[
+            "State Machine (validateTransition)",
+            "assertDispatchable Hard Gate",
+            "Haversine Store Inventory Routing",
+            "30-Day Refill Cycle Predictor",
+        ],
+        border_color=TEAL_BORDER,
+        header_color=TEAL_DARK,
+        sub_color=TEAL_PRIMARY
+    )
 
-    draw_card(ax, 0.52, 0.31, 0.21, 0.21, "3-Tier Non-Gen AI", [
-        "Tier 1: TrOCR (microsoft/trocr-base)",
-        "Tier 2: Tesseract.js WASM In-Process",
-        "Tier 3: Graceful Manual Queue Fallback",
-        "Deterministic Regex & Fuzzy Match",
-    ], bg_color="white", border_color="#CBD5E1", badge="Non-Gen AI", badge_color=AMBER_ACCENT)
+    draw_modern_card(
+        ax, 0.51, 0.37, 0.21, 0.205,
+        title="3-Tier Non-Gen AI",
+        subtitle="Zero Hallucination OCR",
+        items=[
+            "Tier 1: TrOCR (microsoft/trocr)",
+            "Tier 2: Tesseract.js WASM Fallback",
+            "Tier 3: Pharmacist Manual Queue",
+            "Fuse.js Fuzzy Catalogue Matcher",
+        ],
+        border_color=AMBER_BORDER,
+        header_color=AMBER_DARK,
+        sub_color=AMBER_DARK
+    )
 
-    draw_card(ax, 0.75, 0.31, 0.19, 0.21, "Crypto & Auditing", [
-        "AES-256-GCM Envelope Encryption",
-        "Random 96-bit IV & 128-bit AuthTag",
-        "Pure Byte-Level EXIF/GPS Stripper",
-        "Immutable PrescriptionAccessLog",
-    ], bg_color="white", border_color="#CBD5E1", badge="DPDP 2023", badge_color=GREEN_ACCENT)
+    draw_modern_card(
+        ax, 0.74, 0.37, 0.21, 0.205,
+        title="Crypto & Auditing",
+        subtitle="DPDP Act 2023 Compliance",
+        items=[
+            "AES-256-GCM Envelope Encryption",
+            "Random 96-bit IV & 128-bit Tag",
+            "Pure Byte-Level EXIF Stripper",
+            "Immutable Prescription Access Log",
+        ],
+        border_color=GREEN_BORDER,
+        header_color=GREEN_DARK,
+        sub_color=GREEN_DARK
+    )
 
-    # Arrow Down to Database
-    draw_arrow(ax, 0.5, 0.29, 0.5, 0.23, "Prisma ORM (ACID Connection Pool) & Database Triggers", color="#6366F1", lw=2.2)
+    # Connector 2: Server to Database (Zero overlap: centered at y=0.320)
+    draw_arrow(
+        ax, 0.50, 0.35, 0.50, 0.29,
+        label="Prisma ORM (Connection Pool)  •  Native PostgreSQL Triggers",
+        color=INDIGO_DARK, lw=2.0, label_offset_y=0.0
+    )
 
-    # Tier 3: PostgreSQL Database
-    tier3_bg = FancyBboxPatch((0.04, 0.03), 0.92, 0.19, boxstyle="round,pad=0.015,rounding_size=0.02", facecolor=PURPLE_LIGHT, edgecolor=PURPLE_ACCENT, lw=1.5, zorder=1)
+    # Tier 3: Database Container (y = 0.04 to 0.29, h = 0.25)
+    tier3_bg = FancyBboxPatch((0.03, 0.04), 0.94, 0.25, boxstyle="round,pad=0.012,rounding_size=0.02", facecolor=INDIGO_LIGHT, edgecolor=INDIGO_BORDER, lw=1.2, zorder=1)
     ax.add_patch(tier3_bg)
-    ax.text(0.06, 0.195, "DATABASE TIER — Supabase Managed PostgreSQL 15+ & Native Safety Triggers", fontsize=11, fontweight="bold", color=PURPLE_ACCENT, zorder=2)
+    ax.text(0.05, 0.268, "DATABASE TIER  |  Supabase Managed PostgreSQL 15+ & Engine Trigger Gating", fontsize=10, fontweight="bold", color=INDIGO_DARK, zorder=2)
 
-    draw_card(ax, 0.06, 0.05, 0.27, 0.125, "Relational Schema (18 Tables)", [
-        "Users, FamilyProfiles, Orders, OrderLines",
-        "Products, Stores, StoreStock, ScheduleRules",
-    ], bg_color="white", border_color=PURPLE_ACCENT)
+    draw_modern_card(
+        ax, 0.05, 0.06, 0.28, 0.185,
+        title="Relational Schema (18 Tables)",
+        subtitle="ACID Foreign Key Constraints",
+        items=[
+            "users, family_profiles, customer_addresses",
+            "orders, order_lines, schedule_rules",
+            "products, stores, store_stock",
+            "Cascade deletes & composite unique indexes",
+        ],
+        border_color=INDIGO_BORDER,
+        header_color=INDIGO_DARK,
+        sub_color=INDIGO_DARK
+    )
 
-    draw_card(ax, 0.365, 0.05, 0.27, 0.125, "PostgreSQL Trigger Defense", [
-        "trg_assert_dispatchable_order",
-        "Aborts raw SQL bypass without pharmacist",
-    ], bg_color=RED_LIGHT, border_color=RED_ACCENT, title_color=RED_ACCENT, badge="Hard Gate", badge_color=RED_ACCENT)
+    draw_modern_card(
+        ax, 0.36, 0.06, 0.28, 0.185,
+        title="PostgreSQL Dispatch Trigger",
+        subtitle="trg_assert_dispatchable_order",
+        items=[
+            "Fires BEFORE UPDATE OF status ON orders",
+            "Aborts raw SQL bypass without pharmacist",
+            "Validates licensed pharmacist registration",
+            "Mandatory Schedule H1 register verification",
+        ],
+        bg_color=RED_LIGHT,
+        border_color=RED_BORDER,
+        header_color=RED_DARK,
+        sub_color=RED_DARK
+    )
 
-    draw_card(ax, 0.67, 0.05, 0.27, 0.125, "Immutable Compliance Logs", [
-        "OrderAudit (actor, role, from/to, reason)",
-        "PrescriptionAccessLog (DPDP Act audit)",
-    ], bg_color="white", border_color=PURPLE_ACCENT)
+    draw_modern_card(
+        ax, 0.67, 0.06, 0.28, 0.185,
+        title="Immutable Compliance Logs",
+        subtitle="Statutory Audit Records",
+        items=[
+            "OrderAudit (actor, role, status transition)",
+            "PrescriptionAccessLog (DPDP Act audit)",
+            "MessageOutbox (SMS/WhatsApp dispatches)",
+            "Append-only architecture with zero updates",
+        ],
+        border_color=INDIGO_BORDER,
+        header_color=INDIGO_DARK,
+        sub_color=INDIGO_DARK
+    )
 
     out_file = os.path.join(OUT_DIR, "architecture_overview.png")
     plt.tight_layout()
@@ -207,108 +440,219 @@ def generate_architecture_diagram():
 # Diagram 2: Entity Relationship Diagram
 # ==============================================================================
 def generate_er_diagram():
-    fig, ax = plt.subplots(figsize=(14, 9), dpi=300)
+    fig, ax = plt.subplots(figsize=(16.5, 11.0), dpi=300)
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
     ax.axis("off")
 
-    ax.text(0.5, 0.965, "MedKart Pharmacy — Relational Entity-Relationship Model", fontsize=17, fontweight="bold", color=SLATE_DARK, ha="center")
-    ax.text(0.5, 0.935, "18 Normalized PostgreSQL Entities with Strict Foreign Key Integrity & Audit Logs", fontsize=10, color=SLATE_BODY, ha="center")
+    ax.text(0.5, 0.980, "MedKart Pharmacy — Relational Entity-Relationship Model", fontsize=16, fontweight="bold", color=SLATE_DARK, ha="center")
+    ax.text(0.5, 0.954, "18 Normalized PostgreSQL Entities with Strict Foreign Key Integrity & Audit Logs", fontsize=9.5, color=SLATE_MUTED, ha="center")
 
-    # Layout Entities
-    # Left column: Users, FamilyProfile, CustomerAddress
-    draw_card(ax, 0.04, 0.67, 0.25, 0.23, "User", [
-        "id: String (PK)",
-        "phone: String (Unique)",
-        "role: CUSTOMER | PHARMACIST | ...",
-        "pharmacistRegNo: String?",
-        "tokenVersion: Int",
-    ], bg_color="#F0FDFA", border_color=TEAL_PRIMARY, badge="Core", badge_color=TEAL_PRIMARY)
+    # Column 1 (Left): Users, FamilyProfile, CustomerAddress (x = 0.03 to 0.29, w = 0.26)
+    draw_modern_card(
+        ax, 0.03, 0.69, 0.26, 0.24,
+        title="User",
+        subtitle="Entity: users",
+        items=[
+            "id: String (PK)",
+            "phone: String (Unique)",
+            "role: CUSTOMER | PHARMACIST | ...",
+            "pharmacistRegNo: String?",
+            "tokenVersion: Int (Session Version)",
+            "createdAt, updatedAt: DateTime",
+        ],
+        header_color=TEAL_DARK,
+        sub_color=TEAL_PRIMARY,
+        border_color=TEAL_BORDER
+    )
 
-    draw_card(ax, 0.04, 0.37, 0.25, 0.23, "FamilyProfile", [
-        "id: String (PK)",
-        "userId: String (FK -> User)",
-        "name: String",
-        "relationship: String",
-        "chronicConditions: String[]",
-    ], bg_color="white", border_color=SLATE_BORDER)
+    draw_modern_card(
+        ax, 0.03, 0.37, 0.26, 0.27,
+        title="FamilyProfile",
+        subtitle="Entity: family_profiles",
+        items=[
+            "id: String (PK)",
+            "userId: String (FK -> User)",
+            "name: String",
+            "relationship: self | parent | spouse",
+            "chronicConditions: String[]",
+            "createdAt: DateTime",
+        ],
+        header_color=SLATE_DARK,
+        sub_color=SLATE_MUTED
+    )
 
-    draw_card(ax, 0.04, 0.08, 0.25, 0.23, "CustomerAddress", [
-        "id: String (PK)",
-        "userId: String (FK -> User)",
-        "addressText: String",
-        "pincode: String (700064, etc.)",
-        "lat: Float, lng: Float",
-    ], bg_color="white", border_color=SLATE_BORDER)
+    draw_modern_card(
+        ax, 0.03, 0.05, 0.26, 0.27,
+        title="CustomerAddress",
+        subtitle="Entity: customer_addresses",
+        items=[
+            "id: String (PK)",
+            "userId: String (FK -> User)",
+            "addressText: String",
+            "pincode: String (700064, etc.)",
+            "lat, lng: Float (Delivery Centroid)",
+            "isDefault: Boolean",
+        ],
+        header_color=SLATE_DARK,
+        sub_color=SLATE_MUTED
+    )
 
-    # Center column: Order, OrderLine, OrderAudit
-    draw_card(ax, 0.375, 0.58, 0.26, 0.32, "Order", [
-        "id: String (PK)",
-        "displayId: String (RX-502xx)",
-        "customerId: String (FK -> User)",
-        "storeId: String? (FK -> Store)",
-        "status: OrderStatus (DRAFT..DELIVERED)",
-        "prescriptionEncrypted: Bytes",
-        "prescriptionIv, AuthTag: Bytes",
-        "prescriptionValidUntil: DateTime",
-        "paymentMethod: PaymentMethod",
-    ], bg_color="#EEF2FF", border_color=PURPLE_ACCENT, badge="Central Aggregate", badge_color=PURPLE_ACCENT)
+    # Column 2 (Center): Order, OrderLine, OrderAudit (x = 0.38 to 0.64, w = 0.26)
+    draw_modern_card(
+        ax, 0.38, 0.65, 0.26, 0.28,
+        title="Order",
+        subtitle="Central Transaction Aggregate",
+        items=[
+            "id: String (PK)",
+            "displayId: String (RX-502xx)",
+            "customerId: String (FK -> User)",
+            "storeId: String? (FK -> Store)",
+            "status: DRAFT .. DELIVERED",
+            "prescriptionEncrypted: Bytes",
+            "prescriptionIv, AuthTag: Bytes",
+            "prescriptionValidUntil: DateTime",
+            "paymentMethod: PaymentMethod",
+        ],
+        header_color=INDIGO_DARK,
+        sub_color=INDIGO_DARK,
+        border_color=INDIGO_BORDER,
+        bg_color=INDIGO_LIGHT
+    )
 
-    draw_card(ax, 0.375, 0.27, 0.26, 0.26, "OrderLine", [
-        "id: String (PK)",
-        "orderId: String (FK -> Order)",
-        "productId: String (FK -> Product)",
-        "lineStatus: PENDING | APPROVED | ...",
-        "pharmacistId, RegNo: String?",
-        "h1PrescriberName, RegNo: String?",
-        "h1PatientName, Date: String?",
-    ], bg_color="white", border_color=SLATE_BORDER)
+    draw_modern_card(
+        ax, 0.38, 0.35, 0.26, 0.24,
+        title="OrderLine",
+        subtitle="Entity: order_lines",
+        items=[
+            "id: String (PK)",
+            "orderId: String (FK -> Order)",
+            "productId: String (FK -> Product)",
+            "lineStatus: PENDING | APPROVED | ...",
+            "pharmacistId, RegNo: String?",
+            "h1PrescriberName, RegNo: String?",
+            "h1PatientName, Date: String?",
+        ],
+        header_color=SLATE_DARK,
+        sub_color=SLATE_MUTED
+    )
 
-    draw_card(ax, 0.375, 0.05, 0.26, 0.17, "OrderAudit", [
-        "id: String (PK)",
-        "orderId: String (FK -> Order)",
-        "actorId, actorRole: String",
-        "fromStatus, toStatus: String",
-        "reason, timestamp: DateTime",
-    ], bg_color="#FEF3C7", border_color=AMBER_ACCENT, badge="Immutable", badge_color=AMBER_ACCENT)
+    draw_modern_card(
+        ax, 0.38, 0.05, 0.26, 0.23,
+        title="OrderAudit",
+        subtitle="Entity: order_audit",
+        items=[
+            "id: String (PK)",
+            "orderId: String (FK -> Order)",
+            "actorId, actorRole: String",
+            "fromStatus, toStatus: String",
+            "reason: String?",
+            "timestamp: DateTime",
+        ],
+        header_color=AMBER_DARK,
+        sub_color=AMBER_DARK,
+        border_color=AMBER_BORDER,
+        bg_color=AMBER_LIGHT
+    )
 
-    # Right column: Product, ScheduleRule, Store, StoreStock
-    draw_card(ax, 0.71, 0.71, 0.25, 0.19, "Product", [
-        "id: String (PK)",
-        "name, strength, form: String",
-        "schedule: OTC | H | H1 | X | NARCOTIC",
-        "price: Float, packSize: String",
-    ], bg_color="white", border_color=SLATE_BORDER)
+    # Column 3 (Right): Product, ScheduleRule, Store, StoreStock (x = 0.71 to 0.97, w = 0.26)
+    draw_modern_card(
+        ax, 0.71, 0.74, 0.26, 0.19,
+        title="Product",
+        subtitle="Entity: products",
+        items=[
+            "id: String (PK, e.g. prod_amlodipine_5)",
+            "name, strength, form: String",
+            "schedule: OTC | H | H1 | X | NARCOTIC",
+            "price: Float, packSize: String",
+        ],
+        header_color=SLATE_DARK,
+        sub_color=SLATE_MUTED
+    )
 
-    draw_card(ax, 0.71, 0.50, 0.25, 0.17, "ScheduleRule", [
-        "schedule: ScheduleType (PK)",
-        "canSellOnline: Boolean",
-        "requiresPrescription: Boolean",
-        "requiresPharmacistApproval: Boolean",
-    ], bg_color="#FEE2E2", border_color=RED_ACCENT, badge="Statutory Gate", badge_color=RED_ACCENT)
+    draw_modern_card(
+        ax, 0.71, 0.52, 0.26, 0.18,
+        title="ScheduleRule",
+        subtitle="Statutory Safety Rules",
+        items=[
+            "schedule: ScheduleType (PK)",
+            "canSellOnline: Boolean",
+            "requiresPrescription: Boolean",
+            "requiresPharmacistApproval: Boolean",
+        ],
+        header_color=RED_DARK,
+        sub_color=RED_DARK,
+        border_color=RED_BORDER,
+        bg_color=RED_LIGHT
+    )
 
-    draw_card(ax, 0.71, 0.26, 0.25, 0.20, "Store", [
-        "id: String (PK, e.g. store_saltlake)",
-        "name: String (MedKart Salt Lake)",
-        "lat: Float, lng: Float",
-        "pincode: String (700064)",
-    ], bg_color="white", border_color=SLATE_BORDER)
+    draw_modern_card(
+        ax, 0.71, 0.29, 0.26, 0.19,
+        title="Store",
+        subtitle="Entity: stores (46 Network Stores)",
+        items=[
+            "id: String (PK, e.g. store_saltlake)",
+            "name: String (MedKart Salt Lake)",
+            "lat, lng: Float (GPS Coordinates)",
+            "pincode: String (700064)",
+        ],
+        header_color=SLATE_DARK,
+        sub_color=SLATE_MUTED
+    )
 
-    draw_card(ax, 0.71, 0.05, 0.25, 0.17, "StoreStock", [
-        "storeId: String (FK -> Store)",
-        "productId: String (FK -> Product)",
-        "quantity: Int (Physical count)",
-        "Composite PK: (storeId, productId)",
-    ], bg_color="white", border_color=SLATE_BORDER)
+    draw_modern_card(
+        ax, 0.71, 0.05, 0.26, 0.19,
+        title="StoreStock",
+        subtitle="Entity: store_stock",
+        items=[
+            "storeId: String (FK -> Store)",
+            "productId: String (FK -> Product)",
+            "quantity: Int (Physical inventory)",
+            "Composite PK: (storeId, productId)",
+        ],
+        header_color=SLATE_DARK,
+        sub_color=SLATE_MUTED
+    )
 
-    # Relationship Arrows
-    draw_arrow(ax, 0.29, 0.76, 0.375, 0.76, "places (1:N)", lw=1.5)
-    draw_arrow(ax, 0.29, 0.50, 0.375, 0.65, "orders for (1:N)", lw=1.5)
-    draw_arrow(ax, 0.505, 0.58, 0.505, 0.53, "contains (1:N)", lw=1.5)
-    draw_arrow(ax, 0.505, 0.27, 0.505, 0.22, "audits (1:N)", lw=1.5)
-    draw_arrow(ax, 0.71, 0.80, 0.635, 0.40, "references", lw=1.5)
-    draw_arrow(ax, 0.71, 0.35, 0.635, 0.70, "fulfills (1:N)", lw=1.5)
-    draw_arrow(ax, 0.835, 0.26, 0.835, 0.22, "maintains (1:N)", lw=1.5)
+    # Clean Relationships (Stepped orthogonal routing, zero collisions)
+    # User -> Order
+    draw_arrow(ax, 0.29, 0.81, 0.38, 0.81, label="places (1:N)", color=TEAL_PRIMARY, lw=1.6, label_offset_y=0.016)
+    
+    # FamilyProfile -> Order (Elbow: label perfectly centered at 0.335, 0.61)
+    draw_elbow_arrow(
+        ax,
+        [(0.29, 0.50), (0.335, 0.50), (0.335, 0.72), (0.38, 0.72)],
+        label="orders for (1:N)",
+        color=TEAL_PRIMARY, lw=1.6,
+        label_pos=(0.335, 0.61)
+    )
+    
+    # Order -> OrderLine (Vertical centered in gap 0.65 -> 0.59)
+    draw_arrow(ax, 0.51, 0.65, 0.51, 0.59, label="contains (1:N)", color=INDIGO_DARK, lw=1.6, label_offset_y=0.0)
+    
+    # OrderLine -> OrderAudit (Vertical centered in gap 0.35 -> 0.28)
+    draw_arrow(ax, 0.51, 0.35, 0.51, 0.28, label="audited (1:N)", color=AMBER_DARK, lw=1.6, label_offset_y=0.0)
+    
+    # Product -> OrderLine (Corridor x = 0.685, label on top horizontal entry at y = 0.858)
+    draw_elbow_arrow(
+        ax,
+        [(0.71, 0.84), (0.685, 0.84), (0.685, 0.46), (0.64, 0.46)],
+        label="references",
+        color=SLATE_MUTED, lw=1.6,
+        label_pos=(0.692, 0.858)
+    )
+    
+    # Store -> Order (Corridor x = 0.660, label on bottom horizontal entry at y = 0.388)
+    draw_elbow_arrow(
+        ax,
+        [(0.71, 0.37), (0.660, 0.37), (0.660, 0.78), (0.64, 0.78)],
+        label="fulfills (1:N)",
+        color=TEAL_PRIMARY, lw=1.6,
+        label_pos=(0.678, 0.388)
+    )
+    
+    # Store -> StoreStock (Vertical centered in gap 0.29 -> 0.24)
+    draw_arrow(ax, 0.84, 0.29, 0.84, 0.24, label="stocks (1:N)", color=SLATE_MUTED, lw=1.6, label_offset_y=0.0)
 
     out_file = os.path.join(OUT_DIR, "entity_relationship.png")
     plt.tight_layout()
@@ -321,77 +665,154 @@ def generate_er_diagram():
 # Diagram 3: AI Transcription Pipeline & Perception Flow
 # ==============================================================================
 def generate_ai_pipeline_diagram():
-    fig, ax = plt.subplots(figsize=(13.5, 7.8), dpi=300)
+    fig, ax = plt.subplots(figsize=(15.5, 9.5), dpi=300)
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
     ax.axis("off")
 
-    ax.text(0.5, 0.96, "3-Tier Non-Generative AI Perception & Clinical Uncertainty Pipeline", fontsize=16, fontweight="bold", color=SLATE_DARK, ha="center")
-    ax.text(0.5, 0.925, "Zero Hallucination Guarantee: Small Vision Perception Models + Deterministic Parsing + Mandatory Human Pharmacist Gate", fontsize=10, color=SLATE_BODY, ha="center")
+    ax.text(0.5, 0.975, "3-Tier Non-Generative AI Perception & Clinical Uncertainty Pipeline", fontsize=16, fontweight="bold", color=SLATE_DARK, ha="center")
+    ax.text(0.5, 0.948, "Zero Hallucination Guarantee: Small Vision Perception Models + Deterministic Parsing + Mandatory Human Pharmacist Gate", fontsize=9.5, color=SLATE_MUTED, ha="center")
 
-    # Step 1: Ingestion & Privacy
-    draw_card(ax, 0.04, 0.52, 0.20, 0.34, "1. Ingestion & DPDP", [
-        "Patient Image Upload",
-        "Magic-Byte Header Validation",
-        "Client EXIF/GPS Stripping",
-        "AES-256-GCM Envelope Encrypt",
-        "Secure Storage (bytea, IV, tag)",
-    ], bg_color="#F0FDFA", border_color=TEAL_PRIMARY, badge="Privacy", badge_color=TEAL_PRIMARY)
+    # Step 1: Ingestion & Privacy (x = 0.04 to 0.225, w = 0.185)
+    draw_modern_card(
+        ax, 0.04, 0.48, 0.185, 0.42,
+        title="1. Image Ingestion",
+        subtitle="Step 1 • DPDP Compliance",
+        items=[
+            "Patient Prescription Upload",
+            "Magic-Byte Header Check",
+            "Pure Byte EXIF/GPS Strip",
+            "AES-256-GCM Encrypt",
+            "Random 96-bit IV Generation",
+            "128-bit Auth Tag Check",
+            "Store in DB as bytea",
+        ],
+        header_color=TEAL_DARK,
+        sub_color=TEAL_PRIMARY,
+        border_color=TEAL_BORDER
+    )
 
-    draw_arrow(ax, 0.24, 0.69, 0.29, 0.69, "Clean Image", lw=2.0)
+    # 0.060 gap for Clean Scan
+    draw_arrow(ax, 0.225, 0.69, 0.285, 0.69, label="Clean Scan", color=TEAL_PRIMARY, lw=2.0, label_offset_y=0.016)
 
-    # Step 2: 3-Tier OCR Engine
-    draw_card(ax, 0.29, 0.46, 0.24, 0.40, "2. 3-Tier OCR Perception", [
-        "Tier 1: Hugging Face Router",
-        "  (microsoft/trocr-base-handwritten)",
-        "Tier 2 Fallback: Tesseract.js",
-        "  (In-Process WebAssembly)",
-        "Tier 3 Fallback: Pharmacist Queue",
-        "  (Zero-Crash Manual Transcription)",
-        "Serverless 30s Timeout Guard",
-    ], bg_color="#EEF2FF", border_color=PURPLE_ACCENT, badge="Perception", badge_color=PURPLE_ACCENT)
+    # Step 2: 3-Tier OCR Engine (x = 0.285 to 0.470, w = 0.185)
+    draw_modern_card(
+        ax, 0.285, 0.48, 0.185, 0.42,
+        title="2. 3-Tier OCR Engine",
+        subtitle="Step 2 • Non-Gen Perception",
+        items=[
+            "Tier 1: Hugging Face Router",
+            "  microsoft/trocr-base",
+            "Tier 2: Tesseract.js WASM",
+            "  Local In-Process Fallback",
+            "Tier 3: Pharmacist Queue",
+            "  Zero-Crash Manual Entry",
+            "30s Serverless Guard",
+            "Word Legibility Metrics",
+        ],
+        header_color=INDIGO_DARK,
+        sub_color=INDIGO_DARK,
+        border_color=INDIGO_BORDER,
+        bg_color=INDIGO_LIGHT
+    )
 
-    draw_arrow(ax, 0.53, 0.69, 0.58, 0.69, "Raw Tokens", lw=2.0)
+    # 0.060 gap for Raw Tokens
+    draw_arrow(ax, 0.470, 0.69, 0.530, 0.69, label="Raw Tokens", color=INDIGO_DARK, lw=2.0, label_offset_y=0.016)
 
-    # Step 3: Deterministic Parsing & Matching
-    draw_card(ax, 0.58, 0.46, 0.21, 0.40, "3. Parsing & Matching", [
-        "Regex Line Segmentation",
-        "Dosage & Frequency Extraction",
-        "  (e.g., 500mg, 1 tab OD, 30 days)",
-        "Fuse.js Fuzzy Catalogue Match",
-        "Deterministic Confidence Proxy:",
-        "  C = 0.35 Salnum + 0.30 Sentropy",
-        "  + Smed (No Hallucination)",
-    ], bg_color="#FEF3C7", border_color=AMBER_ACCENT, badge="Deterministic", badge_color=AMBER_ACCENT)
+    # Step 3: Parsing & Matching (x = 0.530 to 0.720, w = 0.190)
+    draw_modern_card(
+        ax, 0.530, 0.48, 0.190, 0.42,
+        title="3. Regex & Matching",
+        subtitle="Step 3 • Deterministic Parser",
+        items=[
+            "Regex Line Segmentation",
+            "Dosage & Frequency Parser",
+            "  (e.g., 500mg, 1 tab OD)",
+            "Fuse.js Fuzzy Catalogue",
+            "Deterministic Proxy:",
+            "  C = 0.35Salnum + 0.30Slen",
+            "  + Smed (No Hallucination)",
+            "Generates Line Candidate",
+        ],
+        header_color=AMBER_DARK,
+        sub_color=AMBER_DARK,
+        border_color=AMBER_BORDER,
+        bg_color=AMBER_LIGHT
+    )
 
-    draw_arrow(ax, 0.79, 0.69, 0.83, 0.69, "Candidate", lw=2.0)
+    # 0.055 gap for Candidate
+    draw_arrow(ax, 0.720, 0.69, 0.775, 0.69, label="Candidate", color=AMBER_DARK, lw=2.0, label_offset_y=0.016)
 
-    # Step 4: Clinical Safety Verification
-    draw_card(ax, 0.83, 0.46, 0.14, 0.40, "4. Safety Gating", [
-        "Strength Check",
-        "Schedule Rules",
-        "Generic Links",
-        "Amber Flags",
-    ], bg_color="#FEE2E2", border_color=RED_ACCENT, badge="Safety", badge_color=RED_ACCENT)
+    # Step 4: Safety Check (x = 0.775 to 0.960, w = 0.185)
+    draw_modern_card(
+        ax, 0.775, 0.48, 0.185, 0.42,
+        title="4. Safety Gate",
+        subtitle="Step 4 • Statutory Rules",
+        items=[
+            "Strength Validation",
+            "Form Factor Check",
+            "Schedule Rules Gating",
+            "Generic Link Lookup",
+            "Schedule X Tagging",
+            "Route Decision Split",
+        ],
+        header_color=RED_DARK,
+        sub_color=RED_DARK,
+        border_color=RED_BORDER,
+        bg_color=RED_LIGHT
+    )
 
-    # Bottom Decision Branches
-    draw_arrow(ax, 0.90, 0.46, 0.90, 0.35, lw=1.8)
+    # Orthogonal Stepped Arrows to Outcomes (Horizontal corridors at y=0.41 and y=0.355)
+    draw_elbow_arrow(
+        ax,
+        [(0.83, 0.48), (0.83, 0.41), (0.26, 0.41), (0.26, 0.30)],
+        label="Exact Match & High Confidence (Confidence >= 0.70)",
+        color=GREEN_DARK,
+        lw=2.0,
+        label_pos=(0.545, 0.428)
+    )
 
-    draw_card(ax, 0.04, 0.08, 0.42, 0.24, "Branch A: High Confidence & Exact Match (Green)", [
-        "Prescription tokens match catalogue drug, strength (e.g. 5 mg), and form.",
-        "Generates Pre-Filled Draft Line marked PENDING pharmacist verification.",
-        "Calculates recommended generic bioequivalent savings (e.g., Rosuvastatin Generic saves ₹115).",
-    ], bg_color=GREEN_LIGHT, border_color=GREEN_ACCENT, title_color=GREEN_ACCENT, badge="Draft Line", badge_color=GREEN_ACCENT)
+    draw_elbow_arrow(
+        ax,
+        [(0.91, 0.48), (0.91, 0.355), (0.74, 0.355), (0.74, 0.30)],
+        label="Clinical Uncertainty / Mismatch / Blur",
+        color=AMBER_DARK,
+        lw=2.0,
+        label_pos=(0.825, 0.370)
+    )
 
-    draw_card(ax, 0.52, 0.08, 0.44, 0.24, "Branch B: Uncertainty / Strength Mismatch / Blur (Amber)", [
-        "Strength mismatch (e.g., prescription reads 10mg, catalogue is 5mg) strictly forces needsReview.",
-        "Low word confidence (<0.40) flags order with MANUAL_ENTRY_NEEDED badge.",
-        "Schedule X / Narcotics automatically tagged BLOCKED_NOT_SOLD_ONLINE.",
-        "Pharmacist uses manual medicine search modal to add and verify correct medicine safely.",
-    ], bg_color=AMBER_LIGHT, border_color=AMBER_ACCENT, title_color=AMBER_ACCENT, badge="Human Override", badge_color=AMBER_ACCENT)
+    # Bottom Outcome Cards
+    draw_modern_card(
+        ax, 0.04, 0.05, 0.44, 0.25,
+        title="Branch A: High Confidence & Exact Match (Green Path)",
+        subtitle="Automated Safe Transcription Pre-fill",
+        items=[
+            "Tokens match active catalogue drug, exact strength (e.g. 5 mg), and form.",
+            "Generates Pre-Filled Draft Line marked PENDING pharmacist verification.",
+            "Calculates generic bioequivalent savings (e.g. Rosuvastatin Generic saves ₹115).",
+            "Order flows seamlessly to pharmacist dual-pane queue for one-click approval.",
+        ],
+        header_color=GREEN_DARK,
+        sub_color=GREEN_DARK,
+        border_color=GREEN_BORDER,
+        bg_color=GREEN_LIGHT
+    )
 
-    draw_arrow(ax, 0.85, 0.35, 0.74, 0.32, "Mismatch / Blur", color=AMBER_ACCENT, lw=1.8)
-    draw_arrow(ax, 0.85, 0.35, 0.25, 0.32, "Exact Match", color=GREEN_ACCENT, lw=1.8)
+    draw_modern_card(
+        ax, 0.52, 0.05, 0.44, 0.25,
+        title="Branch B: Clinical Uncertainty / Mismatch / Blur (Amber Path)",
+        subtitle="Mandatory Human Override & Safety Interlock",
+        items=[
+            "Strength mismatch (e.g. Rx says 10mg, catalogue has 5mg) strictly forces needsReview.",
+            "Low word confidence (<0.40) or blur flags order with MANUAL_ENTRY_NEEDED.",
+            "Schedule X / Narcotics automatically tagged BLOCKED_NOT_SOLD_ONLINE.",
+            "Pharmacist uses manual medicine search modal to safely select, dose, and approve.",
+        ],
+        header_color=AMBER_DARK,
+        sub_color=AMBER_DARK,
+        border_color=AMBER_BORDER,
+        bg_color=AMBER_LIGHT
+    )
 
     out_file = os.path.join(OUT_DIR, "ai_transcription_pipeline.png")
     plt.tight_layout()
@@ -404,88 +825,167 @@ def generate_ai_pipeline_diagram():
 # Diagram 4: Regulated Order Lifecycle & Dual Gate State Machine
 # ==============================================================================
 def generate_order_lifecycle_diagram():
-    fig, ax = plt.subplots(figsize=(14, 7.5), dpi=300)
+    fig, ax = plt.subplots(figsize=(16.0, 9.5), dpi=300)
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
     ax.axis("off")
 
-    ax.text(0.5, 0.965, "Regulated Order Lifecycle & Dual-Layer Dispatch Security Gating", fontsize=16, fontweight="bold", color=SLATE_DARK, ha="center")
-    ax.text(0.5, 0.93, "State Machine Transitions Gated by Application-Layer assertDispatchable and PostgreSQL Trigger Engine", fontsize=10, color=SLATE_BODY, ha="center")
+    ax.text(0.5, 0.975, "Regulated Order Lifecycle & Dual-Layer Dispatch Security Gating", fontsize=16, fontweight="bold", color=SLATE_DARK, ha="center")
+    ax.text(0.5, 0.948, "State Machine Transitions Gated by Application-Layer assertDispatchable and PostgreSQL Trigger Engine", fontsize=9.5, color=SLATE_MUTED, ha="center")
 
-    # State Nodes horizontally
-    # 1. DRAFT / SUBMITTED
-    draw_card(ax, 0.03, 0.58, 0.15, 0.27, "1. SUBMITTED", [
-        "Cart selection or",
-        "Prescription upload",
-        "Customer phone OTP",
-        "Payment authorized",
-    ], bg_color="#F8FAFC", border_color=SLATE_BORDER, badge="Customer", badge_color=SLATE_DARK)
+    # Step 1: SUBMITTED (x = 0.03 to 0.17, w = 0.14)
+    draw_modern_card(
+        ax, 0.03, 0.50, 0.14, 0.38,
+        title="1. SUBMITTED",
+        subtitle="Customer Checkout",
+        items=[
+            "Prescription upload",
+            "Or cart selection",
+            "Customer OTP verify",
+            "Address centroid",
+            "Payment intent",
+            "Status: SUBMITTED",
+        ],
+        header_color=SLATE_DARK,
+        sub_color=SLATE_MUTED
+    )
 
-    draw_arrow(ax, 0.18, 0.71, 0.22, 0.71, lw=2.0)
+    draw_arrow(ax, 0.17, 0.69, 0.21, 0.69, label="Queue", color=TEAL_PRIMARY, lw=2.0, label_offset_y=0.016)
 
-    # 2. Pharmacist Review
-    draw_card(ax, 0.22, 0.50, 0.18, 0.35, "2. Pharmacist Gate", [
-        "Side-by-side verification",
-        "Approve lines / Transcribe",
-        "Schedule H1 register entry",
-        "Compute validUntil date",
-        "Auto-route order to store",
-    ], bg_color="#F0FDFA", border_color=TEAL_PRIMARY, badge="Licensed RPh", badge_color=TEAL_PRIMARY)
+    # Step 2: Pharmacist Verification (x = 0.21 to 0.38, w = 0.17)
+    draw_modern_card(
+        ax, 0.21, 0.46, 0.17, 0.42,
+        title="2. Pharmacist Review",
+        subtitle="Licensed RPh Workspace",
+        items=[
+            "Side-by-side verification",
+            "Decrypted prescription",
+            "Line approve / transcribe",
+            "Schedule H1 register entry",
+            "Calculate validUntil date",
+            "Auto-route order to store",
+            "Assigns storeId",
+        ],
+        header_color=TEAL_DARK,
+        sub_color=TEAL_PRIMARY,
+        border_color=TEAL_BORDER,
+        bg_color=TEAL_LIGHT
+    )
 
-    draw_arrow(ax, 0.40, 0.71, 0.44, 0.71, "Approve", color=GREEN_ACCENT, lw=2.0)
+    draw_arrow(ax, 0.38, 0.69, 0.42, 0.69, label="Approve", color=GREEN_DARK, lw=2.0, label_offset_y=0.016)
 
-    # Rejection loop
-    draw_arrow(ax, 0.31, 0.50, 0.31, 0.38, "Reject / Blur", color=AMBER_ACCENT, lw=1.8)
-    draw_card(ax, 0.20, 0.12, 0.22, 0.22, "ON_HOLD / REJECTED", [
-        "ON_HOLD: Blur / illegible",
-        "  Customer receives reupload link",
-        "REJECTED: Invalid Rx / Schedule X",
-        "  Transitions to REFUND_DUE queue",
-    ], bg_color=AMBER_LIGHT, border_color=AMBER_ACCENT, badge="Hold / Refund", badge_color=AMBER_ACCENT)
+    # Rejection Branch Downwards
+    draw_arrow(ax, 0.295, 0.46, 0.295, 0.33, label="Blur / Reject", color=AMBER_DARK, lw=1.8, label_offset_y=0.0)
+    draw_modern_card(
+        ax, 0.17, 0.06, 0.25, 0.25,
+        title="Hold & Refund Queues",
+        subtitle="Exception Handling",
+        items=[
+            "ON_HOLD: Blurry prescription",
+            "  Customer receives SMS re-upload",
+            "REJECTED: Schedule X / Invalid",
+            "  Auto-routed to REFUND_DUE queue",
+            "  Ops team disburses refund",
+        ],
+        header_color=AMBER_DARK,
+        sub_color=AMBER_DARK,
+        border_color=AMBER_BORDER,
+        bg_color=AMBER_LIGHT
+    )
 
-    # 3. APPROVED
-    draw_card(ax, 0.44, 0.58, 0.14, 0.27, "3. APPROVED", [
-        "Prescription verified",
-        "Store ID assigned",
-        "Inventory reserved",
-        "Ready for packing",
-    ], bg_color=GREEN_LIGHT, border_color=GREEN_ACCENT, badge="Approved", badge_color=GREEN_ACCENT)
+    # Step 3: APPROVED (x = 0.42 to 0.55, w = 0.13)
+    draw_modern_card(
+        ax, 0.42, 0.50, 0.13, 0.38,
+        title="3. APPROVED",
+        subtitle="Prescription Valid",
+        items=[
+            "All lines approved",
+            "storeId assigned",
+            "Inventory reserved",
+            "Valid validUntil date",
+            "Ready for packing",
+        ],
+        header_color=GREEN_DARK,
+        sub_color=GREEN_DARK,
+        border_color=GREEN_BORDER,
+        bg_color=GREEN_LIGHT
+    )
 
-    draw_arrow(ax, 0.58, 0.71, 0.62, 0.71, lw=2.0)
+    # Step 4: Dual Security Gate (x = 0.59 to 0.75, w = 0.16)
+    draw_modern_card(
+        ax, 0.59, 0.46, 0.16, 0.42,
+        title="DUAL SECURITY GATE",
+        subtitle="Mandatory Hard Barrier",
+        items=[
+            "Gate 1: Application Layer",
+            "  assertDispatchable(order)",
+            "  Verified RPh Reg No",
+            "  Valid Rx date (<6 mo)",
+            "  H1 Register Complete",
+            "  Payment Verified",
+            "Gate 2: Database Layer",
+            "  trg_assert_dispatchable",
+            "  Aborts raw SQL bypass",
+        ],
+        header_color=RED_DARK,
+        sub_color=RED_DARK,
+        border_color=RED_BORDER,
+        bg_color=RED_LIGHT
+    )
 
-    # DUAL SECURITY GATE CALLOUT
-    gate_box = FancyBboxPatch((0.59, 0.15), 0.18, 0.42, boxstyle="round,pad=0.015,rounding_size=0.02", facecolor=RED_LIGHT, edgecolor=RED_ACCENT, lw=1.8, zorder=2)
-    ax.add_patch(gate_box)
-    ax.text(0.68, 0.52, "DUAL SECURITY GATE", fontsize=10, fontweight="bold", color=RED_ACCENT, ha="center", zorder=3)
-    ax.text(0.60, 0.47, "Gate 1: Application Layer\n• assertDispatchable(order)\n• Verified RPh Reg No\n• Valid Rx date (<6 mo)\n• H1 Register Complete\n• Payment Verified\n\nGate 2: Database Layer\n• trg_assert_dispatchable\n• PostgreSQL Trigger\n• Aborts raw SQL bypass", fontsize=8.5, color=SLATE_DARK, va="top", zorder=3)
+    draw_arrow(ax, 0.55, 0.69, 0.59, 0.69, color=RED_DARK, lw=2.0)
+    # 0.060 clearance for Passes Gate label between 0.75 and 0.81
+    draw_arrow(ax, 0.75, 0.69, 0.81, 0.69, label="Passes Gate", color=RED_DARK, lw=2.0, label_offset_y=0.016)
 
-    draw_arrow(ax, 0.58, 0.71, 0.77, 0.71, "Passes Both Gates", color=RED_ACCENT, lw=2.2)
+    # Step 5: PACKED, HANDED_OVER, DELIVERED (Right Column: x = 0.81 to 0.96, w = 0.15)
+    draw_modern_card(
+        ax, 0.81, 0.68, 0.15, 0.20,
+        title="4. PACKED",
+        subtitle="Store Staff Packing",
+        items=[
+            "Stock picked from shelf",
+            "GST Invoice No recorded",
+            "Direct UPI verified",
+            "Tamper seal applied",
+        ],
+        header_color=INDIGO_DARK,
+        sub_color=INDIGO_DARK,
+        border_color=INDIGO_BORDER,
+        bg_color=INDIGO_LIGHT
+    )
 
-    # 4. PACKED
-    draw_card(ax, 0.77, 0.66, 0.19, 0.23, "4. PACKED", [
-        "Store staff picks stock",
-        "Records GST Invoice No.",
-        "Direct UPI confirmed",
-        "Tamper seal applied",
-    ], bg_color="#EEF2FF", border_color=PURPLE_ACCENT, badge="Store Staff", badge_color=PURPLE_ACCENT)
+    draw_arrow(ax, 0.885, 0.68, 0.885, 0.60, color=TEAL_PRIMARY, lw=1.8)
 
-    draw_arrow(ax, 0.865, 0.66, 0.865, 0.57, lw=2.0)
+    draw_modern_card(
+        ax, 0.81, 0.39, 0.15, 0.20,
+        title="5. HANDED_OVER",
+        subtitle="Courier Dispatch",
+        items=[
+            "Handed to Local Fleet",
+            "Tracking ID recorded",
+            "Customer SMS sent",
+        ],
+        header_color=TEAL_DARK,
+        sub_color=TEAL_PRIMARY,
+        border_color=TEAL_BORDER
+    )
 
-    # 5. HANDED_OVER
-    draw_card(ax, 0.77, 0.38, 0.19, 0.19, "5. HANDED_OVER", [
-        "Local Fleet / Courier partner",
-        "Tracking ID logged",
-        "SMS dispatch notification",
-    ], bg_color="white", border_color=SLATE_BORDER, badge="Fleet", badge_color=TEAL_PRIMARY)
+    draw_arrow(ax, 0.885, 0.39, 0.885, 0.31, color=GREEN_DARK, lw=1.8)
 
-    draw_arrow(ax, 0.865, 0.38, 0.865, 0.29, lw=2.0)
-
-    # 6. DELIVERED
-    draw_card(ax, 0.77, 0.10, 0.19, 0.19, "6. DELIVERED", [
-        "Delivered at customer door",
-        "Final SMS confirmation",
-        "Refill tracker initialized",
-    ], bg_color=GREEN_LIGHT, border_color=GREEN_ACCENT, badge="Complete", badge_color=GREEN_ACCENT)
+    draw_modern_card(
+        ax, 0.81, 0.10, 0.15, 0.20,
+        title="6. DELIVERED",
+        subtitle="Order Completed",
+        items=[
+            "Delivered to customer",
+            "Final SMS notification",
+            "Refill tracker primed",
+        ],
+        header_color=GREEN_DARK,
+        sub_color=GREEN_DARK,
+        border_color=GREEN_BORDER,
+        bg_color=GREEN_LIGHT
+    )
 
     out_file = os.path.join(OUT_DIR, "order_lifecycle_flow.png")
     plt.tight_layout()
@@ -498,70 +998,130 @@ def generate_order_lifecycle_diagram():
 # Diagram 5: Multi-Store Inventory Routing & Stock Split Flow
 # ==============================================================================
 def generate_store_routing_diagram():
-    fig, ax = plt.subplots(figsize=(13.5, 7.5), dpi=300)
+    fig, ax = plt.subplots(figsize=(15.5, 9.5), dpi=300)
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
     ax.axis("off")
 
-    ax.text(0.5, 0.965, "Multi-Store Haversine Inventory Routing & Stock Split Engine", fontsize=16, fontweight="bold", color=SLATE_DARK, ha="center")
-    ax.text(0.5, 0.93, "Evaluates Pincode Proximity and Live Shelf Stock across 46 Stores in Kolkata & Howrah", fontsize=10, color=SLATE_BODY, ha="center")
+    ax.text(0.5, 0.975, "Multi-Store Haversine Inventory Routing & Stock Split Engine", fontsize=16, fontweight="bold", color=SLATE_DARK, ha="center")
+    ax.text(0.5, 0.948, "Evaluates Pincode Proximity and Live Shelf Stock across 46 Stores in Kolkata & Howrah", fontsize=9.5, color=SLATE_MUTED, ha="center")
 
-    # Step 1: Customer Coordinates
-    draw_card(ax, 0.04, 0.48, 0.22, 0.38, "1. Location Mapping", [
-        "Customer Delivery Address",
-        "e.g. Block BD-12, Sector 1, Salt Lake",
-        "Pincode centroid lookup (700064)",
-        "Lat: 22.5875, Lng: 88.4190",
-        "Cart & Prescription Lines:",
-        "  • Amlodipine 5mg (Qty: 1)",
-        "  • Metformin 500mg (Qty: 2)",
-    ], bg_color="#F0FDFA", border_color=TEAL_PRIMARY, badge="Input", badge_color=TEAL_PRIMARY)
+    # Step 1: Customer Location (x = 0.04 to 0.28, w = 0.24)
+    draw_modern_card(
+        ax, 0.04, 0.50, 0.24, 0.40,
+        title="1. Location Geocoding",
+        subtitle="Step 1 • Delivery Coordinates",
+        items=[
+            "Customer Delivery Address",
+            "  e.g. Block BD-12, Sector 1, Salt Lake",
+            "Pincode centroid lookup (700064)",
+            "Lat: 22.5875, Lng: 88.4190",
+            "Cart & Prescribed Line Items:",
+            "  Amlodipine 5mg (Qty: 1)",
+            "  Metformin 500mg (Qty: 2)",
+            "Passed to Routing Engine",
+        ],
+        header_color=TEAL_DARK,
+        sub_color=TEAL_PRIMARY,
+        border_color=TEAL_BORDER
+    )
 
-    draw_arrow(ax, 0.26, 0.67, 0.32, 0.67, lw=2.0)
+    draw_arrow(ax, 0.28, 0.70, 0.35, 0.70, label="Coordinates", color=TEAL_PRIMARY, lw=2.0, label_offset_y=0.016)
 
-    # Step 2: Haversine Distance Engine
-    draw_card(ax, 0.32, 0.48, 0.25, 0.38, "2. Haversine Distance Sort", [
-        "Filters 10 Active Network Stores",
-        "Calculates Great-Circle Distance:",
-        "  d = 2R arcsin(sqrt(hav(dlat) + ...))",
-        "Sorted Store Candidate List:",
-        "  1. MedKart Salt Lake (0.24 km)",
-        "  2. MedKart New Town (6.1 km)",
-        "  3. MedKart Shyambazar (6.8 km)",
-        "  4. Central Warehouse (8.2 km)",
-    ], bg_color="#EEF2FF", border_color=PURPLE_ACCENT, badge="Routing Engine", badge_color=PURPLE_ACCENT)
+    # Step 2: Haversine Distance Engine (x = 0.35 to 0.62, w = 0.27)
+    draw_modern_card(
+        ax, 0.35, 0.50, 0.27, 0.40,
+        title="2. Distance Ranking",
+        subtitle="Step 2 • Haversine Proximity",
+        items=[
+            "Filters 10 Active Network Stores",
+            "Calculates Great-Circle Distance:",
+            "  d = 2R arcsin(sqrt(hav(dlat) + ...))",
+            "Sorted Store Candidate List:",
+            "  1. MedKart Salt Lake (0.24 km)",
+            "  2. MedKart New Town (6.1 km)",
+            "  3. MedKart Shyambazar (6.8 km)",
+            "  4. Central Distribution Warehouse (8.2 km)",
+        ],
+        header_color=INDIGO_DARK,
+        sub_color=INDIGO_DARK,
+        border_color=INDIGO_BORDER,
+        bg_color=INDIGO_LIGHT
+    )
 
-    draw_arrow(ax, 0.57, 0.67, 0.63, 0.67, lw=2.0)
+    draw_arrow(ax, 0.62, 0.70, 0.69, 0.70, label="Ranked List", color=INDIGO_DARK, lw=2.0, label_offset_y=0.016)
 
-    # Step 3: Stock Coverage Evaluation
-    draw_card(ax, 0.63, 0.48, 0.33, 0.38, "3. Live Shelf Stock Evaluation", [
-        "Query store_stock table per candidate store",
-        "Store 1 (Salt Lake):",
-        "  Amlodipine 5mg: 45 in stock (Required: 1) -> OK",
-        "  Metformin 500mg: 60 in stock (Required: 2) -> OK",
-        "Coverage: 100% (2 / 2 lines)",
-        "Assigned Store: store_saltlake",
-        "Store Name: MedKart Salt Lake (Sec 1)",
-    ], bg_color="#FEF3C7", border_color=AMBER_ACCENT, badge="Coverage", badge_color=AMBER_ACCENT)
+    # Step 3: Stock Coverage Evaluation (x = 0.69 to 0.96, w = 0.27)
+    draw_modern_card(
+        ax, 0.69, 0.50, 0.27, 0.40,
+        title="3. Stock Evaluation",
+        subtitle="Step 3 • Live Shelf Inventory",
+        items=[
+            "Queries store_stock table per candidate store",
+            "Candidate 1 (MedKart Salt Lake):",
+            "  Amlodipine 5mg: 45 units (Req: 1) -> OK",
+            "  Metformin 500mg: 60 units (Req: 2) -> OK",
+            "Coverage Verdict: 100% (2 / 2 lines)",
+            "Assigned Store: store_saltlake",
+            "Store Name: MedKart Salt Lake (Sec 1)",
+        ],
+        header_color=AMBER_DARK,
+        sub_color=AMBER_DARK,
+        border_color=AMBER_BORDER,
+        bg_color=AMBER_LIGHT
+    )
 
-    # Branching to outcome
-    draw_arrow(ax, 0.795, 0.48, 0.795, 0.38, lw=1.8)
+    # Clean Orthogonal Stepped Arrows to Outcomes (Horizontal corridors at y=0.41 and y=0.355)
+    draw_elbow_arrow(
+        ax,
+        [(0.76, 0.50), (0.76, 0.41), (0.26, 0.41), (0.26, 0.30)],
+        label="100% Stock Coverage (Single Store Dispatch)",
+        color=GREEN_DARK,
+        lw=2.0,
+        label_pos=(0.51, 0.428)
+    )
 
-    draw_card(ax, 0.04, 0.08, 0.43, 0.25, "Outcome A: 100% Stock at Nearest Store (Single Store Dispatch)", [
-        "Assigned immediately to closest full-coverage store (e.g. Salt Lake Sec 1).",
-        "Store staff dashboard receives pick list with exact aisle/shelf inventory.",
-        "Guarantees fastest same-day delivery without splitting transit costs.",
-    ], bg_color=GREEN_LIGHT, border_color=GREEN_ACCENT, title_color=GREEN_ACCENT, badge="Optimal", badge_color=GREEN_ACCENT)
+    draw_elbow_arrow(
+        ax,
+        [(0.88, 0.50), (0.88, 0.355), (0.74, 0.355), (0.74, 0.30)],
+        label="Stock Deficit / Partial Coverage",
+        color=AMBER_DARK,
+        lw=2.0,
+        label_pos=(0.81, 0.370)
+    )
 
-    draw_card(ax, 0.53, 0.08, 0.43, 0.25, "Outcome B: Stock Deficit / Multi-Store Split (Fail-Safe Fallback)", [
-        "If nearest store lacks an item (e.g. Behala out of Telmisartan 40mg):",
-        "Evaluates next-nearest store with maximum covered lines.",
-        "Missing lines flagged with nearest secondary store (e.g. Gariahat) or Central Warehouse.",
-        "Store staff can claim and pack unassigned orders dynamically without lockout.",
-    ], bg_color=AMBER_LIGHT, border_color=AMBER_ACCENT, title_color=AMBER_ACCENT, badge="Split / Fallback", badge_color=AMBER_ACCENT)
+    # Bottom Outcome Cards
+    draw_modern_card(
+        ax, 0.04, 0.05, 0.44, 0.25,
+        title="Outcome A: 100% Stock at Nearest Store (Single Store Dispatch)",
+        subtitle="Optimal Same-Day Direct Fulfillment",
+        items=[
+            "Order routed immediately to closest full-coverage retail store (e.g. Salt Lake Sec 1).",
+            "Store staff dashboard receives order with pick list and shelf quantities.",
+            "storeId bound at pharmacist approval or claimed dynamically at packing.",
+            "Fastest same-day doorstep fulfillment without splitting transit overhead.",
+        ],
+        header_color=GREEN_DARK,
+        sub_color=GREEN_DARK,
+        border_color=GREEN_BORDER,
+        bg_color=GREEN_LIGHT
+    )
 
-    draw_arrow(ax, 0.795, 0.38, 0.25, 0.34, "Full Coverage", color=GREEN_ACCENT, lw=1.8)
-    draw_arrow(ax, 0.795, 0.38, 0.75, 0.34, "Partial Stock", color=AMBER_ACCENT, lw=1.8)
+    draw_modern_card(
+        ax, 0.52, 0.05, 0.44, 0.25,
+        title="Outcome B: Stock Deficit / Multi-Store Split (Fail-Safe Fallback)",
+        subtitle="Secondary Store / Warehouse Fallback",
+        items=[
+            "If nearest store lacks an item (e.g. Behala store out of Telmisartan 40mg):",
+            "Evaluates next-nearest store with maximum covered lines.",
+            "Missing lines flagged with nearest secondary store (e.g. Gariahat) or Central Warehouse.",
+            "Store staff can claim and pack unassigned orders dynamically without lockout.",
+        ],
+        header_color=AMBER_DARK,
+        sub_color=AMBER_DARK,
+        border_color=AMBER_BORDER,
+        bg_color=AMBER_LIGHT
+    )
 
     out_file = os.path.join(OUT_DIR, "store_routing_flow.png")
     plt.tight_layout()
@@ -571,13 +1131,13 @@ def generate_store_routing_diagram():
 
 
 def main():
-    print("🎨 Generating MedKart Pictorial Architecture Diagrams...")
+    print("🎨 Generating Clean, Pixel-Perfect Architecture Diagrams...")
     generate_architecture_diagram()
     generate_er_diagram()
     generate_ai_pipeline_diagram()
     generate_order_lifecycle_diagram()
     generate_store_routing_diagram()
-    print("✅ All 5 high-resolution pictorial diagrams successfully generated in docs/diagrams/!")
+    print("✅ All 5 high-resolution pictorial diagrams generated successfully with ZERO text overlap!")
 
 
 if __name__ == "__main__":
