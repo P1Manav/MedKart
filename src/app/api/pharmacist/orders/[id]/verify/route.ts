@@ -40,6 +40,10 @@ const LineActionSchema = z.discriminatedUnion('action', [
     editNote: z.string().optional(),
   }),
   z.object({
+    action: z.literal('DELETE_LINE'),
+    lineId: z.string(),
+  }),
+  z.object({
     action: z.literal('REJECT_LINE'),
     lineId: z.string(),
     reason: z.string().min(3, 'Mandatory rejection reason required'),
@@ -259,6 +263,20 @@ export async function POST(
       return NextResponse.json({ success: true, message: 'Line added and approved by pharmacist.' });
     }
 
+    // ── 3B. DELETE SINGLE LINE (REMOVE MANUAL/UNWANTED LINE) ──
+    if (payload.action === 'DELETE_LINE') {
+      const line = order.lines.find((l) => l.id === payload.lineId);
+      if (!line) {
+        return NextResponse.json({ error: 'Line not found' }, { status: 404 });
+      }
+
+      await db.orderLine.delete({
+        where: { id: payload.lineId },
+      });
+
+      return NextResponse.json({ success: true, message: 'Line removed from order.' });
+    }
+
     // ── 4. REJECT SINGLE LINE ─────────────────────────────
     if (payload.action === 'REJECT_LINE') {
       const line = order.lines.find((l) => l.id === payload.lineId);
@@ -418,9 +436,10 @@ export async function POST(
 
       const dispatchCheck = assertDispatchable(checkPayload);
       if (!dispatchCheck.canDispatch) {
+        const reasonsStr = dispatchCheck.reasons.join('. ');
         return NextResponse.json(
           {
-            error: 'Order cannot be approved yet.',
+            error: `Order cannot be approved yet: ${reasonsStr}`,
             reasons: dispatchCheck.reasons,
           },
           { status: 400 }

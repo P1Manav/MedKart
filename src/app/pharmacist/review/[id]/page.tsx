@@ -91,6 +91,24 @@ export default function PharmacistReviewPage({
   const [reuploadReason, setReuploadReason] = useState('');
   const [showReuploadModal, setShowReuploadModal] = useState(false);
 
+  // Manual Line Entry states
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [catalogueList, setCatalogueList] = useState<
+    Array<{
+      id: string;
+      name: string;
+      strength: string;
+      schedule: string;
+      price: number;
+      packSize?: string;
+      canSellOnline?: boolean;
+    }>
+  >([]);
+  const [productSearch, setProductSearch] = useState('');
+  const [selectedProductId, setSelectedProductId] = useState('');
+  const [addQuantity, setAddQuantity] = useState(1);
+  const [addingLine, setAddingLine] = useState(false);
+
   // Generic consent toggles
   const [genericConsents, setGenericConsents] = useState<Record<string, boolean>>({});
 
@@ -201,6 +219,16 @@ export default function PharmacistReviewPage({
     };
   }, [order?.id, order?.prescriptionStatus]);
 
+  useEffect(() => {
+    fetch('/api/products')
+      .then((r) => r.json())
+      .then((data) => {
+        const prods = Array.isArray(data) ? data : data.products || [];
+        setCatalogueList(prods);
+      })
+      .catch(() => {});
+  }, []);
+
   const executeAction = async (payload: object) => {
     setError(null);
     setActionMessage(null);
@@ -213,18 +241,49 @@ export default function PharmacistReviewPage({
       const data = await res.json();
 
       if (!res.ok || data.error) {
-        setError(data.error || (data.reasons && data.reasons.join('; ')) || 'Action failed');
+        const reasonsStr =
+          Array.isArray(data.reasons) && data.reasons.length > 0 && !data.error?.includes(data.reasons[0])
+            ? ` (${data.reasons.join('; ')})`
+            : '';
+        setError(`${data.error || 'Action failed'}${reasonsStr}`);
         return;
       }
 
       setActionMessage(data.message || 'Updated successfully');
       setRejectingLineId(null);
       setShowReuploadModal(false);
+      setShowAddModal(false);
       await loadOrder();
       router.refresh();
     } catch {
       setError('Communication with server failed.');
     }
+  };
+
+  const handleAddLine = async () => {
+    if (!selectedProductId) {
+      setError('Please select a medicine from the catalogue.');
+      return;
+    }
+    setAddingLine(true);
+    await executeAction({
+      action: 'ADD_LINE',
+      productId: selectedProductId,
+      quantity: addQuantity > 0 ? addQuantity : 1,
+      editNote: 'Manually added by pharmacist from prescription image',
+    });
+    setAddingLine(false);
+    setShowAddModal(false);
+    setSelectedProductId('');
+    setProductSearch('');
+    setAddQuantity(1);
+  };
+
+  const handleDeleteLine = (lineId: string) => {
+    executeAction({
+      action: 'DELETE_LINE',
+      lineId,
+    });
   };
 
   const handleApproveLine = (lineId: string, isH1: boolean) => {
@@ -298,6 +357,10 @@ export default function PharmacistReviewPage({
   };
 
   const handleApproveOrder = () => {
+    if (!order || order.lines.length === 0) {
+      setError('Cannot approve order with zero medicines. Please add at least one prescribed medicine from the catalogue or request a re-upload.');
+      return;
+    }
     if (!prescriptionDate) {
       setError('Prescription date is required to approve the order.');
       return;
@@ -416,12 +479,15 @@ export default function PharmacistReviewPage({
             onClick={handleApproveOrder}
             disabled={
               order.status === 'APPROVED' ||
+              order.lines.length === 0 ||
               !prescriptionDate ||
               !dateConfirmed ||
               isPrescriptionExpired()
             }
             title={
-              !dateConfirmed
+              order.lines.length === 0
+                ? 'Cannot approve order with zero medicines. Please add at least one medicine.'
+                : !dateConfirmed
                 ? 'Please verify and confirm prescription date before approving'
                 : isPrescriptionExpired()
                 ? 'Prescription is expired'
@@ -704,12 +770,51 @@ export default function PharmacistReviewPage({
           <div className="space-y-4">
             <div className="flex items-center justify-between text-xs text-[#796e94] px-1">
               <span>Compare written text with matched catalogue medicine:</span>
-              <span className="font-bold text-[#190042]">
-                All Schedule H/H1 items require pharmacist approval
-              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowAddModal(true)}
+                className="text-xs font-bold text-teal-800 border-teal-600 hover:bg-teal-50"
+              >
+                + Add Prescribed Medicine
+              </Button>
             </div>
 
-            {order.lines.map((line, idx) => {
+            {order.lines.length === 0 ? (
+              <Card className="border-amber-300 bg-amber-50/70 shadow-xs">
+                <CardContent className="p-6 text-center space-y-3">
+                  <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-900 mx-auto flex items-center justify-center font-bold text-xl border border-amber-300">
+                    ✍️
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-amber-950">
+                      Prescription Marked for Manual Entry
+                    </h3>
+                    <p className="text-xs text-amber-800 mt-1 max-w-md mx-auto leading-relaxed">
+                      The automated reader could not identify catalogue items from this scan (or it was routed to the pharmacist manual review queue). Please inspect the prescription image on the left and add the prescribed medicine(s) from the catalogue below, or request a patient re-upload if unreadable, unstocked, or expired.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                    <Button
+                      size="sm"
+                      variant="gold"
+                      onClick={() => setShowAddModal(true)}
+                      className="font-bold shadow-xs"
+                    >
+                      + Add Prescribed Medicine
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      onClick={() => setShowReuploadModal(true)}
+                    >
+                      Request Re-upload
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              order.lines.map((line, idx) => {
               const isApproved = line.lineStatus === 'APPROVED' || line.lineStatus === 'EDITED_APPROVED';
               const isRejected = line.lineStatus === 'REJECTED';
               const isBlocked = line.lineStatus === 'BLOCKED_NOT_SOLD_ONLINE';
@@ -911,6 +1016,15 @@ export default function PharmacistReviewPage({
                               >
                                 {isApproved ? 'Approved ✓' : 'Approve Line'}
                               </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleDeleteLine(line.id)}
+                                className="text-stone-400 hover:text-red-700 hover:bg-red-50 text-xs px-2"
+                                title="Remove line from order"
+                              >
+                                ✕
+                              </Button>
                             </>
                           )}
                         </div>
@@ -919,10 +1033,142 @@ export default function PharmacistReviewPage({
                   </CardContent>
                 </Card>
               );
-            })}
+            }))}
+
+            {order.lines.length > 0 && (
+              <div className="pt-2 text-center">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowAddModal(true)}
+                  className="text-xs font-bold text-teal-800 border-teal-600 hover:bg-teal-50"
+                >
+                  + Add Another Medicine to Order
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Add Medicine Modal Dialog */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-stone-900/50 flex items-center justify-center p-4 z-50">
+          <Card className="max-w-lg w-full bg-white shadow-2xl">
+            <CardHeader>
+              <CardTitle className="text-lg font-bold text-stone-900 flex items-center justify-between">
+                <span>Add Prescribed Medicine</span>
+                <span className="text-xs font-semibold text-stone-500">Pharmacist Manual Entry</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-xs text-stone-600 leading-relaxed">
+                Match the medicine on the prescription scan to an active product from Company A&apos;s Kolkata catalogue:
+              </p>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1">
+                  Search Catalogue:
+                </label>
+                <input
+                  type="text"
+                  placeholder="Filter by name (e.g. Metformin, Telmisartan, Pantoprazole)..."
+                  value={productSearch}
+                  onChange={(e) => setProductSearch(e.target.value)}
+                  className="w-full p-2 border border-stone-300 rounded text-xs focus:ring-2 focus:ring-teal-600 focus:outline-none"
+                />
+              </div>
+
+              <div className="max-h-56 overflow-y-auto border border-stone-200 rounded divide-y divide-stone-100">
+                {catalogueList
+                  .filter(
+                    (p) =>
+                      !productSearch.trim() ||
+                      p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+                      p.strength.toLowerCase().includes(productSearch.toLowerCase())
+                  )
+                  .map((p) => {
+                    const isSelected = selectedProductId === p.id;
+                    const isBlocked =
+                      p.schedule === 'X' || p.schedule === 'NARCOTIC' || p.canSellOnline === false;
+                    return (
+                      <div
+                        key={p.id}
+                        onClick={() => {
+                          if (!isBlocked) setSelectedProductId(p.id);
+                        }}
+                        className={`p-2.5 flex items-center justify-between text-xs cursor-pointer transition-colors ${
+                          isSelected
+                            ? 'bg-teal-50 border-teal-500 font-semibold text-teal-900'
+                            : isBlocked
+                            ? 'bg-red-50/50 opacity-60 cursor-not-allowed'
+                            : 'hover:bg-stone-50'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-stone-900">{p.name}</span>
+                            <span className="text-stone-500">{p.strength}</span>
+                            <Badge
+                              variant={
+                                p.schedule === 'H1'
+                                  ? 'h1'
+                                  : p.schedule === 'OTC'
+                                  ? 'otc'
+                                  : p.schedule === 'X' || p.schedule === 'NARCOTIC'
+                                  ? 'blocked'
+                                  : 'h'
+                              }
+                            >
+                              {p.schedule}
+                            </Badge>
+                          </div>
+                          <span className="text-[11px] text-stone-500">
+                            {p.packSize || 'Standard Pack'} • ₹{p.price}
+                          </span>
+                        </div>
+                        {isBlocked ? (
+                          <span className="text-red-700 font-bold text-[11px]">Blocked Online ⛔</span>
+                        ) : isSelected ? (
+                          <span className="text-teal-700 font-bold">Selected ✓</span>
+                        ) : (
+                          <span className="text-stone-400 text-[11px]">Select</span>
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
+
+              <div className="flex items-center gap-3 pt-1">
+                <label className="text-xs font-bold text-stone-700">Quantity (Packs):</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="10"
+                  value={addQuantity}
+                  onChange={(e) => setAddQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                  className="w-20 p-1.5 border rounded text-xs text-center font-bold"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-stone-100">
+                <Button variant="ghost" size="sm" onClick={() => setShowAddModal(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  variant="gold"
+                  disabled={!selectedProductId || addingLine}
+                  onClick={handleAddLine}
+                  className="font-bold shadow-xs"
+                >
+                  {addingLine ? 'Adding...' : 'Add & Approve Line ✓'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Re-upload Modal Dialog */}
       {showReuploadModal && (

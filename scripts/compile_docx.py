@@ -485,3 +485,4 @@ if __name__ == '__main__':
     src = os.path.join(os.path.dirname(__file__), '..', 'docs', 'Technical_Design_Document.md')
     dst = os.path.join(os.path.dirname(__file__), '..', 'docs', 'Technical_Design_Document.docx')
     build_docx(src, dst)
+
