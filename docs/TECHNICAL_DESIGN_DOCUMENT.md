@@ -27,33 +27,8 @@ The AI component functions strictly as a transcription draft assistant. **The sy
 
 ### 2.1 Locked Monolithic Architecture
 
-```mermaid
-flowchart TD
-    subgraph Client["Client Tier (Mobile 375px & Desktop 1440px)"]
-        UI["Next.js App Router + Tailwind CSS"]
-        I18N["next-intl (en / hi / bn)"]
-    end
-
-    subgraph Server["Next.js Server Monolith"]
-        AUTH["jose HS256 Signed Session Cookies (httpOnly)"]
-        RBAC["Deny-by-Default Role Guards (Customer, Pharmacist, Store Staff, Ops)"]
-        DOMAIN["Pure Domain Services (order-state, assertDispatchable, routing, refill)"]
-        AI["3-Tier Non-Generative OCR Pipeline (HF TrOCR -> Tesseract WASM -> Manual)"]
-        CRYPTO["AES-256-GCM Encryption & Append-Only Access Log"]
-    end
-
-    subgraph DB["PostgreSQL Database Tier"]
-        TABLES["Core Relational Tables (Prisma ORM)"]
-        TRIGGER["DB Trigger: trg_assert_dispatchable_order"]
-        AUDIT["Immutable OrderAudit & PrescriptionAccessLog"]
-    end
-
-    UI --> AUTH --> RBAC --> DOMAIN
-    DOMAIN --> AI
-    DOMAIN --> CRYPTO
-    DOMAIN --> DB
-    TRIGGER --> TABLES
-```
+![MedKart Monolithic Three-Tier Architecture](diagrams/architecture_overview.png)
+*Figure 2.1: MedKart Monolithic Three-Tier Architecture — Universal Client Tier, Pure Domain Services Monolith, and PostgreSQL Dual-Gated Database.*
 
 ### 2.2 Why These Choices?
 
@@ -72,20 +47,8 @@ flowchart TD
 
 The data model is strictly normalized across 18 relational tables:
 
-```mermaid
-erDiagram
-    users ||--o{ family_profiles : owns
-    users ||--o{ orders : places
-    users ||--o{ order_audit : generates
-    users ||--o{ prescription_access_log : logs
-    stores ||--o{ store_stock : maintains
-    products ||--o{ store_stock : stocked_in
-    orders ||--|{ order_lines : contains
-    products ||--o{ order_lines : references
-    stores ||--o{ orders : fulfills
-    family_profiles ||--o{ refill_trackers : tracks
-    products ||--o{ refill_trackers : schedules
-```
+![MedKart Relational Entity-Relationship Model](diagrams/entity_relationship.png)
+*Figure 3.1: MedKart Relational Entity-Relationship Model — Normalized Schema across 18 Entities with Strict Foreign Key Integrity & Audit Logs.*
 
 ### 3.1 Primary Entities
 - `users`: Phone-based authentication, RBAC roles (`CUSTOMER`, `PHARMACIST`, `STORE_STAFF`, `OPS`), and pharmacist registration numbers.
@@ -106,6 +69,9 @@ Transitions strictly follow a deterministic state machine:
 - `DRAFT` &rarr; `SUBMITTED` &rarr; (`APPROVED` | `ON_HOLD` | `REJECTED`) &rarr; `PACKED` &rarr; `HANDED_OVER` &rarr; `DELIVERED`
 - `ON_HOLD` is utilized when a prescription is blurry or missing critical details; it transitions back to `SUBMITTED` upon customer re-upload.
 - Any illegal transition (e.g. `SUBMITTED` &rarr; `PACKED` bypassing approval) immediately throws `IllegalTransitionError` and writes to the audit log.
+
+![Regulated Order Lifecycle & Dual Gate State Machine](diagrams/order_lifecycle_flow.png)
+*Figure 4.1: Regulated Order Lifecycle & Dual-Layer Dispatch Security Gating (Application assertDispatchable and PostgreSQL Trigger Engine).*
 
 ### 4.2 Application Defense: `assertDispatchable(order)`
 
@@ -128,18 +94,8 @@ RAISE EXCEPTION 'Dispatch blocked by DB trigger: line(s) lack valid pharmacist a
 
 ### 5.1 Pipeline Flow
 
-```mermaid
-flowchart LR
-    IMG["Prescription Image"] --> RESIZE["Client Resize (≤1600px JPEG)"]
-    RESIZE --> ENC["AES-256-GCM Encrypt"]
-    ENC --> DB_SAVE["Store in DB (bytea)"]
-
-    RESIZE --> OCR["Non-Generative OCR (Tier 1 HF TrOCR / Tier 2 Tesseract WASM)"]`r`n    OCR --> PARSER["Deterministic Regex Segmentation & Token Extraction"]`r`n    PARSER --> FUZZY["Fuzzy Catalogue Matcher & Confidence Formula"]`r`n    OCR -->|Low Conf / Unreadable / Timeout| MANUAL["Queue: MANUAL_ENTRY_NEEDED"]
-
-    FUZZY --> CHECK{"Strength or Form Mismatch?"}
-    CHECK -->|Yes| AMBER["Force Line to needs_review"]
-    CHECK -->|No| DRAFT["AI Draft Line"]
-```
+![3-Tier AI Transcription Pipeline](diagrams/ai_transcription_pipeline.png)
+*Figure 5.1: 3-Tier Non-Generative AI Perception & Clinical Uncertainty Handling Pipeline (Zero Hallucination Architecture).*
 
 ### 5.2 Honest AI: Handling Mistakes & Uncertainty
 - **Illegible or Blurry Images:** When legibility is flagged as `unreadable` or the model confidence falls below threshold, the order automatically enters the pharmacist queue flagged as `MANUAL_ENTRY_NEEDED`. The customer is never shown an error stack or blocked.
@@ -152,6 +108,10 @@ flowchart LR
 ## 6. Multi-Store Routing & Refill Automation
 
 ### 6.1 Haversine Inventory Routing (`src/domain/routing.ts`)
+
+![Multi-Store Inventory Routing & Stock Split Engine](diagrams/store_routing_flow.png)
+*Figure 6.1: Multi-Store Haversine Inventory Routing & Stock Split Engine across 46 Retail Stores in Kolkata and Howrah.*
+
 - Pincode coordinates map customer locations to latitude and longitude.
 - Stores are sorted by Haversine great-circle distance.
 - The system evaluates real inventory coverage:

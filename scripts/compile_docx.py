@@ -259,6 +259,38 @@ def add_callout_box(doc, title, content_lines, hex_bg=HEX_CALLOUT_BG, border_col
     p_after.paragraph_format.space_before = Pt(0)
     p_after.paragraph_format.space_after = Pt(6)
 
+def add_pictorial_image(doc, img_rel_path, caption=None, base_dir=None):
+    """Embeds a high-resolution pictorial diagram into the Word document with centered alignment and caption."""
+    if base_dir:
+        full_path = os.path.normpath(os.path.join(base_dir, img_rel_path))
+    else:
+        full_path = img_rel_path
+
+    if not os.path.exists(full_path):
+        print(f"Warning: Image file not found: {full_path}")
+        return False
+
+    p_img = doc.add_paragraph()
+    p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_img.paragraph_format.space_before = Pt(12)
+    p_img.paragraph_format.space_after = Pt(4)
+    run_img = p_img.add_run()
+    # 6.5 inches printable width for 8.5" page with 0.9" margins
+    run_img.add_picture(full_path, width=Inches(6.5))
+
+    if caption:
+        p_cap = doc.add_paragraph()
+        p_cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p_cap.paragraph_format.space_before = Pt(0)
+        p_cap.paragraph_format.space_after = Pt(14)
+        r_cap = p_cap.add_run(caption)
+        r_cap.font.name = 'Calibri'
+        r_cap.font.size = Pt(9.5)
+        r_cap.font.color.rgb = COLOR_SLATE_MUTED
+        r_cap.italic = True
+
+    return True
+
 def build_docx(markdown_path, output_docx_path):
     with open(markdown_path, 'r', encoding='utf-8') as f:
         md_text = f.read()
@@ -363,33 +395,43 @@ def build_docx(markdown_path, output_docx_path):
             i += 1
             continue
 
-        # Mermaid Diagram Blocks -> Clean Architecture Flow Callout
+        # Markdown Images: ![Caption](path)
+        img_match = re.match(r'^!\[([^\]]*)\]\(([^)]+)\)', line)
+        if img_match:
+            cap = img_match.group(1).strip()
+            img_path = img_match.group(2).strip()
+            # If next line is an italic caption like *Figure ...*, use it as caption
+            if i + 1 < total_lines and lines[i + 1].strip().startswith('*Figure') and lines[i + 1].strip().endswith('*'):
+                i += 1
+                cap = lines[i].strip().strip('*')
+            docs_dir = os.path.dirname(markdown_path)
+            add_pictorial_image(doc, img_path, caption=cap, base_dir=docs_dir)
+            i += 1
+            continue
+
+        # Mermaid Diagram Blocks -> Map to High-Resolution Pictorial Diagram
         if line.startswith('```mermaid'):
             diagram_lines = []
             i += 1
             while i < total_lines and not lines[i].strip().startswith('```'):
-                dl = lines[i].strip()
-                if dl and not dl.startswith('subgraph') and dl != 'end':
-                    diagram_lines.append(dl)
+                diagram_lines.append(lines[i].strip())
                 i += 1
             i += 1  # Skip closing ```
 
-            # Convert diagram into formatted textual callout
-            clean_flows = []
-            for dl in diagram_lines:
-                # Clean up mermaid arrow notation
-                clean_line = dl.replace('-->', ' ➔ ').replace('||--o{', ' (1-to-N) ').replace('||--|{', ' (1-to-N) ')
-                clean_line = re.sub(r'\["([^"]+)"\]', r': \1', clean_line)
-                clean_line = re.sub(r'\[([^\]]+)\]', r'[\1]', clean_line)
-                clean_flows.append(clean_line)
-
-            add_callout_box(
-                doc,
-                "Architecture & Data Relationship Flow",
-                clean_flows[:14],  # Compact summary
-                hex_bg=HEX_TEAL_LIGHT,
-                border_color=HEX_TEAL_PRIMARY
-            )
+            all_dl = ' '.join(diagram_lines)
+            docs_dir = os.path.dirname(markdown_path)
+            if 'subgraph Client' in all_dl or 'Server Monolith' in all_dl:
+                add_pictorial_image(doc, "diagrams/architecture_overview.png", "Figure 2.1: MedKart Monolithic Three-Tier Architecture", base_dir=docs_dir)
+            elif 'erDiagram' in all_dl:
+                add_pictorial_image(doc, "diagrams/entity_relationship.png", "Figure 3.1: MedKart Relational Entity-Relationship Model", base_dir=docs_dir)
+            elif 'RESIZE' in all_dl or 'trocr' in all_dl.lower() or 'fuzzy' in all_dl.lower():
+                add_pictorial_image(doc, "diagrams/ai_transcription_pipeline.png", "Figure 5.1: 3-Tier Non-Generative AI Perception Pipeline", base_dir=docs_dir)
+            elif 'SUBMITTED' in all_dl or 'assertDispatchable' in all_dl:
+                add_pictorial_image(doc, "diagrams/order_lifecycle_flow.png", "Figure 4.1: Regulated Order Lifecycle & Dual-Layer Dispatch Security Gating", base_dir=docs_dir)
+            elif 'Haversine' in all_dl or 'store_stock' in all_dl:
+                add_pictorial_image(doc, "diagrams/store_routing_flow.png", "Figure 6.1: Multi-Store Haversine Inventory Routing & Stock Split Engine", base_dir=docs_dir)
+            else:
+                add_pictorial_image(doc, "diagrams/architecture_overview.png", "System Architecture Flow", base_dir=docs_dir)
             continue
 
         # Code Blocks
@@ -482,6 +524,13 @@ def build_docx(markdown_path, output_docx_path):
     print(f"✅ Successfully compiled {output_docx_path} ({os.path.getsize(output_docx_path)} bytes)")
 
 if __name__ == '__main__':
+    # Ensure diagrams are generated and up-to-date
+    try:
+        from generate_diagrams import main as gen_diagrams
+        gen_diagrams()
+    except Exception as e:
+        print(f"Diagram generation note: {e}")
+
     src = os.path.join(os.path.dirname(__file__), '..', 'docs', 'Technical_Design_Document.md')
     dst = os.path.join(os.path.dirname(__file__), '..', 'docs', 'Technical_Design_Document.docx')
     build_docx(src, dst)

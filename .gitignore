@@ -44,6 +44,10 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# python
+__pycache__/
+*.pyc
+
 # generated binary artifacts & submission archives (P0-12)
 *.docx
 submission/
