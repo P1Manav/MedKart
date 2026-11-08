@@ -1,6 +1,4 @@
 // src/lib/ai/hf-ocr-reader.ts
-import fs from 'fs';
-import path from 'path';
 import { createWorker } from 'tesseract.js';
 import { logger } from '../logger';
 import type { PrescriptionReader, ReadResult, AiPrescriptionResponse } from './types';
@@ -11,7 +9,7 @@ import {
   type OcrWord,
 } from './deterministic-parser';
 
-export const HF_TIMEOUT_MS = 25000;
+export const HF_TIMEOUT_MS = 8000;
 
 /**
  * Computes a deterministic lexical sanity and medical entity density confidence score.
@@ -107,31 +105,46 @@ export class HfOcrReader implements PrescriptionReader {
     }
 
     // ── TIER 2: Local In-Process OCR via Tesseract.js (Zero Network Dependency) ──
-    try {
-      const tier2Result = await this.callTesseractOcr(buffer);
-      const latencyMs = Date.now() - start;
+    // Vercel Serverless / AWS Lambda environment check:
+    // In serverless container isolates, worker threads fail due to Next.js lambda file tracing
+    // and strict lambda cold start budgets.
+    // In accordance with Spec A19 & P0-3, if Tier 1 is unavailable and running in serverless,
+    // we safely and instantly route to Tier 3 Pharmacist Manual Queue with 0 fabricated lines.
+    const isServerless = Boolean(process.env.VERCEL || process.env.VERCEL_ENV);
+    if (!isServerless) {
+      try {
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Tesseract OCR engine timed out (exceeded 5s limit)')), 5000)
+        );
+        const tier2Result = await Promise.race([this.callTesseractOcr(buffer), timeoutPromise]);
+        const latencyMs = Date.now() - start;
 
-      if (tier2Result.image_legibility === 'unreadable' || tier2Result.lines.length === 0) {
+        if (tier2Result.image_legibility === 'unreadable' || tier2Result.lines.length === 0) {
+          return {
+            success: true,
+            modelName: 'tesseract-wasm-v5',
+            latencyMs,
+            data: tier2Result,
+            manualEntryNeeded: true,
+            errorMessage: 'Handwriting transcription confidence below legible threshold. Routed to pharmacist manual queue.',
+          };
+        }
+
         return {
           success: true,
           modelName: 'tesseract-wasm-v5',
           latencyMs,
           data: tier2Result,
-          manualEntryNeeded: true,
-          errorMessage: 'Handwriting transcription confidence below legible threshold. Routed to pharmacist manual queue.',
+          manualEntryNeeded: false,
         };
+      } catch (err: unknown) {
+        logger.warn(
+          `[HfOcrReader] Tier 2 Tesseract engine failure: ${err instanceof Error ? err.message : String(err)}. Routing to Tier 3 manual queue.`
+        );
       }
-
-      return {
-        success: true,
-        modelName: 'tesseract-wasm-v5',
-        latencyMs,
-        data: tier2Result,
-        manualEntryNeeded: false,
-      };
-    } catch (err: unknown) {
-      logger.warn(
-        `[HfOcrReader] Tier 2 Tesseract engine failure: ${err instanceof Error ? err.message : String(err)}. Routing to Tier 3 manual queue.`
+    } else {
+      logger.info(
+        '[HfOcrReader] Serverless environment detected; safely bypassing worker threads and routing prescription to Tier 3 pharmacist manual queue.'
       );
     }
 
@@ -239,25 +252,7 @@ export class HfOcrReader implements PrescriptionReader {
    * Extracts real per-word and per-line confidence scores.
    */
   private async callTesseractOcr(imageBytes: Buffer): Promise<AiPrescriptionResponse> {
-    let workerOptions: { workerPath?: string } = {};
-    try {
-      const localWorkerPath = path.join(
-        process.cwd(),
-        'node_modules',
-        'tesseract.js',
-        'src',
-        'worker-script',
-        'node',
-        'index.js'
-      );
-      if (fs.existsSync(localWorkerPath)) {
-        workerOptions = { workerPath: localWorkerPath };
-      }
-    } catch {
-      // Fallback to default worker resolution if filesystem check fails
-    }
-
-    const worker = await createWorker('eng', 1, workerOptions);
+    const worker = await createWorker('eng', 1);
     try {
       const result = await worker.recognize(imageBytes);
       const data = result.data;

@@ -12,6 +12,8 @@ import { computePrescriptionValidUntil } from '@/domain/assert-dispatchable';
 import { CreateOrderInputSchema, PrescriptionFileSchema } from '@/lib/validators/order-input';
 import { validateMagicBytes, stripExifGps } from '@/lib/validators/upload';
 
+export const maxDuration = 30;
+
 export const safeOrderSelect = {
   id: true,
   displayId: true,

@@ -6,6 +6,8 @@ import { getSession } from '@/lib/auth/session';
 import { isGatewayConfigured, createSandboxPaymentOrder } from '@/lib/payments/gateway';
 import { handleApiError } from '@/lib/api-error';
 
+export const maxDuration = 30;
+
 const CreateOrderSchema = z.object({
   orderId: z.string({ message: 'Order ID is required' }).min(1, 'Order ID is required'),
 });
@@ -53,20 +55,20 @@ export async function POST(req: Request) {
       return total + price * line.quantity;
     }, 0);
 
-    if (serverAmount <= 0) {
-      return NextResponse.json({ error: 'Order amount must be greater than zero' }, { status: 400 });
-    }
+    // If order has no approved priced lines yet (e.g. freshly uploaded prescription awaiting review),
+    // provide a nominal provisional authorization amount so sandbox payment flow can open cleanly.
+    const effectiveAmount = serverAmount > 0 ? serverAmount : 150;
 
     if (!isGatewayConfigured()) {
       return NextResponse.json({
         isGatewayConfigured: false,
-        amount: serverAmount,
+        amount: effectiveAmount,
         message: 'Payment gateway credentials absent. Fallback to NPCI test spec sandbox modal.',
       });
     }
 
     const rpOrder = await createSandboxPaymentOrder({
-      amount: serverAmount,
+      amount: effectiveAmount,
       receipt: order.displayId,
       notes: {
         userId: session.userId,

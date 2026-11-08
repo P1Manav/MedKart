@@ -291,6 +291,9 @@ export default function OrderBuilderPage() {
     setLoading(true);
     setError(null);
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 25000);
+
     try {
       const finalPayment = overridePayment || paymentMethod;
       const formData = new FormData();
@@ -319,21 +322,31 @@ export default function OrderBuilderPage() {
       const res = await fetch('/api/orders', {
         method: 'POST',
         body: formData,
+        signal: controller.signal,
       });
 
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        setError(data.error || 'Failed to submit order.');
+      let data: { success?: boolean; order?: { id: string; displayId: string; totalAmount: number }; error?: string } | null = null;
+      try {
+        data = (await res.json()) as { success?: boolean; order?: { id: string; displayId: string; totalAmount: number }; error?: string };
+      } catch {
+        setError(`Order creation server response error (HTTP ${res.status}). Please try again.`);
         setLoading(false);
         return;
       }
 
-      const orderActualTotal = data.order?.totalAmount > 0 ? data.order.totalAmount : (cartTotal > 0 ? cartTotal : estimatedRxTotal);
+      if (!res.ok || !data?.success || !data.order) {
+        setError(data?.error || `Failed to submit order (HTTP ${res.status}).`);
+        setLoading(false);
+        return;
+      }
+
+      const createdOrder = data.order;
+      const orderActualTotal = createdOrder.totalAmount > 0 ? createdOrder.totalAmount : (cartTotal > 0 ? cartTotal : estimatedRxTotal);
 
       if (finalPayment === 'DIRECT_UPI') {
         setDirectUpiData({
-          orderId: data.order.id,
-          displayId: data.order.displayId,
+          orderId: createdOrder.id,
+          displayId: createdOrder.displayId,
           amount: orderActualTotal,
         });
         setLoading(false);
@@ -341,16 +354,16 @@ export default function OrderBuilderPage() {
       }
 
       if (finalPayment === 'MOCK_UPI') {
-        setPendingOrderId(data.order.id);
+        setPendingOrderId(createdOrder.id);
         setPendingOrderAmount(orderActualTotal);
         try {
           const payRes = await fetch('/api/payments/create-order', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ orderId: data.order.id }),
+            body: JSON.stringify({ orderId: createdOrder.id }),
           });
-          const payData = await payRes.json();
-          if (payData.isGatewayConfigured && payData.orderId) {
+          const payData = await payRes.json().catch(() => ({}));
+          if (payData?.isGatewayConfigured && payData?.orderId) {
             setGatewayOrder({ orderId: payData.orderId, keyId: payData.keyId, name: 'Razorpay Sandbox' });
           } else {
             setGatewayOrder({ name: 'UPI Sandbox (NPCI Test Spec)' });
@@ -363,10 +376,16 @@ export default function OrderBuilderPage() {
         return;
       }
 
-      router.push(`/customer/order/${data.order.id}`);
-    } catch {
-      setError('Network communication failed. Please try again.');
+      router.push(`/customer/order/${createdOrder.id}`);
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        setError('Order submission timed out. Please check your connection or retry.');
+      } else {
+        setError('Network communication failed. Please try again.');
+      }
       setLoading(false);
+    } finally {
+      clearTimeout(timeoutId);
     }
   };
 
