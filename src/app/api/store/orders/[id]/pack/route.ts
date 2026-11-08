@@ -38,6 +38,15 @@ export async function POST(
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
+    // Resilient fallback: if order has no storeId assigned yet, claim & bind to packing staff member's store
+    if (!order.storeId && session.storeId) {
+      await db.order.update({
+        where: { id: order.id },
+        data: { storeId: session.storeId },
+      });
+      order.storeId = session.storeId;
+    }
+
     // Object-level authorization check: store staff can only pack their store's orders
     assertStoreStaffAccess(session, order.storeId);
 

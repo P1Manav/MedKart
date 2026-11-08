@@ -126,6 +126,7 @@ async function main() {
     { id: 'prod_escitalopram_10', name: 'Escitalopram', strength: '10 mg', form: 'Tablet', packSize: 'strip of 10', price: 82.00, schedule: ScheduleType.H },
     { id: 'prod_clopidogrel_75', name: 'Clopidogrel', strength: '75 mg', form: 'Tablet', packSize: 'strip of 10', price: 110.00, schedule: ScheduleType.H },
     { id: 'prod_montelukast_10', name: 'Montelukast', strength: '10 mg', form: 'Tablet', packSize: 'strip of 10', price: 92.00, schedule: ScheduleType.H },
+    { id: 'prod_stalevo_125', name: 'Stalevo 125 (Levodopa / Carbidopa / Entacapone)', strength: '125/31.25/200 mg', form: 'Tablet', packSize: 'strip of 10', price: 340.00, schedule: ScheduleType.H },
 
     // Generic substitution pair (ASSUMPTION A2)
     { id: 'prod_rosuvastatin_brand', name: 'Rosuvastatin (Crestor Brand)', strength: '10 mg', form: 'Tablet', packSize: 'strip of 10', price: 180.00, schedule: ScheduleType.H, genericGroupId: 'grp_rosuva_10' },

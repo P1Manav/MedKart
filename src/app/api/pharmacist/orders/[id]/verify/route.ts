@@ -11,6 +11,11 @@ import {
 } from '@/domain/assert-dispatchable';
 import { validateTransition } from '@/domain/order-state';
 import { handleApiError } from '@/lib/api-error';
+import {
+  routeOrderToStore,
+  type StoreStockItem,
+  type OrderItemRequirement,
+} from '@/domain/routing';
 
 const LineActionSchema = z.discriminatedUnion('action', [
   z.object({
@@ -446,6 +451,53 @@ export async function POST(
         );
       }
 
+      // Auto-assign store routing if order has no assigned store yet (e.g. manual prescription-first flow)
+      let assignedStoreId = refreshedOrder.storeId;
+      if (!assignedStoreId) {
+        try {
+          const storesWithStock = await db.store.findMany({
+            where: { active: true },
+            include: { stock: true },
+          });
+
+          const storeItems: StoreStockItem[] = storesWithStock.map((s) => {
+            const stockMap: Record<string, number> = {};
+            s.stock.forEach((st) => {
+              stockMap[st.productId] = st.quantity;
+            });
+            return {
+              storeId: s.id,
+              storeName: s.name,
+              lat: s.lat,
+              lng: s.lng,
+              active: s.active,
+              stock: stockMap,
+            };
+          });
+
+          const requirements: OrderItemRequirement[] = refreshedOrder.lines
+            .filter((l) => l.productId && l.lineStatus !== 'REJECTED')
+            .map((l) => ({
+              productId: l.productId!,
+              quantity: l.quantity || 1,
+            }));
+
+          if (storeItems.length > 0) {
+            const customerLoc = {
+              lat: refreshedOrder.addressLat || 22.5875,
+              lng: refreshedOrder.addressLng || 88.4190,
+            };
+            const decision = routeOrderToStore(customerLoc, storeItems, requirements);
+            assignedStoreId = decision.assignedStoreId;
+          }
+        } catch {
+          assignedStoreId = 'store_saltlake';
+        }
+        if (!assignedStoreId) {
+          assignedStoreId = 'store_saltlake';
+        }
+      }
+
       const res = await db.$transaction(async (tx) => {
         // Auto-approve any pending lines under the reviewing licensed pharmacist
         await tx.orderLine.updateMany({
@@ -466,6 +518,7 @@ export async function POST(
             status: 'APPROVED',
             prescriptionStatus: 'APPROVED',
             prescriptionValidUntil: validUntil,
+            storeId: assignedStoreId,
           },
         });
 
